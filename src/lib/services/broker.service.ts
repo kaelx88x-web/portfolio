@@ -6,7 +6,7 @@ function base(): string {
 }
 
 export async function getMoomooStatus(): Promise<MoomooStatus> {
-  const res = await fetch(`${base()}/status`);
+  const res = await fetch(`${base()}/status`, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`Status check failed: ${res.status}`);
   return res.json();
 }

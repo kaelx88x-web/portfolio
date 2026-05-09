@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import re
 from datetime import datetime, timezone
@@ -27,8 +28,7 @@ def root():
     return {"service": "moomoo-bridge", "version": "1.0.0"}
 
 
-@app.get("/status")
-def status():
+def _check_opend_status() -> dict[str, Any]:
     try:
         from moomoo import OpenQuoteContext, RET_OK
     except ImportError:
@@ -43,7 +43,7 @@ def status():
 
     ctx = None
     try:
-        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1, conn_timeout=3)
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
         ret, data = ctx.get_global_state()
         if ret != RET_OK:
             return {"connected": False, "quote_logged_in": False, "trade_logged_in": False,
@@ -69,6 +69,23 @@ def status():
     finally:
         if ctx is not None:
             ctx.close()
+
+
+@app.get("/status")
+def status():
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_check_opend_status)
+        try:
+            return future.result(timeout=4)
+        except concurrent.futures.TimeoutError:
+            return {
+                "connected": False,
+                "quote_logged_in": False,
+                "trade_logged_in": False,
+                "host": OPEND_HOST,
+                "port": OPEND_PORT,
+                "message": "OpenD connection timed out.",
+            }
 
 
 @app.post("/sync")
