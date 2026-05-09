@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String            @id @default(cuid())
+  name           String
+  email          String            @unique
+  passwordHash   String
+  baseCurrency   String            @default("USD")
+  accounts       Account[]
+  transactions   Transaction[]
+  holdingSnaps   HoldingSnapshot[]
+  watchlists     Watchlist[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model Account {
+  id             String            @id @default(cuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  brokerName     String
+  accountType    String
+  currency       String            @default("USD")
+  transactions   Transaction[]
+  holdingSnaps   HoldingSnapshot[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([id, userId])
+  @@index([userId])
+}
+
+model Asset {
+  id             String            @id @default(cuid())
+  symbol         String            @unique
+  name           String
+  assetType      String
+  exchange       String?
+  currency       String            @default("USD")
+  sector         String?
+  country        String?
+  latestPrice    Float             @default(0)
+  transactions   Transaction[]
+  holdingSnaps   HoldingSnapshot[]
+  watchlistItems WatchlistItem[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  assetId     String?
+  asset       Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  type        String
+  tradeDate   DateTime
+  quantity    Float     @default(0)
+  price       Float     @default(0)
+  fee         Float     @default(0)
+  currency    String    @default("USD")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([id, userId])
+  @@index([userId, tradeDate])
+  @@index([accountId])
+  @@index([assetId])
+}
+
+model HoldingSnapshot {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  assetId        String
+  asset          Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  date           DateTime
+  quantity       Float
+  averageCost    Float
+  marketPrice    Float
+  marketValue    Float
+  unrealizedPnl  Float
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, accountId, assetId, date])
+  @@index([userId, date])
+}
+
+model Watchlist {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  items     WatchlistItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([id, userId])
+  @@index([userId])
+}
+
+model WatchlistItem {
+  id          String    @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([watchlistId, assetId])
+}

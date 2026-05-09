@@ -1,0 +1,10 @@
+.DS_Store
+node_modules
+/.svelte-kit
+/build
+/.vite
+.env
+.env.*
+!.env.example
+prisma/dev.db
+prisma/dev.db-journal
