@@ -3,10 +3,12 @@
   import {
     BarChart3,
     BriefcaseBusiness,
+    Camera,
     Eye,
     FileUp,
     LayoutDashboard,
     ListChecks,
+    RefreshCw,
     Settings,
     WalletCards
   } from 'lucide-svelte';
@@ -17,6 +19,8 @@
     { href: '/assets', label: 'Assets', icon: BriefcaseBusiness },
     { href: '/holdings', label: 'Holdings', icon: BarChart3 },
     { href: '/transactions', label: 'Transactions', icon: ListChecks },
+    { href: '/broker', label: 'Broker Sync', icon: RefreshCw },
+    { href: '/snapshots', label: 'Snapshots', icon: Camera },
     { href: '/import', label: 'Import', icon: FileUp },
     { href: '/watchlist', label: 'Watchlist', icon: Eye },
     { href: '/settings', label: 'Settings', icon: Settings }
@@ -65,7 +69,7 @@
           <BarChart3 size={20} />
           Portfolio AI
         </a>
-        <div class="hidden text-sm text-slate-500 lg:block">Phase 1 - Portfolio Insight</div>
+        <div class="hidden text-sm text-slate-500 lg:block">Phase 2 - Broker Sync</div>
         <div class="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-slate-600">
           Local demo mode
         </div>
