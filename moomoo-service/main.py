@@ -43,7 +43,7 @@ def status():
 
     ctx = None
     try:
-        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1, conn_timeout=3)
         ret, data = ctx.get_global_state()
         if ret != RET_OK:
             return {"connected": False, "quote_logged_in": False, "trade_logged_in": False,
