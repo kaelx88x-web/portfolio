@@ -35,3 +35,46 @@ export type DashboardSummary = {
   cashBalance: number;
   todayChange: number;
 };
+
+export type MoomooStatus = {
+  connected: boolean;
+  quote_logged_in: boolean;
+  trade_logged_in: boolean;
+  host: string;
+  port: number;
+  message: string;
+  server_version?: string;
+  markets?: Record<string, string>;
+};
+
+export type BrokerHolding = {
+  symbol: string;
+  asset_type: string;
+  quantity: number;
+  average_cost: number;
+  total_cost: number;
+  market_price: number;
+  market_value: number;
+  unrealized_pl: number;
+  unrealized_pl_percent: number;
+  currency: string;
+};
+
+export type MoomooSyncResult = {
+  account_label: string;
+  trade_environment: string;
+  security_firm: string;
+  synced_at: string;
+  holdings_count: number;
+  holdings: BrokerHolding[];
+  account_info: Record<string, number>;
+};
+
+export type SnapshotHolding = {
+  symbol: string;
+  quantity: number;
+  averageCost: number;
+  marketPrice: number;
+  marketValue: number;
+  unrealizedPnl: number;
+};

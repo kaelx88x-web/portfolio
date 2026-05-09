@@ -8,17 +8,19 @@ datasource db {
 }
 
 model User {
-  id             String            @id @default(cuid())
-  name           String
-  email          String            @unique
-  passwordHash   String
-  baseCurrency   String            @default("USD")
-  accounts       Account[]
-  transactions   Transaction[]
-  holdingSnaps   HoldingSnapshot[]
-  watchlists     Watchlist[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id               String              @id @default(cuid())
+  name             String
+  email            String              @unique
+  passwordHash     String
+  baseCurrency     String              @default("USD")
+  accounts         Account[]
+  transactions     Transaction[]
+  holdingSnaps     HoldingSnapshot[]
+  watchlists       Watchlist[]
+  portfolioSnaps   PortfolioSnapshot[]
+  brokerSyncLogs   BrokerSyncLog[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 }
 
 model Account {
@@ -124,4 +126,33 @@ model WatchlistItem {
   updatedAt   DateTime  @updatedAt
 
   @@unique([watchlistId, assetId])
+}
+
+model PortfolioSnapshot {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotDate   DateTime
+  totalValue     Float
+  cashBalance    Float    @default(0)
+  holdingsCount  Int      @default(0)
+  holdingsJson   String   @default("[]")
+  allocationJson String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, snapshotDate])
+  @@index([userId, snapshotDate])
+}
+
+model BrokerSyncLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker       String
+  status       String
+  recordCount  Int      @default(0)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
