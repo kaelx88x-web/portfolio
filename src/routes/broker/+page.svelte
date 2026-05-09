@@ -1,16 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import type { BrokerHolding } from '$lib/types/portfolio';
-  import type { PageData } from './$types';
+  import type { ActionData, PageData } from './$types';
 
   export let data: PageData;
-  export let form: {
-    success?: boolean;
-    message?: string;
-    synced_at?: string;
-    holdings?: BrokerHolding[];
-    account_info?: Record<string, number>;
-  } | null = null;
+  export let form: ActionData = null;
 
   $: status = data.status;
   $: holdings = form?.holdings ?? [];
@@ -38,8 +31,7 @@
     use:enhance={() => {
       syncing = true;
       return async ({ update }) => {
-        await update();
-        syncing = false;
+        try { await update(); } finally { syncing = false; }
       };
     }}
   >

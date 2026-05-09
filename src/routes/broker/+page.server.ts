@@ -25,7 +25,7 @@ export const actions: Actions = {
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Sync failed.';
-      await getDemoUser().then((u) => writeSyncLog(u.id, 'failed', 0, msg)).catch(() => {});
+      await writeSyncLog(user.id, 'failed', 0, msg).catch(() => {});
       return fail(400, { success: false, message: msg, holdings: [] });
     }
   }

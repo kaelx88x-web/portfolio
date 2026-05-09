@@ -10,6 +10,9 @@
   function fmtDate(d: string | Date) {
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   }
+  function safeParseAllocation(json: string): Record<string, number> {
+    try { return JSON.parse(json); } catch { return {}; }
+  }
 </script>
 
 <div class="mb-6">
@@ -36,7 +39,7 @@
         </thead>
         <tbody class="divide-y divide-line">
           {#each snapshots as snap}
-            {@const allocation = JSON.parse(snap.allocationJson)}
+            {@const allocation = safeParseAllocation(snap.allocationJson)}
             {@const topAllocs = Object.entries(allocation)
               .sort((a, b) => Number(b[1]) - Number(a[1]))
               .slice(0, 5)}
