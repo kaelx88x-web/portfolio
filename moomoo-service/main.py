@@ -127,6 +127,8 @@ def sync(prefer_real: bool = True):
                 "holdings": holdings,
                 "account_info": account_info,
             }
+        except Exception:
+            continue
         finally:
             if ctx is not None:
                 ctx.close()
@@ -149,6 +151,8 @@ def _select_account(accounts, prefer_real: bool):
 
 
 def _parse_positions(positions) -> list[dict[str, Any]]:
+    if positions is None or not hasattr(positions, "to_dict"):
+        return []
     rows = []
     for row in positions.to_dict("records"):
         qty = _f(row.get("qty"))
