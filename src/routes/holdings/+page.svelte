@@ -1,63 +1,38 @@
 <script lang="ts">
-  import { money, number, percent } from '$lib/format';
+  import type { PageData } from './$types';
+  import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
+  import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
+  import StatCard from '$lib/components/portfolioai/StatCard.svelte';
 
-  export let data;
+  export let data: PageData;
+
+  function money(n: number) {
+    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  }
+
+  $: totalMarket = data.holdings.reduce((s: number, h: { marketValue: number }) => s + h.marketValue, 0);
+  $: openPositions = data.holdings.length;
+
+  $: subtitle = data.dataSource === 'snapshot'
+    ? `Live from Moomoo · synced ${new Date(data.snapshotDate as string).toLocaleDateString()}`
+    : 'Calculated from transactions';
 </script>
 
-<div class="mb-6">
-  <h1 class="text-2xl font-bold">Holdings</h1>
-  <p class="mt-1 text-sm text-slate-500">Positions are calculated from buy and sell transactions.</p>
+<PageHeader
+  title="Holdings"
+  {subtitle}
+  breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Holdings' }]}
+/>
+
+<div class="stat-row">
+  <StatCard label="Market Value"   value={money(totalMarket)}        tint="primary" />
+  <StatCard label="Cash Balance"   value={money(data.cashBalance)}   tint="success" />
+  <StatCard label="Open Positions" value={String(openPositions)}     tint="primary" />
 </div>
 
-<div class="mb-6 grid gap-4 sm:grid-cols-3">
-  <div class="card p-5">
-    <div class="label">Invested market value</div>
-    <div class="mt-2 text-xl font-bold">{money(data.holdings.reduce((sum, holding) => sum + holding.marketValue, 0))}</div>
-  </div>
-  <div class="card p-5">
-    <div class="label">Cash balance</div>
-    <div class="mt-2 text-xl font-bold">{money(data.cashBalance)}</div>
-  </div>
-  <div class="card p-5">
-    <div class="label">Open positions</div>
-    <div class="mt-2 text-xl font-bold">{data.holdings.length}</div>
-  </div>
-</div>
+<HoldingsTable holdings={data.holdings} />
 
-<div class="table-wrap">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Name</th>
-        <th>Quantity</th>
-        <th>Avg cost</th>
-        <th>Current price</th>
-        <th>Market value</th>
-        <th>Unrealized P/L</th>
-        <th>Allocation</th>
-        <th>Account</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-line">
-      {#each data.holdings as holding}
-        <tr>
-          <td class="font-semibold text-ink">{holding.symbol}</td>
-          <td>{holding.name}</td>
-          <td>{number(holding.quantity)}</td>
-          <td>{money(holding.averageCost, holding.currency)}</td>
-          <td>{money(holding.marketPrice, holding.currency)}</td>
-          <td class="font-semibold text-ink">{money(holding.marketValue, holding.currency)}</td>
-          <td class:positive={holding.unrealizedPnl >= 0} class:negative={holding.unrealizedPnl < 0}>
-            {money(holding.unrealizedPnl, holding.currency)}
-          </td>
-          <td>{percent(holding.allocationPercentage)}</td>
-          <td>{holding.accountName}</td>
-        </tr>
-      {/each}
-      {#if data.holdings.length === 0}
-        <tr><td colspan="9" class="text-center text-slate-500">No holdings yet. Add buy transactions first.</td></tr>
-      {/if}
-    </tbody>
-  </table>
-</div>
+<style>
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  @media (max-width: 640px) { .stat-row { grid-template-columns: 1fr; } }
+</style>
