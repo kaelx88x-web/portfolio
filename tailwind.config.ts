@@ -5,18 +5,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#15161a',
-        panel: '#f7f8fb',
-        line: '#d9dde7',
-        success: '#147d52',
-        danger: '#b42318',
-        accent: '#2563eb',
-        amber: '#b45309'
+        bg:      '#080d18',
+        card:    '#0f1523',
+        border:  '#1a2038',
+        primary: '#6c8fff',
+        success: '#2dd4a0',
+        danger:  '#f96b7e',
+        warning: '#fbbf24',
+        ink:     '#dce8ff',
+        muted:   '#7a8fb0',
+        sidebar: '#090e1d',
+        ai:      '#0e1830',
       },
       boxShadow: {
-        soft: '0 10px 30px rgba(21, 22, 26, 0.08)'
-      }
-    }
+        card:          '0 4px 24px rgba(0,0,0,0.45)',
+        glow:          '0 0 32px rgba(108,143,255,0.18)',
+        'glow-success':'0 0 24px rgba(45,212,160,0.15)',
+      },
+      borderRadius: {
+        DEFAULT: '10px',
+        sm: '6px',
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 } satisfies Config;
