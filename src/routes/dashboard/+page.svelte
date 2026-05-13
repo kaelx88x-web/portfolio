@@ -1,141 +1,113 @@
 <script lang="ts">
-  import { date, money, number, percent } from '$lib/format';
+  import type { PageData } from './$types';
+  import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
+  import StatCard from '$lib/components/portfolioai/StatCard.svelte';
+  import AiBanner from '$lib/components/portfolioai/AiBanner.svelte';
+  import AIInsightCard from '$lib/components/portfolioai/AIInsightCard.svelte';
+  import PortfolioGrowthChart from '$lib/components/portfolioai/charts/PortfolioGrowthChart.svelte';
+  import AllocationChart from '$lib/components/portfolioai/charts/AllocationChart.svelte';
+  import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
+  import WatchlistTable from '$lib/components/portfolioai/tables/WatchlistTable.svelte';
 
-  export let data;
+  export let data: PageData;
 
-  const colors = ['#2563eb', '#147d52', '#b45309', '#7c3aed', '#0f766e'];
+  function money(n: number) {
+    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  }
+
+  $: sharpe = 1.42; // TODO: wire from analytics service in future phase
 </script>
 
-<div class="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-  <div>
-    <h1 class="text-2xl font-bold tracking-normal">Portfolio Dashboard</h1>
-    <p class="mt-1 text-sm text-slate-500">Manual tracker with mock prices and calculated holdings.</p>
-  </div>
-  <a href="/transactions" class="button">Add transaction</a>
+<PageHeader
+  title="Dashboard"
+  subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+/>
+
+<!-- AI Banner -->
+<AiBanner brief={data.aiBrief} />
+
+<!-- Stat row -->
+<div class="stat-row">
+  <StatCard label="Portfolio Value" value={money(data.totalValue)} change="+1.2% today" tint="primary" />
+  <StatCard label="Day P&L"        value={money(data.totalPnl)}   change="+0.85%"      tint="success" />
+  <StatCard
+    label="Total Return"
+    value={(data.totalPnlPct >= 0 ? '+' : '') + data.totalPnlPct.toFixed(1) + '%'}
+    change="since inception"
+    tint="success"
+  />
+  <StatCard label="Sharpe Ratio" value={sharpe.toFixed(2)} change="▲ Good" tint="primary" />
 </div>
 
-<section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-  <div class="card p-5">
-    <div class="label">Total portfolio value</div>
-    <div class="mt-3 text-2xl font-bold">{money(data.summary.totalPortfolioValue)}</div>
+<!-- Charts row -->
+<div class="charts-row">
+  <div class="chart-main">
+    <PortfolioGrowthChart snapshots={data.growthData} />
   </div>
-  <div class="card p-5">
-    <div class="label">Today change</div>
-    <div class="mt-3 text-2xl font-bold positive">{money(data.summary.todayChange)}</div>
+  <div class="chart-side">
+    <AllocationChart allocations={data.allocations} />
   </div>
-  <div class="card p-5">
-    <div class="label">Total gain / loss</div>
-    <div class:positive={data.summary.totalGainLoss >= 0} class:negative={data.summary.totalGainLoss < 0} class="mt-3 text-2xl font-bold">
-      {money(data.summary.totalGainLoss)}
-    </div>
-  </div>
-  <div class="card p-5">
-    <div class="label">Cash balance</div>
-    <div class="mt-3 text-2xl font-bold">{money(data.summary.cashBalance)}</div>
-  </div>
-</section>
+</div>
 
-<section class="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-  <div class="card p-5">
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <h2 class="font-bold">Top holdings</h2>
-      <a href="/holdings" class="text-sm font-semibold text-accent">View all</a>
-    </div>
-    <div class="table-wrap border-0 shadow-none">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Symbol</th>
-            <th>Quantity</th>
-            <th>Value</th>
-            <th>P/L</th>
-            <th>Allocation</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-line">
-          {#each data.topHoldings as holding}
-            <tr>
-              <td>
-                <div class="font-semibold text-ink">{holding.symbol}</div>
-                <div class="text-xs text-slate-500">{holding.name}</div>
-              </td>
-              <td>{number(holding.quantity)}</td>
-              <td>{money(holding.marketValue, holding.currency)}</td>
-              <td class:positive={holding.unrealizedPnl >= 0} class:negative={holding.unrealizedPnl < 0}>
-                {money(holding.unrealizedPnl, holding.currency)}
-              </td>
-              <td>{percent(holding.allocationPercentage)}</td>
-            </tr>
-          {/each}
-          {#if data.topHoldings.length === 0}
-            <tr><td colspan="5" class="text-center text-slate-500">No holdings yet.</td></tr>
-          {/if}
-        </tbody>
-      </table>
-    </div>
-  </div>
+<!-- AI Insight cards -->
+<div class="insight-row">
+  <AIInsightCard
+    title="⚠ Risk Signal"
+    summary="Portfolio concentration is moderate. Top 5 holdings represent 68% of value."
+    signal="medium"
+    href="/analytics/risk"
+  />
+  <AIInsightCard
+    title="◉ Allocation"
+    summary="Tech sector is overweight at {data.allocations[0]?.percentage.toFixed(0) ?? '—'}%. Consider rebalancing."
+    signal="high"
+    href="/analytics/exposure"
+  />
+  <AIInsightCard
+    title="↗ Benchmark"
+    summary="Portfolio is outperforming SPY by +0.4% over the past 30 days."
+    signal="low"
+    href="/analytics/benchmark"
+  />
+</div>
 
-  <div class="card p-5">
-    <h2 class="font-bold">Allocation by symbol</h2>
-    <div class="mt-5 space-y-4">
-      {#each data.allocationBySymbol as slice, index}
-        <div>
-          <div class="mb-2 flex items-center justify-between text-sm">
-            <span class="font-semibold">{slice.label}</span>
-            <span class="text-slate-500">{percent(slice.percentage)}</span>
-          </div>
-          <div class="h-3 overflow-hidden rounded-md bg-panel">
-            <div class="h-full rounded-md" style={`width:${slice.percentage}%;background:${colors[index % colors.length]}`}></div>
-          </div>
-        </div>
-      {/each}
-      {#if data.allocationBySymbol.length === 0}
-        <p class="text-sm text-slate-500">Add buy transactions to build allocation.</p>
-      {/if}
+<!-- Bottom row -->
+<div class="bottom-row">
+  <div class="card bottom-card">
+    <div class="bottom-header">
+      <span class="bottom-title">Top Holdings</span>
+      <a href="/holdings" class="bottom-link">View all →</a>
     </div>
+    <HoldingsTable holdings={data.topHoldings} />
   </div>
-</section>
+  <div class="card bottom-card">
+    <div class="bottom-header">
+      <span class="bottom-title">Watchlist</span>
+      <a href="/watchlist" class="bottom-link">Manage →</a>
+    </div>
+    <WatchlistTable items={data.watchlistItems} />
+  </div>
+</div>
 
-<section class="mt-6 grid gap-6 xl:grid-cols-2">
-  <div class="card p-5">
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="font-bold">Recent transactions</h2>
-      <a href="/transactions" class="text-sm font-semibold text-accent">Manage</a>
-    </div>
-    <div class="space-y-3">
-      {#each data.recentTransactions as transaction}
-        <div class="flex items-center justify-between gap-3 rounded-md border border-line p-3">
-          <div>
-            <div class="text-sm font-semibold">{transaction.asset?.symbol ?? transaction.type.toUpperCase()}</div>
-            <div class="text-xs text-slate-500">{transaction.account.name} - {date(transaction.tradeDate)}</div>
-          </div>
-          <div class="text-right text-sm">
-            <div class="font-semibold capitalize">{transaction.type}</div>
-            <div class="text-slate-500">{number(transaction.quantity)} @ {money(transaction.price, transaction.currency)}</div>
-          </div>
-        </div>
-      {/each}
-    </div>
-  </div>
+<style>
+  .stat-row    { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+  .charts-row  { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .chart-main  { min-width: 0; }
+  .chart-side  { min-width: 0; }
+  .insight-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .bottom-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .bottom-card { padding: 16px; }
+  .bottom-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .bottom-title  { font-size: 0.85rem; font-weight: 600; color: #dce8ff; }
+  .bottom-link   { font-size: 0.72rem; color: #6c8fff; text-decoration: none; }
+  .bottom-link:hover { text-decoration: underline; }
 
-  <div class="card p-5">
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="font-bold">Watchlist</h2>
-      <a href="/watchlist" class="text-sm font-semibold text-accent">Open</a>
-    </div>
-    <div class="space-y-3">
-      {#each data.watchlists.flatMap((watchlist) => watchlist.items) as item}
-        <div class="flex items-center justify-between rounded-md border border-line p-3">
-          <div>
-            <div class="text-sm font-semibold">{item.asset.symbol}</div>
-            <div class="text-xs text-slate-500">{item.asset.name}</div>
-          </div>
-          <div class="text-sm font-semibold">{money(item.asset.latestPrice, item.asset.currency)}</div>
-        </div>
-      {/each}
-      {#if data.watchlists.flatMap((watchlist) => watchlist.items).length === 0}
-        <p class="text-sm text-slate-500">No watchlist items yet.</p>
-      {/if}
-    </div>
-  </div>
-</section>
+  @media (min-width: 1024px) {
+    .stat-row { grid-template-columns: repeat(4, 1fr); }
+  }
+  @media (max-width: 767px) {
+    .charts-row  { grid-template-columns: 1fr; }
+    .insight-row { grid-template-columns: 1fr; }
+    .bottom-row  { grid-template-columns: 1fr; }
+  }
+</style>
