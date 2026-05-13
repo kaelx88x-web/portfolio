@@ -86,8 +86,7 @@ button, input, select, textarea { font: inherit; }
 }
 
 .data-table {
-  @apply min-w-full divide-y text-sm;
-  divide-color: var(--border);
+  @apply min-w-full divide-y divide-border text-sm;
 }
 
 .data-table th {
