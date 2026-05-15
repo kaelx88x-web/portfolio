@@ -8,18 +8,27 @@
   $: snapshots = data.snapshots ?? [];
 </script>
 
-<PageHeader
-  title="Snapshots"
-  subtitle="Point-in-time portfolio state recorded after each broker sync."
-  breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Snapshots' }]}
-/>
-
-<div class="toolbar">
-  <a href="/broker" class="button-secondary">Sync to create snapshot</a>
+<div class="page-top">
+  <PageHeader
+    title="Snapshots"
+    subtitle="Point-in-time portfolio state recorded after each broker sync."
+    breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Snapshots' }]}
+  />
+  <div class="page-actions">
+    <a href="/broker" class="button-secondary">Sync to create snapshot</a>
+  </div>
 </div>
 
 <SnapshotTable {snapshots} />
 
 <style>
-  .toolbar { margin-bottom: 16px; }
+  .page-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .page-actions { display: flex; gap: 8px; }
 </style>

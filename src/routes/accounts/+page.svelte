@@ -10,30 +10,47 @@
   let showCreateForm = false;
 
   function accountBalance(accountId: string): number {
-    if (data.snapshotAccountId && accountId === data.snapshotAccountId && data.snapshotValue > 0) {
-      return data.snapshotValue;
+    // Moomoo live account — use snapshot.totalValue (includes cash + holdings)
+    if (data.snapshotAccountId && accountId === data.snapshotAccountId && data.snapshotTotalValue > 0) {
+      return data.snapshotTotalValue;
     }
+    // Manual/other accounts — sum holdings from transaction records
     return (data.holdings ?? [])
       .filter((h: { accountId: string; marketValue: number }) => h.accountId === accountId)
       .reduce((s: number, h: { marketValue: number }) => s + h.marketValue, 0);
   }
+
+  function accountDayPnl(accountId: string): number | null {
+    if (data.snapshotAccountId && accountId === data.snapshotAccountId) {
+      return data.snapshotDayPl ?? null;
+    }
+    return null; // no day P&L for manual accounts without live prices
+  }
+
+  function accountLastSynced(accountId: string): Date | null {
+    if (data.snapshotAccountId && accountId === data.snapshotAccountId) {
+      return data.snapshotDate ?? null;
+    }
+    return null;
+  }
 </script>
 
-<PageHeader
-  title="Accounts"
-  subtitle="Track broker, cash, crypto, or manual accounts."
-  breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Accounts' }]}
-/>
+<div class="page-top">
+  <PageHeader
+    title="Accounts"
+    subtitle="Track broker, cash, crypto, or manual accounts."
+    breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Accounts' }]}
+  />
+  <div class="page-actions">
+    <button class="button" on:click={() => (showCreateForm = !showCreateForm)}>
+      {showCreateForm ? '— Hide Form' : '+ Add Account'}
+    </button>
+  </div>
+</div>
 
 {#if form?.message}
   <div class="form-msg">{form.message}</div>
 {/if}
-
-<div class="toolbar">
-  <button class="button" on:click={() => (showCreateForm = !showCreateForm)}>
-    {showCreateForm ? '— Hide Form' : '+ Add Account'}
-  </button>
-</div>
 
 {#if showCreateForm}
   <form method="POST" action="?/create" class="card create-form">
@@ -75,16 +92,22 @@
 {:else}
   <div class="ac-grid">
     {#each data.accounts as account}
-      <AccountCard {account} balance={accountBalance(account.id)} />
+      <AccountCard
+        {account}
+        balance={accountBalance(account.id)}
+        dayPnl={accountDayPnl(account.id)}
+        lastSynced={accountLastSynced(account.id)}
+      />
     {/each}
   </div>
 {/if}
 
 <style>
-  .toolbar     { margin-bottom: 16px; }
-  .form-msg    { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; border: 1px solid #1a2038; background: #0f1523; font-size: 0.82rem; color: #dce8ff; }
+  .page-top    { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .form-msg    { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); font-size: 0.82rem; color: var(--text); }
   .create-form { padding: 20px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
-  .form-title  { font-weight: 700; color: #dce8ff; font-size: 0.85rem; margin: 0; }
+  .form-title  { font-weight: 700; color: var(--text); font-size: 0.85rem; margin: 0; }
   .form-row-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .ac-grid     { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
   @media (max-width: 640px) { .form-row-2 { grid-template-columns: 1fr; } }

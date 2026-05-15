@@ -17,21 +17,22 @@
   let showForm = false;
 </script>
 
-<PageHeader
-  title="Transactions"
-  subtitle="Create, edit, delete, and filter manual transactions."
-  breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Transactions' }]}
-/>
+<div class="page-top">
+  <PageHeader
+    title="Transactions"
+    subtitle="Create, edit, delete, and filter manual transactions."
+    breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Transactions' }]}
+  />
+  <div class="page-actions">
+    <button class="button" on:click={() => (showForm = !showForm)}>
+      {showForm ? '— Hide Form' : '+ Add Transaction'}
+    </button>
+  </div>
+</div>
 
 {#if form?.message}
   <div class="form-msg">{form.message}</div>
 {/if}
-
-<div class="toolbar">
-  <button class="button" on:click={() => (showForm = !showForm)}>
-    {showForm ? '— Hide Form' : '+ Add Transaction'}
-  </button>
-</div>
 
 {#if showForm}
   <section class="forms-grid">
@@ -112,7 +113,8 @@
 <TransactionsTable transactions={data.transactions} />
 
 <style>
-  .toolbar     { margin-bottom: 16px; }
+  .page-top    { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .form-msg    { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; border: 1px solid #1a2038; background: #0f1523; font-size: 0.82rem; color: #dce8ff; }
   .forms-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
   .form-card   { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
