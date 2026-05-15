@@ -1,5 +1,7 @@
 // src/lib/services/market-price.service.ts
 import { prisma } from '$lib/server/db';
+import { getLatestSnapshot } from '$lib/services/snapshot.service';
+import type { SnapshotHolding } from '$lib/types/portfolio';
 
 export function normalizeSymbol(symbol: string): string {
   if (symbol.startsWith('US.')) return symbol.slice(3);
@@ -55,28 +57,38 @@ export type PriceRefreshResult = {
 };
 
 export async function refreshHoldingPrices(userId: string): Promise<PriceRefreshResult> {
-  const assets = await prisma.asset.findMany({
-    where: {
-      transactions: {
-        some: { userId, type: { in: ['buy', 'sell'] } }
-      }
-    },
-    select: { id: true, symbol: true }
-  });
+  // Get symbols from latest snapshot (Moomoo sync) first, fall back to transactions
+  const snapshot = await getLatestSnapshot(userId);
+  let symbols: string[] = [];
 
-  if (assets.length === 0) {
-    return { updated: 0, failed: 0, skipped: 0, refreshedAt: new Date().toISOString() };
+  if (snapshot) {
+    try {
+      const rows: SnapshotHolding[] = JSON.parse(snapshot.holdingsJson);
+      symbols = [...new Set(rows.map((h) => h.symbol).filter(Boolean))];
+    } catch {
+      symbols = [];
+    }
   }
 
-  const symbols = assets.map((a) => a.symbol);
+  if (symbols.length === 0) {
+    const assets = await prisma.asset.findMany({
+      where: { transactions: { some: { userId, type: { in: ['buy', 'sell'] } } } },
+      select: { symbol: true }
+    });
+    symbols = assets.map((a) => a.symbol);
+  }
+
+  if (symbols.length === 0) {
+    return { updated: 0, failed: 0, skipped: 0, refreshedAt: new Date().toISOString() };
+  }
   const prices = await fetchYahooPrices(symbols);
 
   let updated = 0;
   let failed = 0;
   let skipped = 0;
 
-  for (const asset of assets) {
-    const normalizedSymbol = normalizeSymbol(asset.symbol);
+  for (const symbol of symbols) {
+    const normalizedSymbol = normalizeSymbol(symbol);
     const price = prices[normalizedSymbol];
 
     if (price == null) {
@@ -85,8 +97,8 @@ export async function refreshHoldingPrices(userId: string): Promise<PriceRefresh
     }
 
     try {
-      await prisma.asset.update({
-        where: { id: asset.id },
+      await prisma.asset.updateMany({
+        where: { symbol },
         data: { latestPrice: price }
       });
       updated++;
