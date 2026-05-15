@@ -14,6 +14,12 @@ export async function fetchYahooPrices(symbols: string[]): Promise<Record<string
   if (symbols.length === 0) return {};
 
   const normalized = symbols.map(normalizeSymbol);
+  // Map Yahoo's echoed symbol → our normalized input symbol
+  const yahooToInput: Record<string, string> = {};
+  for (const sym of normalized) {
+    yahooToInput[sym.toUpperCase()] = sym;
+  }
+
   const query = normalized.join(',');
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(query)}&fields=regularMarketPrice`;
 
@@ -31,9 +37,9 @@ export async function fetchYahooPrices(symbols: string[]): Promise<Record<string
 
     const result: Record<string, number> = {};
     for (const quote of quotes) {
-      if (quote.regularMarketPrice != null) {
-        result[quote.symbol] = quote.regularMarketPrice;
-      }
+      if (quote.regularMarketPrice == null) continue;
+      const inputKey = yahooToInput[quote.symbol.toUpperCase()] ?? quote.symbol;
+      result[inputKey] = quote.regularMarketPrice;
     }
     return result;
   } catch {
