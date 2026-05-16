@@ -1,5 +1,5 @@
 import { prisma } from '$lib/server/db';
-import type { BrokerHolding, SnapshotHolding } from '$lib/types/portfolio';
+import type { BrokerHolding, Holding, SnapshotHolding } from '$lib/types/portfolio';
 
 export async function takeSnapshot(
   userId: string,
@@ -12,12 +12,20 @@ export async function takeSnapshot(
   const totalValue = holdings.reduce((sum, h) => sum + h.market_value, 0) + cashBalance;
 
   const holdingRows: SnapshotHolding[] = holdings.map((h) => ({
+    accountName: 'Moomoo',
+    brokerName: 'Moomoo',
     symbol: h.symbol,
+    name: h.name ?? '',
+    assetType: h.asset_type ?? 'stock',
+    sector: null,
+    country: null,
     quantity: h.quantity,
     averageCost: h.average_cost,
     marketPrice: h.market_price,
     marketValue: h.market_value,
-    unrealizedPnl: h.unrealized_pl
+    unrealizedPnl: h.unrealized_pl,
+    todayPl: h.today_pl ?? 0,
+    currency: h.currency ?? 'USD'
   }));
 
   const allocationBySymbol: Record<string, number> = {};
@@ -41,6 +49,64 @@ export async function takeSnapshot(
       totalValue,
       cashBalance,
       holdingsCount: holdings.length,
+      holdingsJson: JSON.stringify(holdingRows),
+      allocationJson: JSON.stringify(allocationBySymbol)
+    }
+  });
+}
+
+export async function takeSnapshotFromHoldings(
+  userId: string,
+  holdings: Holding[],
+  cashBalance: number,
+  snapshotDate = new Date()
+): Promise<void> {
+  if (holdings.length === 0 && cashBalance <= 0) {
+    throw new Error('Refusing to write an empty zero-value portfolio snapshot.');
+  }
+
+  const datedSnapshot = new Date(snapshotDate);
+  datedSnapshot.setUTCHours(0, 0, 0, 0);
+
+  const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0) + cashBalance;
+  const holdingRows: SnapshotHolding[] = holdings.map((holding) => ({
+    accountName: holding.accountName,
+    brokerName: holding.accountName,
+    symbol: holding.symbol,
+    name: holding.name,
+    assetType: holding.assetType,
+    sector: holding.sector,
+    country: holding.country,
+    quantity: holding.quantity,
+    averageCost: holding.averageCost,
+    marketPrice: holding.marketPrice,
+    marketValue: holding.marketValue,
+    unrealizedPnl: holding.unrealizedPnl,
+    todayPl: 0,
+    currency: holding.currency
+  }));
+
+  const allocationBySymbol: Record<string, number> = {};
+  for (const holding of holdingRows) {
+    allocationBySymbol[holding.symbol] =
+      totalValue > 0 ? Math.round((holding.marketValue / totalValue) * 10000) / 100 : 0;
+  }
+
+  await prisma.portfolioSnapshot.upsert({
+    where: { userId_snapshotDate: { userId, snapshotDate: datedSnapshot } },
+    create: {
+      userId,
+      snapshotDate: datedSnapshot,
+      totalValue,
+      cashBalance,
+      holdingsCount: holdingRows.length,
+      holdingsJson: JSON.stringify(holdingRows),
+      allocationJson: JSON.stringify(allocationBySymbol)
+    },
+    update: {
+      totalValue,
+      cashBalance,
+      holdingsCount: holdingRows.length,
       holdingsJson: JSON.stringify(holdingRows),
       allocationJson: JSON.stringify(allocationBySymbol)
     }

@@ -1,4 +1,5 @@
 import { prisma } from '$lib/server/db';
+import type { BrokerHolding } from '$lib/types/portfolio';
 
 export async function listAssets(search?: string | null) {
   return prisma.asset.findMany({
@@ -64,7 +65,10 @@ export async function findOrCreateAsset(symbol: string, defaults?: Partial<{ nam
 
   return prisma.asset.upsert({
     where: { symbol: normalized },
-    update: {},
+    update: {
+      ...(defaults?.latestPrice !== undefined ? { latestPrice: defaults.latestPrice } : {}),
+      ...(defaults?.currency ? { currency: defaults.currency } : {})
+    },
     create: {
       symbol: normalized,
       name: defaults?.name ?? normalized,
@@ -73,4 +77,35 @@ export async function findOrCreateAsset(symbol: string, defaults?: Partial<{ nam
       latestPrice: defaults?.latestPrice ?? 0
     }
   });
+}
+
+export async function upsertAssetsFromBrokerHoldings(holdings: BrokerHolding[]) {
+  await Promise.all(
+    holdings.map((holding) => {
+      const symbol = holding.symbol.trim().toUpperCase();
+      const exchange = symbol.includes('.') ? symbol.split('.')[0] : null;
+      const name = holding.name?.trim() || symbol;
+
+      return prisma.asset.upsert({
+        where: { symbol },
+        create: {
+          symbol,
+          name,
+          assetType: holding.asset_type || 'stock',
+          exchange,
+          currency: holding.currency || 'USD',
+          country: exchange === 'US' ? 'US' : null,
+          latestPrice: holding.market_price
+        },
+        update: {
+          name,
+          assetType: holding.asset_type || 'stock',
+          exchange,
+          currency: holding.currency || 'USD',
+          country: exchange === 'US' ? 'US' : null,
+          latestPrice: holding.market_price
+        }
+      });
+    })
+  );
 }

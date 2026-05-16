@@ -24,10 +24,10 @@
 <style>
   .ph { margin-bottom: 24px; }
   .ph-breadcrumb { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
-  .ph-sep { color: #1a2038; font-size: 0.75rem; }
-  .ph-crumb-link { font-size: 0.72rem; color: #7a8fb0; text-decoration: none; }
-  .ph-crumb-link:hover { color: #6c8fff; }
-  .ph-crumb-current { font-size: 0.72rem; color: #dce8ff; }
-  .ph-title { font-size: 1.4rem; font-weight: 700; color: #dce8ff; margin: 0; }
-  .ph-subtitle { font-size: 0.8rem; color: #7a8fb0; margin: 4px 0 0; }
+  .ph-sep { color: var(--border); font-size: 0.75rem; }
+  .ph-crumb-link { font-size: 0.72rem; color: var(--muted); text-decoration: none; }
+  .ph-crumb-link:hover { color: var(--primary); }
+  .ph-crumb-current { font-size: 0.72rem; color: var(--text); }
+  .ph-title { font-size: 1.4rem; font-weight: 700; color: var(--text); margin: 0; }
+  .ph-subtitle { font-size: 0.8rem; color: var(--muted); margin: 4px 0 0; }
 </style>

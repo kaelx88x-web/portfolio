@@ -22,7 +22,7 @@
     ? `Broker snapshot · ${new Date(data.snapshotDate).toLocaleString()}`
     : 'From transaction records';
 
-  $: pnlTint = totalUnrealised >= 0 ? 'success' : 'danger';
+  $: pnlTint = totalUnrealised >= 0 ? ('success' as const) : ('danger' as const);
   $: pnlValue = `${totalUnrealised >= 0 ? '+' : ''}${money(totalUnrealised)}`;
   $: returnValue = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`;
 </script>

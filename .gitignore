@@ -10,3 +10,29 @@ prisma/dev.db
 prisma/dev.db-journal
 moomoo-service/venv/
 moomoo-service/.env
+moomoo-service/.runtime/
+moomoo-service/__pycache__/
+moomoo-service/*.log
+
+# Logs & temp files
+*.log
+vite-*.mjs
+
+# Claude / Superpowers session data
+.claude/
+.superpowers/
+.browser-user-test/
+
+# Browser debug dumps
+browser-*.html
+chrome-*.html
+browser-*.err
+chrome-*.err
+
+# Vite timestamps
+vite.config.ts.timestamp-*
+
+# Analytics / backend scratch dirs (not part of the app)
+analytics/
+backend/
+python-analytics/

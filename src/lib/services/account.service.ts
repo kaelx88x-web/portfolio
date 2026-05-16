@@ -1,4 +1,38 @@
 import { prisma } from '$lib/server/db';
+import type { MoomooSyncResult } from '$lib/types/portfolio';
+
+export async function upsertMoomooAccount(userId: string, result: MoomooSyncResult): Promise<void> {
+  const accountType = getMoomooAccountType(result);
+  const environmentKey = normalizeMoomooEnvironment(result.trade_environment);
+  const syntheticId = `moomoo-${userId}-${environmentKey.toLowerCase()}`;
+  const fallbackName = accountType === 'brokerage' ? 'Moomoo Brokerage' : 'Moomoo Simulated';
+  const name = result.account_label.replace(/\s+\(N\/A\)$/i, '').trim() || fallbackName;
+  const holdingCurrencies = [...new Set(result.holdings.map((holding) => holding.currency).filter(Boolean))];
+  const currency = holdingCurrencies.length === 1 ? holdingCurrencies[0] : 'USD';
+
+  await prisma.account.upsert({
+    where: { id_userId: { id: syntheticId, userId } },
+    create: {
+      id: syntheticId,
+      userId,
+      name,
+      brokerName: 'Moomoo',
+      accountType,
+      currency
+    },
+    update: { name, accountType, currency }
+  });
+}
+
+export function getMoomooAccountType(result: MoomooSyncResult) {
+  return normalizeMoomooEnvironment(result.trade_environment) === 'REAL' ? 'brokerage' : 'paper';
+}
+
+function normalizeMoomooEnvironment(environment: string) {
+  const value = environment.toUpperCase();
+  if (value.includes('REAL')) return 'REAL';
+  return 'SIMULATE';
+}
 
 export async function listAccounts(userId: string) {
   return prisma.account.findMany({

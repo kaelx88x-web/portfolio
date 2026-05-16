@@ -17,7 +17,7 @@
     font-size: 0.6rem; font-weight: 700;
     letter-spacing: 0.08em; text-transform: uppercase;
   }
-  .badge-danger  { background: rgba(249,107,126,0.12); color: #f96b7e; }
-  .badge-warning { background: rgba(251,191,36,0.12);  color: #fbbf24; }
-  .badge-muted   { background: rgba(122,143,176,0.12); color: #7a8fb0; }
+  .badge-danger  { background: rgba(var(--danger-rgb),0.12); color: var(--danger); }
+  .badge-warning { background: rgba(var(--warning-rgb),0.14); color: var(--warning); }
+  .badge-muted   { background: var(--surface-1); color: var(--muted); }
 </style>

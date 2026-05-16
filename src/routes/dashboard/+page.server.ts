@@ -1,14 +1,30 @@
 import { getDemoUser } from '$lib/server/demo-user';
-import { getHoldings } from '$lib/services/portfolio.service';
+import { getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service';
 import { listAccounts } from '$lib/services/account.service';
-import { getLatestSnapshot } from '$lib/services/snapshot.service';
-import type { AllocationSlice } from '$lib/types/portfolio';
+import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service';
+import { syncMoomoo } from '$lib/services/broker.service';
+import { calcCapitalAndRealized } from '$lib/calculators/realized-pnl';
+import type { AllocationSlice, Holding, SnapshotHolding } from '$lib/types/portfolio';
 import { prisma } from '$lib/server/db';
+import type { Actions } from './$types';
+
+export const actions: Actions = {
+  refresh: async () => {
+    const user = await getDemoUser();
+    try {
+      const result = await syncMoomoo();
+      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0);
+      return { refreshed: true, updatedAt: new Date().toISOString(), count: result.holdings_count };
+    } catch (e) {
+      return { refreshed: false, error: e instanceof Error ? e.message : 'Sync failed' };
+    }
+  }
+};
 
 export async function load() {
   const user = await getDemoUser();
 
-  const [accounts, holdings, snapshot, watchlists] = await Promise.all([
+  const [accounts, transactionHoldings, snapshot, watchlists, allTransactions] = await Promise.all([
     listAccounts(user.id),
     getHoldings(user.id),
     getLatestSnapshot(user.id),
@@ -16,6 +32,11 @@ export async function load() {
       where: { userId: user.id },
       include: { items: { include: { asset: true }, orderBy: { createdAt: 'desc' }, take: 6 } },
       take: 1,
+    }).catch(() => []),
+    prisma.transaction.findMany({
+      where: { userId: user.id },
+      select: { type: true, quantity: true, price: true, fee: true, assetId: true },
+      orderBy: { tradeDate: 'asc' },
     }).catch(() => []),
   ]);
 
@@ -29,28 +50,69 @@ export async function load() {
     }))
   ).slice(0, 6);
 
-  // Build portfolio value from holdings
-  const totalValue = holdings.reduce((s, h) => s + h.marketValue, 0);
-  const totalCost  = holdings.reduce((s, h) => s + h.costBasis, 0);
-  const totalPnl   = totalValue - totalCost;
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  let holdings: Holding[] = transactionHoldings;
+  let totalValue = holdings.reduce((s, h) => s + h.marketValue, 0);
+  let totalPnl = totalValue - holdings.reduce((s, h) => s + h.costBasis, 0);
+  let dataSource: 'snapshot' | 'transactions' = 'transactions';
+  let snapshotDate: string | null = null;
+  let snapshotRows: SnapshotHolding[] = [];
 
-  // Allocation by sector
+  if (snapshot) {
+    try {
+      snapshotRows = JSON.parse(snapshot.holdingsJson);
+    } catch {
+      snapshotRows = [];
+    }
+
+    const holdingsValue = snapshotRows.reduce((s, h) => s + h.marketValue, 0);
+    holdings = snapshotToHoldings(snapshotRows, holdingsValue);
+    totalValue = snapshot.totalValue;
+    totalPnl = snapshotRows.reduce((s, h) => s + h.unrealizedPnl, 0);
+    dataSource = 'snapshot';
+    snapshotDate = snapshot.snapshotDate.toISOString();
+  }
+
+  // Realized P&L + dividends + net invested capital — computed from full transaction history
+  const { netInvested, realizedPnl, dividends } = calcCapitalAndRealized(allTransactions);
+
+  // Total Return = unrealized P&L + realized P&L + dividends
+  const totalReturn = totalPnl + realizedPnl + dividends;
+
+  // Use cost basis of current holdings as denominator (more meaningful than total deposits,
+  // which includes uninvested cash sitting on the side).
+  const costBasisTotal = holdings.reduce((s, h) => s + h.costBasis, 0);
+  const returnBase = costBasisTotal > 0 ? costBasisTotal : netInvested;
+  const totalReturnPct = returnBase > 0 ? (totalReturn / returnBase) * 100 : 0;
+
+  // Day P&L — broker's todayPl per holding, summed. null when no broker snapshot.
+  const dayPl = dataSource === 'snapshot'
+    ? snapshotRows.reduce((s, h) => s + (h.todayPl ?? 0), 0)
+    : null;
+
+  // Allocation by sector, falling back to asset type for broker snapshots.
   const sectorMap = new Map<string, number>();
   for (const h of holdings) {
-    const sector = h.sector ?? 'Other';
-    sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + h.marketValue);
+    const sector = h.sector ?? h.assetType ?? 'Other';
+    sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + Math.abs(h.marketValue));
   }
+  const allocationBase = [...sectorMap.values()].reduce((s, value) => s + value, 0);
   const allocations: AllocationSlice[] = [...sectorMap.entries()]
     .map(([label, value]) => ({
       label,
       value,
-      percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
+      percentage: allocationBase > 0 ? (value / allocationBase) * 100 : 0,
     }))
     .sort((a, b) => b.value - a.value);
 
   // Top 8 holdings by market value
   const topHoldings = [...holdings].sort((a, b) => b.marketValue - a.marketValue).slice(0, 8);
+
+  // Allocation by individual stock/ETF symbol
+  const holdingAllocations: AllocationSlice[] = topHoldings.map((h) => ({
+    label: h.symbol,
+    value: Math.abs(h.marketValue),
+    percentage: totalValue > 0 ? (Math.abs(h.marketValue) / totalValue) * 100 : 0,
+  }));
 
   // Snapshots for growth chart (ordered by snapshotDate asc)
   const snapshots = await prisma.portfolioSnapshot.findMany({
@@ -77,13 +139,22 @@ export async function load() {
   return {
     totalValue,
     totalPnl,
-    totalPnlPct,
+    totalReturn,
+    totalReturnPct,
+    costBasisTotal,
+    realizedPnl,
+    dividends,
+    netInvested,
+    dayPl,
     accounts,
     allocations,
+    holdingAllocations,
     topHoldings,
     growthData,
     aiBrief,
     watchlistItems,
     snapshot,
+    dataSource,
+    snapshotDate,
   };
 }

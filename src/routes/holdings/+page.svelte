@@ -63,7 +63,7 @@
   <StatCard label="Open Positions" value={String(openPositions)}     tint="primary" />
 </div>
 
-<HoldingsTable holdings={data.holdings} />
+<HoldingsTable holdings={data.holdings} flowMap={data.flowMap ?? {}} />
 
 <style>
   .page-top {

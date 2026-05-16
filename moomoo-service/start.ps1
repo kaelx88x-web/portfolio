@@ -5,6 +5,11 @@
 
 Set-Location $PSScriptRoot
 
+$appData = Join-Path $PSScriptRoot ".runtime\appdata"
+New-Item -ItemType Directory -Force -Path $appData | Out-Null
+$env:appdata = $appData
+$env:APPDATA = $appData
+
 $localVenv = Join-Path $PSScriptRoot "venv"
 $sharedVenv = "c:\Ampps\www\az\backend\venv"
 
@@ -18,4 +23,4 @@ if (Test-Path "$localVenv\Scripts\uvicorn.exe") {
 }
 
 Write-Output "Starting moomoo-service with: $uvicorn"
-& $uvicorn main:app --host 127.0.0.1 --port 8001 --reload
+& $uvicorn main:app --host 127.0.0.1 --port 8001

@@ -6,7 +6,8 @@ import {
   calculateTotalGainLoss
 } from '$lib/calculators/performance';
 import { prisma } from '$lib/server/db';
-import type { DashboardSummary, Holding, TransactionWithRelations } from '$lib/types/portfolio';
+import { getLatestSnapshot } from '$lib/services/snapshot.service';
+import type { DashboardSummary, Holding, SnapshotHolding, TransactionWithRelations } from '$lib/types/portfolio';
 
 export async function getHoldings(userId: string): Promise<Holding[]> {
   const transactions = await prisma.transaction.findMany({
@@ -48,6 +49,8 @@ export async function getHoldings(userId: string): Promise<Holding[]> {
         symbol: asset.symbol,
         name: asset.name,
         assetType: asset.assetType,
+        sector: asset.sector,
+        country: asset.country,
         currency: asset.currency,
         quantity,
         averageCost,
@@ -84,9 +87,33 @@ export async function getCashBalance(userId: string) {
   }, 0);
 }
 
+export function snapshotToHoldings(rows: SnapshotHolding[], totalValue: number): Holding[] {
+  return rows
+    .filter((h) => h.quantity > 0)
+    .map((h) => ({
+      accountId: 'moomoo',
+      accountName: 'Moomoo',
+      assetId: h.symbol,
+      symbol: h.symbol,
+      name: h.name || h.symbol,
+      assetType: h.assetType || 'stock',
+      sector: h.sector ?? null,
+      country: h.country ?? null,
+      currency: h.currency || 'USD',
+      quantity: h.quantity,
+      averageCost: h.averageCost,
+      marketPrice: h.marketPrice,
+      marketValue: h.marketValue,
+      costBasis: h.quantity * h.averageCost,
+      unrealizedPnl: h.unrealizedPnl,
+      allocationPercentage: totalValue > 0 ? (h.marketValue / totalValue) * 100 : 0
+    }))
+    .sort((a, b) => b.marketValue - a.marketValue);
+}
+
 export async function getDashboard(userId: string) {
-  const [holdings, accounts, recentTransactions, watchlists, cashBalance] = await Promise.all([
-    getHoldings(userId),
+  const [snapshot, accounts, recentTransactions, watchlists] = await Promise.all([
+    getLatestSnapshot(userId),
     prisma.account.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
     prisma.transaction.findMany({
       where: { userId },
@@ -98,10 +125,39 @@ export async function getDashboard(userId: string) {
       where: { userId },
       include: { items: { include: { asset: true }, orderBy: { createdAt: 'desc' } } },
       orderBy: { createdAt: 'asc' }
-    }),
-    getCashBalance(userId)
+    })
   ]);
 
+  if (snapshot) {
+    let snapshotRows: SnapshotHolding[] = [];
+    try {
+      snapshotRows = JSON.parse(snapshot.holdingsJson);
+    } catch {
+      snapshotRows = [];
+    }
+    const holdings = snapshotToHoldings(snapshotRows, snapshot.totalValue);
+    const summary: DashboardSummary = {
+      totalPortfolioValue: snapshot.totalValue,
+      totalGainLoss: holdings.reduce((sum, h) => sum + h.unrealizedPnl, 0),
+      totalCostBasis: holdings.reduce((sum, h) => sum + h.costBasis, 0),
+      cashBalance: snapshot.cashBalance,
+      todayChange: 0
+    };
+    return {
+      summary,
+      accounts,
+      holdings,
+      topHoldings: holdings.slice(0, 5),
+      allocationBySymbol: calculateAllocationBySymbol(holdings),
+      allocationByAssetType: calculateAllocationByAssetType(holdings),
+      recentTransactions,
+      watchlists,
+      dataSource: 'snapshot' as const,
+      snapshotDate: snapshot.snapshotDate.toISOString()
+    };
+  }
+
+  const [holdings, cashBalance] = await Promise.all([getHoldings(userId), getCashBalance(userId)]);
   const totalPortfolioValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
   const summary: DashboardSummary = {
     totalPortfolioValue,
@@ -119,6 +175,8 @@ export async function getDashboard(userId: string) {
     allocationBySymbol: calculateAllocationBySymbol(holdings),
     allocationByAssetType: calculateAllocationByAssetType(holdings),
     recentTransactions,
-    watchlists
+    watchlists,
+    dataSource: 'transactions' as const,
+    snapshotDate: null
   };
 }

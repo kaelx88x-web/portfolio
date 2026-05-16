@@ -49,27 +49,27 @@
   .banner {
     display: grid; grid-template-columns: 1fr auto 1fr;
     border-radius: 10px;
-    border: 1px solid rgba(108,143,255,0.25);
-    background: #0e1830;
+    border: 1px solid var(--ai-border);
+    background: var(--ai-bg);
     overflow: hidden;
     margin-bottom: 20px;
   }
   .banner-brief { padding: 16px 20px; }
-  .banner-title { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6c8fff; margin-bottom: 8px; }
-  .banner-text  { font-size: 0.8rem; color: #7a8fb0; line-height: 1.6; margin: 0; }
-  .banner-empty { font-size: 0.8rem; color: #7a8fb0; margin: 0; }
-  .banner-link  { color: #6c8fff; }
-  .banner-sep   { width: 1px; background: rgba(108,143,255,0.15); }
+  .banner-title { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--primary); margin-bottom: 8px; }
+  .banner-text  { font-size: 0.8rem; color: var(--muted); line-height: 1.6; margin: 0; }
+  .banner-empty { font-size: 0.8rem; color: var(--muted); margin: 0; }
+  .banner-link  { color: var(--primary); }
+  .banner-sep   { width: 1px; background: var(--ai-border); }
   .banner-chips { padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; }
-  .banner-chips-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #7a8fb0; margin-bottom: 4px; }
+  .banner-chips-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .chip {
     text-align: left; padding: 7px 10px; border-radius: 6px;
-    background: rgba(108,143,255,0.08); border: 1px solid rgba(108,143,255,0.2);
-    font-size: 0.72rem; color: #6c8fff; cursor: pointer;
+    background: rgba(var(--primary-rgb),0.08); border: 1px solid rgba(var(--primary-rgb),0.2);
+    font-size: 0.72rem; color: var(--primary); cursor: pointer;
     transition: background 0.15s;
   }
-  .chip:hover { background: rgba(108,143,255,0.16); }
-  .skeleton-line { height: 8px; border-radius: 4px; background: #1a2038; animation: pulse 1.5s ease-in-out infinite; }
+  .chip:hover { background: rgba(var(--primary-rgb),0.16); }
+  .skeleton-line { height: 8px; border-radius: 4px; background: var(--border); animation: pulse 1.5s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
   @media (max-width: 640px) {

@@ -1,29 +1,125 @@
 <script lang="ts">
-  export let data;
-  export let form;
+  import { enhance } from '$app/forms';
+  import type { ActionData, PageData } from './$types';
+  import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
+
+  export let data: PageData;
+  export let form: ActionData = null;
+
+  const notifToggles = [
+    'AI risk alerts',
+    'Dividend reminders',
+    'Broker sync emails',
+    'Options expiry warnings'
+  ];
 </script>
 
-<div class="mb-6">
-  <h1 class="text-2xl font-bold">Settings</h1>
-  <p class="mt-1 text-sm text-slate-500">Local demo user preferences for Phase 1.</p>
-</div>
+<PageHeader title="Settings" subtitle="Profile, preferences, and data settings." />
 
 {#if form?.message}
-  <div class="mb-4 rounded-md border border-line bg-white px-4 py-3 text-sm">{form.message}</div>
+  <div class="msg-banner">{form.message}</div>
 {/if}
 
-<form method="POST" action="?/update" class="card max-w-xl space-y-4 p-5">
-  <div>
-    <label class="label" for="name">Name</label>
-    <input id="name" name="name" class="field mt-1" value={data.user.name} required />
+<div class="settings-grid">
+  <!-- Profile form -->
+  <form method="POST" action="?/update" use:enhance class="card settings-card">
+    <h2 class="section-title">Profile</h2>
+
+    <label class="field-group">
+      <span class="label">Name</span>
+      <input class="field mt-1" name="name" value={data.user.name} required />
+    </label>
+
+    <label class="field-group">
+      <span class="label">Email</span>
+      <input class="field mt-1 field-disabled" value={data.user.email} disabled />
+    </label>
+
+    <label class="field-group">
+      <span class="label">Base Currency</span>
+      <input class="field mt-1" name="baseCurrency" value={data.user.baseCurrency ?? 'USD'} maxlength="3" required />
+    </label>
+
+    <button class="button-primary" type="submit">Save Settings</button>
+  </form>
+
+  <div class="right-col">
+    <!-- Notifications -->
+    <section class="card settings-card">
+      <h2 class="section-title">Notifications</h2>
+      <div class="toggle-grid">
+        {#each notifToggles as toggle}
+          <label class="toggle-row">
+            <span class="toggle-label">{toggle}</span>
+            <input type="checkbox" class="toggle-check" />
+          </label>
+        {/each}
+      </div>
+    </section>
+
+    <!-- Data & Privacy -->
+    <section class="card settings-card">
+      <h2 class="section-title">Data & Privacy</h2>
+      <p class="info-text">
+        All portfolio data is stored locally in your SQLite database. No data is sent to external servers except for broker sync via your local OpenD instance.
+      </p>
+      <div class="action-row">
+        <button class="button-secondary" type="button">Export Data</button>
+        <button class="button-secondary button-danger" type="button">Reset Workspace</button>
+      </div>
+    </section>
   </div>
-  <div>
-    <label class="label" for="email">Email</label>
-    <input id="email" class="field mt-1 bg-panel" value={data.user.email} disabled />
-  </div>
-  <div>
-    <label class="label" for="baseCurrency">Base currency</label>
-    <input id="baseCurrency" name="baseCurrency" class="field mt-1" value={data.user.baseCurrency} maxlength="3" required />
-  </div>
-  <button class="button">Save settings</button>
-</form>
+</div>
+
+<style>
+  .settings-grid { display: grid; gap: 16px; }
+  @media (min-width: 900px) { .settings-grid { grid-template-columns: 0.85fr 1.15fr; align-items: start; } }
+
+  .settings-card { padding: 20px; }
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  .section-title { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+
+  .field-group { display: block; margin-bottom: 14px; }
+  .label       { font-size: 0.72rem; font-weight: 600; color: var(--muted); }
+  .field-disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .button-primary {
+    margin-top: 6px;
+    display: inline-flex; align-items: center;
+    padding: 8px 18px; border-radius: 8px;
+    background: var(--primary); border: none;
+    font-size: 0.8rem; font-weight: 600; color: #fff;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .button-primary:hover { opacity: 0.85; }
+
+  .msg-banner {
+    margin-bottom: 16px; padding: 10px 14px;
+    border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+    background: rgba(var(--primary-rgb),0.08); border: 1px solid rgba(var(--primary-rgb),0.3); color: var(--primary);
+  }
+
+  .toggle-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  .toggle-row  {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-radius: 8px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .toggle-label { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+  .toggle-check { accent-color: var(--primary); cursor: pointer; }
+
+  .info-text { font-size: 0.78rem; color: var(--muted); line-height: 1.65; margin-bottom: 14px; }
+
+  .action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .button-secondary {
+    padding: 7px 14px; border-radius: 8px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.75rem; font-weight: 600; color: var(--text);
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .button-secondary:hover { border-color: rgba(var(--primary-rgb),0.4); }
+  .button-danger { color: var(--danger); }
+  .button-danger:hover { border-color: rgba(var(--danger-rgb),0.4); }
+</style>

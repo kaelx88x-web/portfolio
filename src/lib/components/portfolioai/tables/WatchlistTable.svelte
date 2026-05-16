@@ -14,16 +14,41 @@
 
   export let items: WatchItem[] = [];
   export let loading = false;
+  export let compact = false;
 </script>
 
 {#if loading}
-  <div style="padding:16px;color:#7a8fb0;font-size:0.8rem">Loading…</div>
+  <div style="padding:16px;color:var(--muted);font-size:0.8rem">Loading…</div>
 {:else if items.length === 0}
   <EmptyState
     icon="◎"
     title="Watchlist is empty"
     description="Add symbols to track ideas before they become holdings."
   />
+{:else if compact}
+  <div class="wl-list">
+    {#each items as item}
+      <div class="wl-row">
+        <div class="wl-row-left">
+          <span class="wl-symbol">{item.symbol}</span>
+          {#if item.name}<span class="wl-name">{item.name}</span>{/if}
+        </div>
+        <div class="wl-row-right">
+          {#if item.price != null}
+            <span class="wl-price">${item.price.toFixed(2)}</span>
+          {/if}
+          {#if item.dayChangePct != null}
+            <span class="wl-change" class:positive={item.dayChangePct >= 0} class:negative={item.dayChangePct < 0}>
+              {item.dayChangePct >= 0 ? '+' : ''}{item.dayChangePct.toFixed(2)}%
+            </span>
+          {/if}
+          {#if item.conviction}
+            <span class="wl-conviction" data-lvl={item.conviction.toLowerCase()}>{item.conviction}</span>
+          {/if}
+        </div>
+      </div>
+    {/each}
+  </div>
 {:else}
   <div class="wl-grid">
     {#each items as item}
@@ -50,18 +75,33 @@
 {/if}
 
 <style>
+  /* Compact list mode (dashboard widget) */
+  .wl-list { display: flex; flex-direction: column; }
+  .wl-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .wl-row:last-child { border-bottom: none; }
+  .wl-row-left  { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .wl-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  /* Card grid mode (full watchlist page) */
   .wl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
-  .wl-card { background:#0f1523; border:1px solid #1a2038; border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:4px; }
+  .wl-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:4px; }
   .wl-top  { display:flex; align-items:center; justify-content:space-between; }
-  .wl-symbol { font-size:0.9rem; font-weight:700; color:#6c8fff; }
-  .wl-name   { font-size:0.7rem; color:#7a8fb0; }
-  .wl-price  { font-size:1rem; font-weight:700; color:#dce8ff; margin-top:4px; }
+
+  /* Shared */
+  .wl-symbol { font-size:0.85rem; font-weight:700; color:var(--primary); flex-shrink: 0; }
+  .wl-name   { font-size:0.72rem; color:var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wl-price  { font-size:0.85rem; font-weight:700; color:var(--text); }
   .wl-change { font-size:0.72rem; font-weight:600; }
-  .wl-notes  { font-size:0.7rem; color:#7a8fb0; margin:4px 0 0; line-height:1.5; }
+  .wl-notes  { font-size:0.7rem; color:var(--muted); margin:4px 0 0; line-height:1.5; }
   .wl-conviction { font-size:0.55rem; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; }
-  [data-lvl="high"]   { background:rgba(45,212,160,0.12); color:#2dd4a0; }
-  [data-lvl="medium"] { background:rgba(251,191,36,0.1);  color:#fbbf24; }
-  [data-lvl="low"]    { background:rgba(122,143,176,0.1); color:#7a8fb0; }
-  .positive { color:#2dd4a0; }
-  .negative { color:#f96b7e; }
+  [data-lvl="high"]   { background:rgba(var(--success-rgb),0.12); color:var(--success); }
+  [data-lvl="medium"] { background:rgba(var(--warning-rgb),0.12); color:var(--warning); }
+  [data-lvl="low"]    { background:rgba(var(--primary-rgb),0.08); color:var(--muted); }
+  .positive { color:var(--success); }
+  .negative { color:var(--danger); }
 </style>

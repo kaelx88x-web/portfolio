@@ -66,15 +66,15 @@
         {#each paged as tx}
           {@const style = typeStyles[tx.type] ?? typeStyles.FEE}
           <tr>
-            <td style="color:#7a8fb0;font-size:0.75rem">{fmtDate(tx.tradeDate)}</td>
+            <td class="td-date">{fmtDate(tx.tradeDate)}</td>
             <td>
               <span class="type-badge" style="color:{style.color};background:{style.bg}">{tx.type}</span>
             </td>
-            <td style="font-weight:700;color:#6c8fff">{tx.asset?.symbol ?? '—'}</td>
-            <td style="text-align:right">{tx.quantity}</td>
-            <td style="text-align:right">{money(tx.price)}</td>
-            <td style="text-align:right;font-weight:600">{money(tx.quantity * tx.price)}</td>
-            <td style="color:#7a8fb0;font-size:0.72rem">{tx.account.name}</td>
+            <td class="td-symbol">{tx.asset?.symbol ?? '—'}</td>
+            <td class="td-r">{tx.quantity}</td>
+            <td class="td-r">{money(tx.price)}</td>
+            <td class="td-r td-bold">{money(tx.quantity * tx.price)}</td>
+            <td class="td-account">{tx.account.name}</td>
           </tr>
         {/each}
       </tbody>
@@ -87,7 +87,7 @@
           disabled={page === 0}
           on:click={() => page--}
         >← Prev</button>
-        <span style="font-size:0.75rem;color:#7a8fb0">Page {page + 1} / {pages}</span>
+        <span class="pager-info">Page {page + 1} / {pages}</span>
         <button
           class="button-secondary"
           style="height:32px;font-size:0.72rem"
@@ -101,10 +101,16 @@
 
 <style>
   .tx-bar { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
-  .filter-chip { padding:4px 10px; border-radius:20px; font-size:0.65rem; font-weight:600; border:1px solid #1a2038; background:none; color:#7a8fb0; cursor:pointer; transition:all 0.15s; }
-  .filter-chip:hover { border-color:rgba(108,143,255,0.4); color:#dce8ff; }
-  .filter-chip.active { border-color:rgba(108,143,255,0.5); background:rgba(108,143,255,0.12); color:#6c8fff; }
+  .filter-chip { padding:4px 10px; border-radius:20px; font-size:0.65rem; font-weight:600; border:1px solid var(--border); background:none; color:var(--muted); cursor:pointer; transition:all 0.15s; }
+  .filter-chip:hover { border-color:rgba(var(--primary-rgb),0.4); color:var(--text); }
+  .filter-chip.active { border-color:rgba(var(--primary-rgb),0.5); background:rgba(var(--primary-rgb),0.12); color:var(--primary); }
   .type-badge { font-size:0.6rem; font-weight:700; padding:2px 7px; border-radius:20px; letter-spacing:0.05em; }
-  .th-r { text-align:right; }
-  .tx-pager { display:flex; align-items:center; gap:12px; justify-content:center; padding:12px; border-top:1px solid #1a2038; }
+  .th-r   { text-align:right; }
+  .td-r   { text-align:right; }
+  .td-bold { font-weight:600; }
+  .td-date    { color:var(--muted); font-size:0.75rem; }
+  .td-symbol  { font-weight:700; color:var(--primary); }
+  .td-account { color:var(--muted); font-size:0.72rem; }
+  .pager-info { font-size:0.75rem; color:var(--muted); }
+  .tx-pager { display:flex; align-items:center; gap:12px; justify-content:center; padding:12px; border-top:1px solid var(--border); }
 </style>

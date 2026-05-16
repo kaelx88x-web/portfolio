@@ -1,19 +1,27 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Bell, ChevronDown, LayoutGrid, Sparkles } from 'lucide-svelte';
+  import { Bell, ChevronDown, LayoutGrid, Sparkles, Sun, Moon, FlaskConical, TrendingUp } from 'lucide-svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { portfolioSummary } from '$lib/stores/portfolio-summary';
+  import { theme } from '$lib/stores/ui';
 
   export let sidebarCollapsed = false;
   export let aiPanelOpen = false;
 
-  // These would come from a store in a real implementation; mock for now.
-  let portfolioValue = 142830.42;
-  let dayChange = 1204.30;
-  let dayChangePct = 1.2;
-  let accountName = 'Main Portfolio';
-  let accountMode: string = 'LIVE';
+  $: isPaperRoute = $page.url.pathname.startsWith('/paper-trading');
+
+  $: paperSummary    = isPaperRoute ? ($page.data?.summary ?? null) : null;
+
+  $: portfolioValue  = paperSummary ? paperSummary.totalValue   : $portfolioSummary.totalValue;
+  $: dayChange       = paperSummary ? 0                         : $portfolioSummary.dayChange;
+  $: dayChangePct    = paperSummary ? 0                         : $portfolioSummary.dayChangePct;
+  $: accountName     = isPaperRoute ? 'Paper Trading'           : $portfolioSummary.accountName;
+  $: accountMode     = isPaperRoute ? 'SANDBOX'                 : 'LIVE';
 
   const dispatch = createEventDispatcher();
+
+  let showAccountMenu = false;
 
   function formatMoney(n: number) {
     return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
@@ -21,6 +29,16 @@
 
   function askAI() {
     goto('/ai/copilot');
+  }
+
+  function switchToLive() {
+    showAccountMenu = false;
+    goto('/dashboard');
+  }
+
+  function switchToPaper() {
+    showAccountMenu = false;
+    goto('/paper-trading');
   }
 </script>
 
@@ -46,14 +64,41 @@
     <div class="tb-sep"></div>
 
     <!-- Account switcher -->
-    <button class="tb-account-btn">
-      <span class="tb-acc-dot" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}></span>
-      <span class="tb-acc-name">{accountName}</span>
-      <span class="tb-acc-badge" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}>
-        {accountMode === 'LIVE' ? 'LIVE' : 'SANDBOX'}
-      </span>
-      <ChevronDown size={13} />
-    </button>
+    <div class="tb-account-wrap">
+      <button class="tb-account-btn" class:open={showAccountMenu} on:click={() => showAccountMenu = !showAccountMenu}>
+        <span class="tb-acc-dot" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}></span>
+        <span class="tb-acc-name">{accountName}</span>
+        <span class="tb-acc-badge" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}>
+          {accountMode === 'LIVE' ? 'LIVE' : 'SANDBOX'}
+        </span>
+        <ChevronDown size={13} />
+      </button>
+
+      {#if showAccountMenu}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div class="tb-acc-backdrop" on:click={() => showAccountMenu = false}></div>
+        <div class="tb-acc-menu">
+          <div class="tb-acc-menu-label">Switch Mode</div>
+          <button class="tb-acc-option" class:selected={accountMode === 'LIVE'} on:click={switchToLive}>
+            <TrendingUp size={13} />
+            <div class="tb-acc-opt-text">
+              <span class="tb-acc-opt-name">Live Portfolio</span>
+              <span class="tb-acc-opt-sub">Real broker data</span>
+            </div>
+            {#if accountMode === 'LIVE'}<span class="tb-acc-opt-check">✓</span>{/if}
+          </button>
+          <button class="tb-acc-option" class:selected={accountMode === 'SANDBOX'} on:click={switchToPaper}>
+            <FlaskConical size={13} />
+            <div class="tb-acc-opt-text">
+              <span class="tb-acc-opt-name">Paper Trading</span>
+              <span class="tb-acc-opt-sub">Practice with $100k sandbox</span>
+            </div>
+            {#if accountMode === 'SANDBOX'}<span class="tb-acc-opt-check">✓</span>{/if}
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
 
   <!-- Right: AI, notifications, avatar, panel toggles -->
@@ -91,6 +136,20 @@
     >
       <Sparkles size={15} />
     </button>
+
+    <div class="tb-sep"></div>
+
+    <button
+      class="tb-icon-btn"
+      on:click={theme.toggle}
+      title={$theme === 'dark' ? 'Light mode' : 'Dark mode'}
+    >
+      {#if $theme === 'dark'}
+        <Sun size={15} />
+      {:else}
+        <Moon size={15} />
+      {/if}
+    </button>
   </div>
 </div>
 
@@ -98,40 +157,76 @@
   .tb {
     display: flex; align-items: center; justify-content: space-between;
     height: 56px; padding: 0 16px; gap: 12px;
+    background: transparent;
   }
 
   .tb-left  { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .tb-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-  .tb-sep { width: 1px; height: 20px; background: #1a2038; flex-shrink: 0; }
+  .tb-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
 
   .tb-logo-btn {
-    font-size: 1.1rem; font-weight: 800; color: #6c8fff;
+    font-size: 1.1rem; font-weight: 800; color: var(--primary);
     background: none; border: none; cursor: pointer; padding: 0 2px;
     transition: opacity 0.15s;
   }
   .tb-logo-btn:hover { opacity: 0.7; }
 
   .tb-value-hero { display: flex; flex-direction: column; line-height: 1; }
-  .tb-value-label { font-size: 0.5rem; color: #7a8fb0; font-weight: 500; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tb-value-label { font-size: 0.5rem; color: var(--muted); font-weight: 500; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
   .tb-value-row { display: flex; align-items: baseline; gap: 6px; }
-  .tb-value { font-size: 0.95rem; font-weight: 700; color: #dce8ff; letter-spacing: -0.02em; }
+  .tb-value { font-size: 0.95rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
   .tb-change { font-size: 0.65rem; font-weight: 600; }
-  .positive { color: #2dd4a0; }
-  .negative { color: #f96b7e; }
+  .positive { color: var(--success); }
+  .negative { color: var(--danger); }
+
+  .tb-account-wrap { position: relative; }
 
   .tb-account-btn {
     display: flex; align-items: center; gap: 5px;
     padding: 5px 10px; border-radius: 6px;
-    background: rgba(255,255,255,0.04); border: 1px solid #1a2038;
-    font-size: 0.72rem; color: #dce8ff; cursor: pointer;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.72rem; color: var(--text); cursor: pointer;
     transition: border-color 0.15s;
   }
-  .tb-account-btn:hover { border-color: rgba(108,143,255,0.4); }
+  .tb-account-btn:hover, .tb-account-btn.open { border-color: rgba(var(--primary-rgb),0.4); }
+
+  .tb-acc-backdrop {
+    position: fixed; inset: 0; z-index: 49;
+  }
+
+  .tb-acc-menu {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    min-width: 210px; z-index: 50;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+
+  .tb-acc-menu-label {
+    font-size: 0.58rem; font-weight: 700; color: var(--muted);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 8px 6px;
+  }
+
+  .tb-acc-option {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 7px 8px; border-radius: 7px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text); text-align: left;
+    transition: background 0.15s;
+  }
+  .tb-acc-option:hover { background: rgba(var(--primary-rgb),0.08); }
+  .tb-acc-option.selected { background: rgba(var(--primary-rgb),0.1); }
+
+  .tb-acc-opt-text { display: flex; flex-direction: column; gap: 1px; flex: 1; }
+  .tb-acc-opt-name { font-size: 0.75rem; font-weight: 600; }
+  .tb-acc-opt-sub  { font-size: 0.62rem; color: var(--muted); }
+  .tb-acc-opt-check { font-size: 0.75rem; color: var(--primary); font-weight: 700; }
 
   .tb-acc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .tb-acc-dot.live    { background: #2dd4a0; }
-  .tb-acc-dot.sandbox { background: #fbbf24; }
+  .tb-acc-dot.live    { background: var(--success); }
+  .tb-acc-dot.sandbox { background: var(--warning); }
 
   .tb-acc-name { font-weight: 600; }
 
@@ -139,38 +234,38 @@
     font-size: 0.55rem; font-weight: 700; padding: 1px 5px;
     border-radius: 20px; letter-spacing: 0.06em;
   }
-  .tb-acc-badge.live    { background: rgba(45,212,160,0.12); color: #2dd4a0; }
-  .tb-acc-badge.sandbox { background: rgba(251,191,36,0.12);  color: #fbbf24; }
+  .tb-acc-badge.live    { background: rgba(var(--success-rgb),0.12); color: var(--success); }
+  .tb-acc-badge.sandbox { background: rgba(var(--warning-rgb),0.12); color: var(--warning); }
 
   .tb-ai-btn {
     display: flex; align-items: center; gap: 5px;
     padding: 6px 12px; border-radius: 6px;
-    background: rgba(108,143,255,0.1); border: 1px solid rgba(108,143,255,0.25);
-    font-size: 0.72rem; font-weight: 600; color: #6c8fff;
+    background: rgba(var(--primary-rgb),0.1); border: 1px solid rgba(var(--primary-rgb),0.25);
+    font-size: 0.72rem; font-weight: 600; color: var(--primary);
     cursor: pointer; transition: background 0.15s;
   }
-  .tb-ai-btn:hover { background: rgba(108,143,255,0.18); }
+  .tb-ai-btn:hover { background: rgba(var(--primary-rgb),0.18); }
 
   .tb-icon-btn {
     position: relative;
     display: flex; align-items: center; justify-content: center;
     width: 32px; height: 32px; border-radius: 6px;
-    background: rgba(255,255,255,0.04); border: 1px solid #1a2038;
-    color: #7a8fb0; cursor: pointer;
+    background: var(--surface-1); border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer;
     transition: border-color 0.15s, color 0.15s, background 0.15s;
   }
-  .tb-icon-btn:hover { border-color: rgba(108,143,255,0.4); color: #dce8ff; }
-  .tb-icon-btn.active { border-color: rgba(108,143,255,0.5); color: #6c8fff; background: rgba(108,143,255,0.1); }
+  .tb-icon-btn:hover { border-color: rgba(var(--primary-rgb),0.4); color: var(--text); }
+  .tb-icon-btn.active { border-color: rgba(var(--primary-rgb),0.5); color: var(--primary); background: rgba(var(--primary-rgb),0.1); }
 
   .tb-notif-dot {
     position: absolute; top: 5px; right: 5px;
     width: 5px; height: 5px; border-radius: 50%;
-    background: #f96b7e; border: 1px solid #090e1d;
+    background: var(--danger); border: 1px solid var(--sidebar-bg);
   }
 
   .tb-avatar {
     width: 32px; height: 32px; border-radius: 50%;
-    background: linear-gradient(135deg, #6c8fff, #4a5fff);
+    background: linear-gradient(135deg, var(--primary), #4a5fff);
     font-size: 0.6rem; font-weight: 700; color: #fff;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; border: none;

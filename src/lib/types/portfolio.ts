@@ -12,6 +12,8 @@ export type Holding = {
   symbol: string;
   name: string;
   assetType: string;
+  sector: string | null;
+  country: string | null;
   currency: string;
   quantity: number;
   averageCost: number;
@@ -49,6 +51,7 @@ export type MoomooStatus = {
 
 export type BrokerHolding = {
   symbol: string;
+  name: string;
   asset_type: string;
   quantity: number;
   average_cost: number;
@@ -57,24 +60,49 @@ export type BrokerHolding = {
   market_value: number;
   unrealized_pl: number;
   unrealized_pl_percent: number;
+  today_pl: number;
   currency: string;
+};
+
+export type AccountInfo = {
+  total_assets: number;
+  securities_assets: number;
+  cash: number;
+  market_val: number;
+  unrealized_pl: number;
+  realized_pl: number;
+  power: number;
+  avl_withdrawal_cash: number;
+  is_pdt: boolean;
+  pdt_seq: string;
 };
 
 export type MoomooSyncResult = {
   account_label: string;
+  account_number: string;
+  acc_role: string;
   trade_environment: string;
   security_firm: string;
+  trdmarket_auth: string[];
   synced_at: string;
   holdings_count: number;
   holdings: BrokerHolding[];
-  account_info: Record<string, number>;
+  account_info: AccountInfo;
 };
 
 export type SnapshotHolding = {
+  accountName?: string;
+  brokerName?: string;
   symbol: string;
+  name: string;
+  assetType: string;
+  sector?: string | null;
+  country?: string | null;
   quantity: number;
   averageCost: number;
   marketPrice: number;
   marketValue: number;
   unrealizedPnl: number;
+  todayPl: number;
+  currency: string;
 };

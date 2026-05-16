@@ -8,12 +8,35 @@ import {
   updateAccount
 } from '$lib/services/account.service';
 import { getHoldings } from '$lib/services/portfolio.service';
+import { getLatestSnapshot } from '$lib/services/snapshot.service';
+import type { SnapshotHolding } from '$lib/types/portfolio';
 
 export async function load() {
   const user = await getDemoUser();
-  const [accounts, holdings] = await Promise.all([listAccounts(user.id), getHoldings(user.id)]);
+  const [accounts, holdings, snapshot] = await Promise.all([
+    listAccounts(user.id),
+    getHoldings(user.id),
+    getLatestSnapshot(user.id)
+  ]);
 
-  return { accounts, holdings };
+  let snapshotTotalValue = 0;   // holdings + cash (from snapshot.totalValue)
+  let snapshotDayPl = 0;
+  let snapshotAccountId: string | null = null;
+  let snapshotDate: Date | null = null;
+
+  if (snapshot) {
+    let snapshotHoldings: SnapshotHolding[] = [];
+    try { snapshotHoldings = JSON.parse(snapshot.holdingsJson); } catch { snapshotHoldings = []; }
+
+    snapshotTotalValue = snapshot.totalValue; // includes cashBalance
+    snapshotDayPl = snapshotHoldings.reduce((s, h) => s + (h.todayPl ?? 0), 0);
+    snapshotDate = snapshot.snapshotDate;
+
+    const moomooAccount = accounts.find((a) => a.brokerName === 'Moomoo' && a.accountType !== 'paper');
+    snapshotAccountId = moomooAccount?.id ?? null;
+  }
+
+  return { accounts, holdings, snapshotTotalValue, snapshotDayPl, snapshotAccountId, snapshotDate };
 }
 
 export const actions = {

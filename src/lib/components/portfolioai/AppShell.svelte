@@ -58,21 +58,24 @@
       <slot />
     </main>
 
-    <!-- AI Panel -->
-    {#if aiPanelOpen}
-      <aside class="shell-ai-panel custom-scrollbar">
-        <slot name="aiPanel">
-          <div class="ai-panel-placeholder">
-            <div style="font-size:0.7rem;color:#6c8fff;font-weight:700;margin-bottom:8px">✦ AI PANEL</div>
-            <div style="font-size:0.75rem;color:#7a8fb0;line-height:1.6">
-              Navigate to a page to see AI context here.
-            </div>
-          </div>
-        </slot>
-      </aside>
-    {/if}
   </div>
 </div>
+
+<!-- AI Panel — fixed overlay so it never squeezes page content -->
+{#if aiPanelOpen}
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <div class="ai-panel-backdrop" on:click={toggleAiPanel}></div>
+  <aside class="shell-ai-panel custom-scrollbar">
+    <slot name="aiPanel">
+      <div class="ai-panel-placeholder">
+        <div style="font-size:0.7rem;color:var(--primary);font-weight:700;margin-bottom:8px">✦ AI PANEL</div>
+        <div style="font-size:0.75rem;color:var(--muted);line-height:1.6">
+          Navigate to a page to see AI context here.
+        </div>
+      </div>
+    </slot>
+  </aside>
+{/if}
 
 <!-- Mobile overlay -->
 <div class="mobile-nav">
@@ -83,14 +86,17 @@
   .shell {
     display: flex; flex-direction: column;
     height: 100vh; overflow: hidden;
-    background: #080d18;
+    background: var(--bg);
   }
 
   .shell-topbar {
     height: 56px; flex-shrink: 0;
-    border-bottom: 1px solid #1a2038;
-    background: #090e1d;
+    border-bottom: 1px solid var(--overlay-border);
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     z-index: 40;
+    box-shadow: 0 1px 0 rgba(var(--primary-rgb),0.06), 0 4px 24px rgba(0,0,0,0.2);
   }
 
   .shell-body {
@@ -100,9 +106,12 @@
   .shell-sidebar {
     width: 240px; flex-shrink: 0;
     transition: width 0.2s ease;
-    border-right: 1px solid #1a2038;
-    background: #090e1d;
+    border-right: 1px solid var(--overlay-border);
+    background: var(--sidebar-glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     overflow: hidden;
+    box-shadow: 1px 0 0 rgba(var(--primary-rgb),0.05);
   }
   .shell-sidebar.collapsed { width: 48px; }
 
@@ -113,11 +122,24 @@
   }
 
   .shell-ai-panel {
-    width: 280px; flex-shrink: 0;
-    border-left: 1px solid #1a2038;
-    background: #0e1830;
+    position: fixed;
+    top: 56px; right: 0; bottom: 0;
+    width: 300px;
+    border-left: 1px solid var(--border);
+    background: var(--ai-glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     overflow-y: auto;
     padding: 16px;
+    z-index: 30;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.25);
+  }
+
+  .ai-panel-backdrop {
+    position: fixed;
+    inset: 56px 0 0 0;
+    z-index: 29;
+    background: transparent;
   }
 
   .ai-panel-placeholder { padding: 8px; }

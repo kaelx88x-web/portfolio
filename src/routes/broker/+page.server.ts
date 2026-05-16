@@ -1,12 +1,21 @@
 import { getMoomooStatus, syncMoomoo } from '$lib/services/broker.service';
 import { takeSnapshot, writeSyncLog } from '$lib/services/snapshot.service';
 import { getDemoUser } from '$lib/server/demo-user';
+import { prisma } from '$lib/server/db';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-  const status = await getMoomooStatus().catch(() => null);
-  return { status };
+  const user = await getDemoUser();
+  const [status, syncLogs] = await Promise.all([
+    getMoomooStatus().catch(() => null),
+    prisma.brokerSyncLog.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    }).catch(() => []),
+  ]);
+  return { status, syncLogs };
 };
 
 export const actions: Actions = {

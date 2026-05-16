@@ -1,6 +1,6 @@
 import { getDemoUser } from '$lib/server/demo-user';
 import { getCashBalance, getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service';
-import { syncMoomoo } from '$lib/services/broker.service';
+import { syncMoomoo, getCapitalFlow } from '$lib/services/broker.service';
 import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service';
 import type { SnapshotHolding } from '$lib/types/portfolio';
 import type { Actions, PageServerLoad } from './$types';
@@ -9,20 +9,32 @@ export const load: PageServerLoad = async () => {
   const user = await getDemoUser();
   const snapshot = await getLatestSnapshot(user.id);
 
+  let holdings;
+  let cashBalance;
+  let dataSource: 'snapshot' | 'transactions';
+  let snapshotDate: string | null;
+
   if (snapshot) {
     let rows: SnapshotHolding[] = [];
     try { rows = JSON.parse(snapshot.holdingsJson); } catch { rows = []; }
     const totalValue = rows.reduce((sum, h) => sum + h.marketValue, 0);
-    return {
-      holdings: snapshotToHoldings(rows, totalValue),
-      cashBalance: snapshot.cashBalance,
-      dataSource: 'snapshot' as const,
-      snapshotDate: snapshot.snapshotDate.toISOString()
-    };
+    holdings = snapshotToHoldings(rows, totalValue);
+    cashBalance = snapshot.cashBalance;
+    dataSource = 'snapshot';
+    snapshotDate = snapshot.snapshotDate.toISOString();
+  } else {
+    [holdings, cashBalance] = await Promise.all([getHoldings(user.id), getCashBalance(user.id)]);
+    dataSource = 'transactions';
+    snapshotDate = null;
   }
 
-  const [holdings, cashBalance] = await Promise.all([getHoldings(user.id), getCashBalance(user.id)]);
-  return { holdings, cashBalance, dataSource: 'transactions' as const, snapshotDate: null };
+  const symbols = holdings
+    .map((h: { symbol: string }) => h.symbol)
+    .filter((s: string) => /^(US|HK)\.[A-Z]{1,6}$/.test(s));
+  const capitalFlow = await getCapitalFlow(symbols);
+  const flowMap = Object.fromEntries(capitalFlow.map((f) => [f.code, f]));
+
+  return { holdings, cashBalance, dataSource, snapshotDate, flowMap };
 };
 
 export const actions: Actions = {
