@@ -9,6 +9,12 @@
   export let data: PageData;
   export let form: ActionData;
 
+  const modeLabel: Record<string, string> = {
+    stock: 'Stocks Only',
+    hybrid: 'Hybrid',
+    options: 'Active Options'
+  };
+
   $: stats = [
     { label: 'Suggestions', value: String(data.rebalance.length), sub: data.rebalance.length > 0 ? 'Actions available' : 'None needed' },
     { label: 'Status', value: data.rebalance.length > 0 ? 'Needs Action' : 'Up to Date', color: data.rebalance.length > 0 ? 'amber' as const : 'green' as const },
@@ -37,7 +43,7 @@
         <span>Portfolio Mode</span>
         <select name="portfolioMode">
           {#each data.portfolioModes as mode}
-            <option value={mode} selected={mode === data.portfolioMode}>{mode}</option>
+            <option value={mode} selected={mode === data.portfolioMode}>{modeLabel[mode] ?? mode}</option>
           {/each}
         </select>
       </label>
