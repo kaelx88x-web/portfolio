@@ -43,7 +43,7 @@
       </label>
       <button class="button" type="submit">Simulate Rebalance</button>
     </form>
-    <RebalanceProjectionCard projection={data.rebalanceProjection} />
+    {#if data.rebalanceProjection}<RebalanceProjectionCard projection={data.rebalanceProjection} />{/if}
     {#if data.rebalance[0]}<AllocationComparisonChart allocation={data.rebalance[0].targetAllocation} />{/if}
   </aside>
 </div>
