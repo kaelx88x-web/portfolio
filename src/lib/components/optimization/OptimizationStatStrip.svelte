@@ -25,6 +25,6 @@
   .value { color: var(--text); font-size: 1.05rem; font-weight: 800; }
   .sub { color: var(--muted); font-size: 0.65rem; }
   .green .value { color: var(--success); }
-  .amber .value { color: #f59e0b; }
-  .red .value { color: #ef4444; }
+  .amber .value { color: var(--warning); }
+  .red .value { color: var(--danger); }
 </style>

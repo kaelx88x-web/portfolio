@@ -25,8 +25,8 @@
 {/if}
 
 <style>
-  .banner { display: flex; align-items: center; gap: 12px; border: 1px solid rgba(245, 158, 11, 0.3); border-left: 3px solid #f59e0b; border-radius: 10px; background: rgba(245, 158, 11, 0.06); padding: 12px 14px; margin-bottom: 16px; }
-  .banner.breach { border-color: rgba(239, 68, 68, 0.3); border-left-color: #ef4444; background: rgba(239, 68, 68, 0.06); }
+  .banner { display: flex; align-items: center; gap: 12px; border: 1px solid rgba(var(--warning-rgb), 0.3); border-left: 3px solid var(--warning); border-radius: 10px; background: rgba(var(--warning-rgb), 0.06); padding: 12px 14px; margin-bottom: 16px; }
+  .banner.breach { border-color: rgba(var(--danger-rgb), 0.3); border-left-color: var(--danger); background: rgba(var(--danger-rgb), 0.06); }
   .icon { font-size: 1.1rem; flex-shrink: 0; }
   .text { flex: 1; display: grid; gap: 2px; }
   .text strong { font-size: 0.78rem; color: var(--text); }

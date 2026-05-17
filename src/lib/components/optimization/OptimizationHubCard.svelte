@@ -24,6 +24,6 @@
   .name { font-size: 0.84rem; font-weight: 800; color: var(--text); }
   .desc { margin: 0; font-size: 0.69rem; color: var(--muted); line-height: 1.5; flex: 1; }
   .badge { align-self: flex-start; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: rgba(var(--primary-rgb), 0.1); color: var(--primary); }
-  .badge.green { background: rgba(34, 197, 94, 0.1); color: var(--success); }
-  .badge.amber { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .badge.green { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
+  .badge.amber { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
 </style>
