@@ -85,23 +85,29 @@
 
   /* Mode cards */
   .mode-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .mode-card { display: flex; flex-direction: column; gap: 4px; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; background: var(--bg); transition: border-color 0.12s; }
+  .mode-card { display: flex; flex-direction: column; gap: 4px; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; background: var(--bg); transition: border-color 0.12s, background-color 0.12s; }
   .mode-card input { display: none; }
   .mode-card.active { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.05); }
   .mode-card:has(input:checked) { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.05); }
+  /* When user clicks a new card (JS active), suppress the SSR .active highlight on other cards */
+  .mode-strip:has(input:checked) .mode-card.active:not(:has(input:checked)) { border-color: var(--border); background: var(--bg); }
   .m-icon { font-size: 1.2rem; }
   .m-name { font-size: 0.82rem; font-weight: 800; color: var(--text); }
   .mode-card.active .m-name { color: var(--primary); }
   .mode-card:has(input:checked) .m-name { color: var(--primary); }
+  /* Suppress SSR .active name color when user has clicked a different card */
+  .mode-strip:has(input:checked) .mode-card.active:not(:has(input:checked)) .m-name { color: var(--text); }
   .m-desc { font-size: 0.67rem; color: var(--muted); line-height: 1.4; }
 
   /* Goal + Risk pills */
   .row-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .pills { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pill { border: 1px solid var(--border); border-radius: 999px; padding: 6px 13px; font-size: 0.72rem; font-weight: 600; cursor: pointer; color: var(--muted); background: var(--bg); transition: all 0.12s; white-space: nowrap; }
+  .pill { border: 1px solid var(--border); border-radius: 999px; padding: 6px 13px; font-size: 0.72rem; font-weight: 600; cursor: pointer; color: var(--muted); background: var(--bg); transition: background-color 0.12s, border-color 0.12s, color 0.12s; white-space: nowrap; }
   .pill input { display: none; }
   .pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
   .pill:has(input:checked) { background: var(--primary); color: #fff; border-color: var(--primary); }
+  /* Suppress SSR .active on other pills in same group when user selects a different one */
+  .pills:has(input:checked) .pill.active:not(:has(input:checked)) { background: var(--bg); color: var(--muted); border-color: var(--border); }
 
   .run-btn { justify-self: end; }
 
