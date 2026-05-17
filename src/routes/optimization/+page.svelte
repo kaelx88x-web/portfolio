@@ -10,13 +10,15 @@
   export let form: ActionData;
 
   $: s = data.activeScenario;
-  $: guardrailStatus = (() => {
-    const g = data.guardrail;
+
+  function guardrailStatusFor(g: typeof data.guardrail) {
     if (!g || g.violations.length === 0) return { value: 'All Clear', color: 'green' as const, sub: 'No issues detected' };
     const breaches = g.violations.filter((v) => v.severity === 'breach');
     if (breaches.length > 0) return { value: `${breaches.length} Breach${breaches.length > 1 ? 'es' : ''}`, color: 'red' as const, sub: 'Review required' };
     return { value: `${g.violations.length} Warning${g.violations.length > 1 ? 's' : ''}`, color: 'amber' as const, sub: 'Minor issues' };
-  })();
+  }
+
+  $: guardrailStatus = guardrailStatusFor(data.guardrail);
 
   $: stats = s
     ? [
