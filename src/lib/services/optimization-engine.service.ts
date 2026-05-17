@@ -38,6 +38,7 @@ export type OptimizationConstraintSet = {
   sectorMaxPct: number;
   collateralReservePct: number;
   targetVolatilityPct: number;
+  hybridStockPct: number;
 };
 
 export type OptimizationAllocation = {
@@ -111,11 +112,12 @@ type RebalanceSuggestionRow = {
 
 const DEFAULT_CONSTRAINTS: OptimizationConstraintSet = {
   singleStockMaxPct: 15,
-  optionsMaxPct: 20,
+  optionsMaxPct: 80,
   cashMinPct: 5,
   sectorMaxPct: 35,
   collateralReservePct: 90,
-  targetVolatilityPct: 18
+  targetVolatilityPct: 18,
+  hybridStockPct: 20
 };
 
 export async function getOptimizationDashboard(
@@ -397,23 +399,48 @@ function buildTargetAllocation(
   riskProfile: RiskProfile,
   cashTargetPct: number
 ): OptimizationAllocation[] {
+  // Stocks used as covered call or CSP underlyings stay in the options bucket.
+  // Parse underlying symbol from option ticker: "US.NIO260522C5500" → "NIO"
+  const optionUnderlyings = new Set(
+    context.portfolio.holdings
+      .filter((h) => h.assetType === 'option')
+      .map((h) => h.symbol.replace(/^US\./, '').match(/^([A-Z]+)\d{6}[CP]/)?.[1])
+      .filter((s): s is string => !!s)
+  );
+
   const cap = riskProfile === 'aggressive' ? Math.min(30, Math.max(constraints.singleStockMaxPct, 20)) : constraints.singleStockMaxPct;
   const current = context.allocation.bySymbol.length
-    ? context.allocation.bySymbol.map((slice) => ({ label: slice.label, currentPct: round(slice.percentage, 2), targetPct: round(Math.min(slice.percentage, cap), 2), role: 'holding' as const }))
+    ? context.allocation.bySymbol.map((slice) => {
+        const sym = slice.label.replace(/^US\./, '').match(/^([A-Z]+)/)?.[1] ?? slice.label;
+        const isOptionsUnderlying = optionUnderlyings.has(sym);
+        return {
+          label: slice.label,
+          currentPct: round(slice.percentage, 2),
+          targetPct: round(isOptionsUnderlying ? slice.percentage : Math.min(slice.percentage, cap), 2),
+          role: (isOptionsUnderlying ? 'options' : 'holding') as OptimizationAllocation['role']
+        };
+      })
     : [{ label: 'Cash', currentPct: 100, targetPct: 100, role: 'cash' as const }];
 
-  let freed = round(current.reduce((sum, row) => sum + Math.max(0, row.currentPct - row.targetPct), 0), 2);
+  // Only free up pure stock holdings that exceed the cap — not options underlyings.
+  let freed = round(current.reduce((sum, row) => (row.role !== 'options' ? sum + Math.max(0, row.currentPct - row.targetPct) : sum), 0), 2);
   const currentCash = round(context.portfolio.cashRatio, 2);
   const cashGap = Math.max(0, cashTargetPct - currentCash);
   if (cashGap > 0) {
-    trimLargest(current, cashGap);
+    trimLargest(current.filter((r) => r.role !== 'options'), cashGap);
     freed += cashGap;
   }
 
   const sleeves: Array<{ label: string; role: OptimizationAllocation['role']; targetPct: number }> = [];
-  const defensivePct = riskProfile === 'conservative' ? freed * 0.55 : freed * 0.3;
-  const corePct = mode === 'options' ? freed * 0.2 : freed - defensivePct - (mode === 'hybrid' ? Math.min(constraints.optionsMaxPct, freed * 0.25) : 0);
-  const optionsPct = mode === 'hybrid' ? Math.min(constraints.optionsMaxPct, Math.max(0, freed - defensivePct - corePct)) : mode === 'options' ? Math.min(constraints.optionsMaxPct, freed * 0.8) : 0;
+  const stockFraction = clamp(constraints.hybridStockPct, 0, 100) / 100;
+  const optionsFraction = 1 - stockFraction;
+  // stock mode: freed capital → core stocks + defensive sleeve
+  // hybrid mode: user-configured split (default 20% stock / 80% options)
+  // options mode: 20% stock core + 80% options
+  const defensivePct = mode === 'stock' ? (riskProfile === 'conservative' ? freed * 0.55 : freed * 0.3) : 0;
+  const corePct = mode === 'hybrid' ? freed * stockFraction : mode === 'options' ? freed * 0.2 : freed - defensivePct;
+  const optionsPct = mode !== 'stock' ? Math.min(constraints.optionsMaxPct, freed * (mode === 'hybrid' ? optionsFraction : 0.8)) : 0;
+
   if (corePct > 0.1) sleeves.push({ label: 'Diversified Core Basket', role: 'core', targetPct: round(corePct, 2) });
   if (defensivePct > 0.1) sleeves.push({ label: 'Defensive ETF Sleeve', role: 'defensive', targetPct: round(defensivePct, 2) });
   if (optionsPct > 0.1) sleeves.push({ label: 'Options Income Sleeve', role: 'options', targetPct: round(optionsPct, 2) });
@@ -537,11 +564,12 @@ function normalizeTargetTotal(rows: OptimizationAllocation[]) {
 function normalizeConstraints(input: OptimizationConstraintSet): OptimizationConstraintSet {
   return {
     singleStockMaxPct: clamp(Number(input.singleStockMaxPct) || DEFAULT_CONSTRAINTS.singleStockMaxPct, 1, 80),
-    optionsMaxPct: clamp(Number(input.optionsMaxPct) || DEFAULT_CONSTRAINTS.optionsMaxPct, 0, 80),
+    optionsMaxPct: clamp(Number(input.optionsMaxPct) || DEFAULT_CONSTRAINTS.optionsMaxPct, 0, 100),
     cashMinPct: clamp(Number(input.cashMinPct) || DEFAULT_CONSTRAINTS.cashMinPct, 0, 60),
     sectorMaxPct: clamp(Number(input.sectorMaxPct) || DEFAULT_CONSTRAINTS.sectorMaxPct, 5, 90),
     collateralReservePct: clamp(Number(input.collateralReservePct) || DEFAULT_CONSTRAINTS.collateralReservePct, 50, 100),
-    targetVolatilityPct: clamp(Number(input.targetVolatilityPct) || DEFAULT_CONSTRAINTS.targetVolatilityPct, 1, 120)
+    targetVolatilityPct: clamp(Number(input.targetVolatilityPct) || DEFAULT_CONSTRAINTS.targetVolatilityPct, 1, 120),
+    hybridStockPct: clamp(Number(input.hybridStockPct) || DEFAULT_CONSTRAINTS.hybridStockPct, 0, 100)
   };
 }
 
