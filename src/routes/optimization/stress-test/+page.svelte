@@ -8,6 +8,8 @@
 
   export let data: PageData;
 
+  const modeLabel: Record<string, string> = { stock: 'Stocks Only', hybrid: 'Hybrid', options: 'Active Options' };
+
   $: worst = data.stressTest.worst_case;
   $: stats = [
     { label: 'Stress Result', value: worst?.riskSummary.risk_level.toUpperCase() ?? 'N/A', color: worst?.riskSummary.risk_level === 'high' ? 'red' as const : worst?.riskSummary.risk_level === 'medium' ? 'amber' as const : 'green' as const, sub: 'Worst scenario' },
@@ -24,6 +26,18 @@
 />
 
 <OptimizationStatStrip {stats} />
+
+<div class="controls">
+  <span class="controls-label">Portfolio Mode</span>
+  <div class="pills">
+    {#each data.portfolioModes as mode}
+      <a class="pill" class:active={mode === data.portfolioMode} href="?portfolioMode={mode}">
+        {modeLabel[mode] ?? mode}
+      </a>
+    {/each}
+  </div>
+  <span class="scenario-count">{data.stressTest.scenarios.length} scenarios</span>
+</div>
 
 <div class="layout">
   <main class="main-col">
@@ -45,6 +59,13 @@
 </div>
 
 <style>
+  .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .controls-label { color: var(--muted); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { display: block; border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.72rem; font-weight: 700; color: var(--muted); background: var(--bg); text-decoration: none; transition: all 0.12s; }
+  .pill:hover { border-color: var(--primary); color: var(--primary); }
+  .pill.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .scenario-count { margin-left: auto; color: var(--muted); font-size: 0.68rem; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 12px; }
   .main-col, .side-col { display: grid; align-content: start; gap: 12px; }
   .guardrail { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 14px; color: var(--muted); font-size: 0.72rem; line-height: 1.5; }
@@ -53,5 +74,5 @@
   .next-text strong { font-size: 0.82rem; color: var(--text); }
   .next-text span { font-size: 0.72rem; color: var(--muted); }
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .next-step { flex-direction: column; align-items: flex-start; } }
+  @media (max-width: 600px) { .next-step { flex-direction: column; align-items: flex-start; } .controls { gap: 8px; } }
 </style>
