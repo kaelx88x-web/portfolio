@@ -115,7 +115,7 @@ const DEFAULT_CONSTRAINTS: OptimizationConstraintSet = {
   optionsMaxPct: 80,
   cashMinPct: 5,
   sectorMaxPct: 35,
-  collateralReservePct: 90,
+  collateralReservePct: 20,
   targetVolatilityPct: 18,
   hybridStockPct: 20
 };
@@ -233,7 +233,6 @@ export async function getOptimizationScenarios(userId: string, runId?: string) {
       sharpe_ratio AS sharpeRatio,
       allocation_json AS allocationJson,
       options_allocation_json AS optionsAllocationJson,
-      metadata,
       metadata AS metadataJson,
       created_at AS createdAt
     FROM optimization_scenarios
@@ -567,7 +566,7 @@ function normalizeConstraints(input: OptimizationConstraintSet): OptimizationCon
     optionsMaxPct: clamp(Number(input.optionsMaxPct) || DEFAULT_CONSTRAINTS.optionsMaxPct, 0, 100),
     cashMinPct: clamp(Number(input.cashMinPct) || DEFAULT_CONSTRAINTS.cashMinPct, 0, 60),
     sectorMaxPct: clamp(Number(input.sectorMaxPct) || DEFAULT_CONSTRAINTS.sectorMaxPct, 5, 90),
-    collateralReservePct: clamp(Number(input.collateralReservePct) || DEFAULT_CONSTRAINTS.collateralReservePct, 50, 100),
+    collateralReservePct: clamp(Number(input.collateralReservePct) || DEFAULT_CONSTRAINTS.collateralReservePct, 0, 100),
     targetVolatilityPct: clamp(Number(input.targetVolatilityPct) || DEFAULT_CONSTRAINTS.targetVolatilityPct, 1, 120),
     hybridStockPct: clamp(Number(input.hybridStockPct) || DEFAULT_CONSTRAINTS.hybridStockPct, 0, 100)
   };

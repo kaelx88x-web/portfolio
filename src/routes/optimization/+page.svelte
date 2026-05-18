@@ -4,6 +4,7 @@
   import OptimizationHubCard from '$lib/components/optimization/OptimizationHubCard.svelte';
   import OptimizationModeSelector from '$lib/components/optimization/OptimizationModeSelector.svelte';
   import OptimizationStatStrip from '$lib/components/optimization/OptimizationStatStrip.svelte';
+  import PortfolioConstraintEditor from '$lib/components/optimization/PortfolioConstraintEditor.svelte';
   import type { ActionData, PageData } from './$types';
 
   export let data: PageData;
@@ -32,6 +33,7 @@
   $: scenarioBadge = `${data.scenarios.length} scenario${data.scenarios.length !== 1 ? 's' : ''}`;
   $: rebalanceBadge = data.rebalance.length > 0 ? `${data.rebalance.length} suggestion${data.rebalance.length !== 1 ? 's' : ''}` : 'Up to date';
   $: rebalanceBadgeColor = data.rebalance.length > 0 ? ('amber' as const) : ('green' as const);
+  $: historyBadge = `${data.history.length} run${data.history.length !== 1 ? 's' : ''}`;
 </script>
 
 <PageHeader
@@ -107,12 +109,37 @@
     badgeColor="blue"
     href="/optimization/projection"
   />
+  <OptimizationHubCard
+    icon="🧪"
+    name="Scenario Simulation"
+    description="Run what-if scenarios — bear markets, rate shocks, sector rotations — and see how your allocation holds up."
+    badge="Run simulation"
+    badgeColor="blue"
+    href="/optimization/simulation"
+  />
+  <OptimizationHubCard
+    icon="📋"
+    name="Run History"
+    description="Previous optimization runs and how your allocation targets have evolved over time."
+    badge={historyBadge}
+    badgeColor="blue"
+    href="/optimization/history"
+  />
 </div>
+
+<details class="constraints-section">
+  <summary>Advanced Constraints</summary>
+  <PortfolioConstraintEditor constraints={data.constraints} />
+</details>
 
 <style>
   .notice { margin-bottom: 12px; border: 1px solid rgba(var(--success-rgb), 0.3); border-radius: 8px; background: rgba(var(--success-rgb), 0.08); color: var(--success); padding: 10px 12px; font-size: 0.78rem; }
   .hub-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 10px; }
   .hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .constraints-section { margin-top: 16px; }
+  .constraints-section summary { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; cursor: pointer; user-select: none; padding: 4px 0; }
+  .constraints-section summary:hover { color: var(--text); }
+  .constraints-section > :global(.editor) { margin-top: 10px; }
   @media (max-width: 900px) { .hub-grid { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 600px) { .hub-grid { grid-template-columns: 1fr; } }
 </style>
