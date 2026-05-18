@@ -40,8 +40,21 @@
 
 {#if data.activeScenario}
   <AllocationComparisonChart allocation={data.activeScenario.allocation} />
+
+  <div class="next-step">
+    <div class="next-text">
+      <strong>Ready to act on this?</strong>
+      <span>See exactly what to buy and sell to move your portfolio toward the {data.activeScenario.scenarioName} target.</span>
+    </div>
+    <a class="button" href="/optimization/rebalance">View Rebalance Suggestions →</a>
+  </div>
 {/if}
 
 <style>
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 12px 0; }
+  .next-step { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid rgba(var(--primary-rgb), 0.22); border-radius: 8px; background: rgba(var(--primary-rgb), 0.05); padding: 14px 16px; margin-top: 12px; }
+  .next-text { display: grid; gap: 3px; }
+  .next-text strong { font-size: 0.82rem; color: var(--text); }
+  .next-text span { font-size: 0.72rem; color: var(--muted); }
+  @media (max-width: 600px) { .next-step { flex-direction: column; align-items: flex-start; } }
 </style>
