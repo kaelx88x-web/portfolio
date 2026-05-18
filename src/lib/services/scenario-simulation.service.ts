@@ -55,6 +55,7 @@ export type SimulationRiskSummary = {
   suggested_action: string;
   ai_explanation: string;
   guardrail: string;
+  risk_factors: Array<{ label: string; value: string; severity: 'high' | 'medium' | 'low' }>;
 };
 
 export type ScenarioSimulationResult = {
@@ -769,17 +770,49 @@ function buildRiskSummary(
   context: AiPortfolioContext,
   explanation: string
 ): SimulationRiskSummary {
-  const score = clamp(
-    Math.abs(projectedDrawdown) * 2 + projectedVolatility * 1.15 + Math.max(0, context.risk.concentrationRiskPct - 20) * 0.5 - Math.max(projectedReturn, 0) * 0.2,
-    0,
-    100
-  );
+  const concentrationPenalty = Math.max(0, context.risk.concentrationRiskPct - 20) * 0.5;
+  const drawdownPenalty = Math.abs(projectedDrawdown) * 2;
+  const volatilityPenalty = projectedVolatility * 1.15;
+  const returnOffset = Math.max(projectedReturn, 0) * 0.2;
+  const score = clamp(drawdownPenalty + volatilityPenalty + concentrationPenalty - returnOffset, 0, 100);
   const riskLevel = score >= 70 ? 'high' : score >= 42 ? 'medium' : 'low';
+
+  type Sev = 'high' | 'medium' | 'low';
+  const risk_factors: SimulationRiskSummary['risk_factors'] = [];
+
+  if (context.risk.concentrationRiskPct >= 30) {
+    risk_factors.push({
+      label: `${context.risk.largestHoldingSymbol || 'Largest holding'} concentration`,
+      value: `${round(context.risk.concentrationRiskPct)}% of portfolio`,
+      severity: (context.risk.concentrationRiskPct >= 50 ? 'high' : 'medium') as Sev
+    });
+  }
+  if (Math.abs(projectedDrawdown) >= 10) {
+    risk_factors.push({
+      label: 'Projected drawdown',
+      value: `${projectedDrawdown.toFixed(1)}% worst case`,
+      severity: (Math.abs(projectedDrawdown) >= 25 ? 'high' : 'medium') as Sev
+    });
+  }
+  if (projectedVolatility >= 25) {
+    risk_factors.push({
+      label: 'Portfolio volatility',
+      value: `${round(projectedVolatility)}% annualised`,
+      severity: (projectedVolatility >= 50 ? 'high' : 'medium') as Sev
+    });
+  }
+  if (projectedReturn < 0) {
+    risk_factors.push({ label: 'Negative projected return', value: `${projectedReturn.toFixed(1)}%`, severity: 'high' as Sev });
+  }
+  if (risk_factors.length === 0) {
+    risk_factors.push({ label: 'No major risk factors detected', value: 'All checks passed', severity: 'low' as Sev });
+  }
+
   return {
     risk_level: riskLevel,
     scenario_risk_score: round(score, 0),
     largest_risk: context.risk.largestHoldingSymbol
-      ? `${context.risk.largestHoldingSymbol} concentration and portfolio drawdown sensitivity`
+      ? `${context.risk.largestHoldingSymbol} at ${round(context.risk.concentrationRiskPct)}% — primary concentration risk`
       : 'Limited snapshot history and allocation concentration',
     suggested_action: riskLevel === 'high'
       ? 'Review concentration, cash reserve, and options collateral before increasing risk.'
@@ -787,7 +820,8 @@ function buildRiskSummary(
         ? 'Monitor drawdown and rebalance only if allocation drift exceeds your constraints.'
         : 'Current scenario risk is controlled; keep monitoring changes in volatility.',
     ai_explanation: `${scenarioName}: ${explanation}`,
-    guardrail: 'AI explanation is informational only. No automatic trading action is performed.'
+    guardrail: 'AI explanation is informational only. No automatic trading action is performed.',
+    risk_factors
   };
 }
 
