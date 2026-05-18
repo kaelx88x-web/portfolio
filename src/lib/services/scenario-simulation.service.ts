@@ -355,7 +355,11 @@ export async function getPortfolioProjection(
     buildAiPortfolioContext(userId, { period, benchmark }),
     portfolioMode === 'stock' ? Promise.resolve(null) : getPremiumAnalytics(userId, { period, benchmark })
   ]);
-  const annualReturn = baselineReturn(context);
+  // For hybrid/options mode, add annualized options premium yield on top of stock return.
+  // e.g. 3%/month = 36% annualized premium yield. Cap total at 60% to stay realistic.
+  const stockReturn = baselineReturn(context);
+  const premiumYield = portfolioMode !== 'stock' ? clamp(premium?.average_annualized_yield ?? 0, 0, 48) : 0;
+  const annualReturn = clamp(stockReturn + premiumYield, -20, 60);
   const volatility = Math.max(context.risk.volatilityPct, 6);
   const baseValue = Math.max(0, context.portfolio.value);
   const horizons = [
@@ -394,11 +398,13 @@ export async function getPortfolioProjection(
     base_value: round(baseValue),
     expected_annual_return: round(annualReturn),
     expected_volatility: round(volatility),
-    projected_income: round(context.performance.incomeTotal),
+    projected_income: round(context.performance.incomeTotal + (premium?.premium_collected ?? 0)),
     projected_options_premium: round(premium?.premium_collected ?? 0),
     points,
     risk_summary: riskSummary,
-    ai_explanation: `Projection uses the current ${context.metadata.period}/${context.metadata.benchmark} context, current value ${money(baseValue)}, and a ${round(volatility)}% volatility assumption.`,
+    ai_explanation: premiumYield > 0
+      ? `Projection combines stock return (${round(stockReturn)}%) + options premium yield (${round(premiumYield)}%) = ${round(annualReturn)}% total annual return. Based on ${context.metadata.period}/${context.metadata.benchmark} context and ${round(volatility)}% volatility.`
+      : `Projection uses the current ${context.metadata.period}/${context.metadata.benchmark} context, current value ${money(baseValue)}, and a ${round(volatility)}% volatility assumption.`,
     guardrail: 'Projection is not a guarantee and does not place trades.'
   };
 }
