@@ -493,7 +493,7 @@ export async function getScenarioSimulationDashboard(
       { label: 'Volatility Forecast', value: `${projection.expected_volatility.toFixed(2)}%`, status: projection.risk_summary.risk_level },
       { label: 'Scenario Risk Score', value: `${stressTest.worst_case?.riskSummary.scenario_risk_score ?? 0}/100`, status: stressTest.worst_case?.riskSummary.risk_level ?? 'medium' }
     ],
-    aiExplanation: `Phase 6C combines scenario stress, portfolio projection, and rebalance projection using the ${period}/${benchmark} AI context. All output is suggestion-only.`
+    aiExplanation: `Simulation combines scenario stress, portfolio projection, and rebalance projection using the ${period}/${benchmark} context. All output is suggestion-only.`
   };
 }
 
