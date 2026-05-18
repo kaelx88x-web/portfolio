@@ -41,8 +41,19 @@ export async function validatePortfolioGuardrails(
     return { passed: true, violations: [], summary: 'No holdings to validate.' };
   }
 
-  // --- Single stock concentration (options excluded — they are not standalone positions) ---
+  // Stocks that are underlyings for covered calls or CSPs must not be flagged for
+  // concentration — they cannot be reduced without breaking the options position.
+  const optionUnderlyings = new Set(
+    activeHoldings
+      .filter((h) => h.assetType === 'option' || /\d{6}[CP]\d+/.test(h.symbol ?? ''))
+      .map((h) => (h.symbol ?? '').replace(/^US\./, '').match(/^([A-Z]+)\d{6}[CP]/)?.[1])
+      .filter((s): s is string => !!s)
+  );
+
+  // --- Single stock concentration (option contracts and their underlyings excluded) ---
   for (const h of activeHoldings.filter((h) => h.assetType !== 'option')) {
+    const sym = (h.symbol ?? '').replace(/^US\./, '').match(/^([A-Z]+)/)?.[1] ?? h.symbol ?? '';
+    if (optionUnderlyings.has(sym)) continue;
     const pct = (h.marketValue / totalValue) * 100;
     if (pct > c.singleStockMaxPct) {
       violations.push({
