@@ -26,6 +26,14 @@
   <main class="main-col">
     <StressTestChart stressTest={data.stressTest} />
     {#each data.stressTest.scenarios as result}<ScenarioSimulationCard {result} />{/each}
+
+    <div class="next-step">
+      <div class="next-text">
+        <strong>Run a full Monte Carlo simulation</strong>
+        <span>See thousands of possible outcomes based on your current portfolio composition and risk profile.</span>
+      </div>
+      <a class="button" href="/optimization/simulation">View Simulation →</a>
+    </div>
   </main>
   <aside class="side-col">
     {#if data.stressTest.worst_case}<RiskProjectionCard title="Worst Case Risk" summary={data.stressTest.worst_case.riskSummary} />{/if}
@@ -43,5 +51,10 @@
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 12px; }
   .main-col, .side-col { display: grid; align-content: start; gap: 12px; }
   .guardrail { color: var(--muted); font-size: 0.74rem; line-height: 1.5; }
+  .next-step { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid rgba(var(--primary-rgb), 0.22); border-radius: 8px; background: rgba(var(--primary-rgb), 0.05); padding: 14px 16px; }
+  .next-text { display: grid; gap: 3px; }
+  .next-text strong { font-size: 0.82rem; color: var(--text); }
+  .next-text span { font-size: 0.72rem; color: var(--muted); }
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .next-step { flex-direction: column; align-items: flex-start; } }
 </style>
