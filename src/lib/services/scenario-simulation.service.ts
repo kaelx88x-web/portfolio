@@ -359,10 +359,9 @@ export async function getPortfolioProjection(
   const volatility = Math.max(context.risk.volatilityPct, 6);
   const baseValue = Math.max(0, context.portfolio.value);
   const horizons = [
-    { label: '1M', months: 1 },
-    { label: '3M', months: 3 },
-    { label: '6M', months: 6 },
-    { label: '12M', months: 12 }
+    { label: '1 Year', months: 12 },
+    { label: '3 Years', months: 36 },
+    { label: '5 Years', months: 60 }
   ];
   const points = horizons.map((horizon) => {
     const yearShare = horizon.months / 12;

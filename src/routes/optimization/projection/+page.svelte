@@ -17,8 +17,9 @@
   $: riskColor = riskLevel === 'high' ? 'red' as const : riskLevel === 'medium' ? 'amber' as const : 'green' as const;
   $: incomeLabel = data.projection.projected_options_premium > 0 ? 'Dividends + premium' : 'Dividends & income';
 
+  $: fiveYearPoint = data.projection.points.find((p) => p.months === 60) ?? data.projection.points.at(-1);
   $: stats = [
-    { label: '5-Year Target', value: money(data.projection.points.at(-1)?.expectedValue ?? data.projection.base_value), sub: 'Expected portfolio value' },
+    { label: '5-Year Target', value: money(fiveYearPoint?.expectedValue ?? data.projection.base_value), sub: 'Expected portfolio value' },
     { label: 'Annual Return', value: `${data.projection.expected_annual_return > 0 ? '+' : ''}${data.projection.expected_annual_return.toFixed(1)}%`, sub: 'Based on current rate' },
     { label: 'Projected Income', value: money(data.projection.projected_income), sub: incomeLabel },
     { label: 'Risk Score', value: `${data.projection.risk_summary.scenario_risk_score}/100`, color: riskColor, sub: riskLevel === 'high' ? 'High risk' : riskLevel === 'medium' ? 'Moderate' : 'Low risk' }
