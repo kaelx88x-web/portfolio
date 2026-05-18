@@ -200,6 +200,7 @@ export async function runOptimization(
     `;
   }
 
+  // Clear all previous suggestions for this user before inserting fresh ones
   await prisma.$executeRaw`DELETE FROM rebalance_suggestions WHERE user_id = ${userId}`;
 
   const suggestions = buildRebalanceSuggestions(context, scenarios, constraints);
@@ -244,7 +245,7 @@ export async function getOptimizationScenarios(userId: string, runId?: string) {
   return rows.map(mapScenarioRow);
 }
 
-export async function getRebalanceSuggestions(userId: string, limit = 8) {
+export async function getRebalanceSuggestions(userId: string) {
   const rows = await prisma.$queryRaw<RebalanceSuggestionRow[]>`
     SELECT
       id,
@@ -260,9 +261,15 @@ export async function getRebalanceSuggestions(userId: string, limit = 8) {
     FROM rebalance_suggestions
     WHERE user_id = ${userId}
     ORDER BY created_at DESC
-    LIMIT ${limit}
+    LIMIT 3
   `;
-  return rows.map(mapSuggestionRow);
+  // Deduplicate by title — old runs before the delete-on-run fix may leave stale rows
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (seen.has(row.title)) return false;
+    seen.add(row.title);
+    return true;
+  }).map(mapSuggestionRow);
 }
 
 export async function getOptimizationConstraints(userId: string): Promise<OptimizationConstraintSet> {
