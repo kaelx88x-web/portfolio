@@ -200,6 +200,8 @@ export async function runOptimization(
     `;
   }
 
+  await prisma.$executeRaw`DELETE FROM rebalance_suggestions WHERE user_id = ${userId}`;
+
   const suggestions = buildRebalanceSuggestions(context, scenarios, constraints);
   for (const suggestion of suggestions) {
     await prisma.$executeRaw`
