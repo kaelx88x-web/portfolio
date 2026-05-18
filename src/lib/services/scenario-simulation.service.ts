@@ -366,16 +366,18 @@ export async function getPortfolioProjection(
   ];
   const points = horizons.map((horizon) => {
     const yearShare = horizon.months / 12;
-    const expectedReturnPct = annualReturn * yearShare;
+    // Compound growth over the horizon — simple interest understates long-term returns
+    const compoundFactor = Math.pow(1 + annualReturn / 100, yearShare);
+    const expectedValue = baseValue * compoundFactor;
+    // Volatility band scales with √time (standard deviation of cumulative returns)
     const volBand = volatility * Math.sqrt(yearShare);
-    const expectedValue = baseValue * (1 + expectedReturnPct / 100);
     return {
       label: horizon.label,
       months: horizon.months,
       expectedValue: round(expectedValue),
-      downsideValue: round(baseValue * (1 + (expectedReturnPct - volBand) / 100)),
-      upsideValue: round(baseValue * (1 + (expectedReturnPct + volBand) / 100)),
-      expectedReturnPct: round(expectedReturnPct),
+      downsideValue: round(expectedValue * (1 - volBand / 100)),
+      upsideValue: round(expectedValue * (1 + volBand / 100)),
+      expectedReturnPct: round((compoundFactor - 1) * 100),
       projectedDrawdownPct: round(Math.min(context.risk.maxDrawdownPct, -Math.abs(volBand * 0.7))),
       volatilityPct: round(volatility * Math.sqrt(yearShare))
     };
