@@ -478,8 +478,25 @@ function buildRebalanceSuggestions(
 ): RebalanceSuggestion[] {
   const target = scenarios.find((scenario) => scenario.scenarioName.includes('Balanced')) ?? scenarios[0];
   const currentAllocation = context.allocation.bySymbol.map((slice) => ({ label: slice.label, percentage: round(slice.percentage, 2) }));
-  const largest = currentAllocation[0];
   const suggestions: RebalanceSuggestion[] = [];
+
+  // Stocks serving as covered call or CSP underlyings must not be flagged for reduction —
+  // they are collateral and reducing them would break the options position.
+  const optionUnderlyings = new Set(
+    context.portfolio.holdings
+      .filter((h) => h.assetType === 'option')
+      .map((h) => h.symbol.replace(/^US\./, '').match(/^([A-Z]+)\d{6}[CP]/)?.[1])
+      .filter((s): s is string => !!s)
+  );
+
+  const pureStockAllocation = currentAllocation
+    .filter((slice) => {
+      const sym = slice.label.replace(/^US\./, '').match(/^([A-Z]+)/)?.[1] ?? slice.label;
+      return !optionUnderlyings.has(sym);
+    })
+    .sort((a, b) => b.percentage - a.percentage);
+
+  const largest = pureStockAllocation[0];
 
   if (largest && largest.percentage > constraints.singleStockMaxPct) {
     suggestions.push({
