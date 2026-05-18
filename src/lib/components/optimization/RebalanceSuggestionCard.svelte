@@ -4,9 +4,11 @@
 
   export let suggestion: RebalanceSuggestion;
 
-  // Derive concrete actions from targetAllocation deltas
+  // Derive concrete actions from targetAllocation deltas.
+  // Never suggest REDUCE for option underlyings (role === 'options') — they are collateral.
   $: actions = suggestion.targetAllocation
     .filter((row) => Math.abs(row.deltaPct) >= 0.5)
+    .filter((row) => !(row.role === 'options' && row.deltaPct < 0))
     .sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct))
     .slice(0, 6)
     .map((row) => ({
