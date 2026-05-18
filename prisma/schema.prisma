@@ -13,6 +13,7 @@ model User {
   email            String              @unique
   passwordHash     String
   baseCurrency     String              @default("USD")
+  portfolioMode    String              @default("stock") @db.VarChar(20)
   accounts         Account[]
   transactions     Transaction[]
   holdingSnaps     HoldingSnapshot[]
@@ -36,6 +37,29 @@ model User {
   aiRiskNarratives AiRiskNarrative[]
   aiRiskAlerts AiRiskAlert[]
   aiRiskExplanations AiRiskExplanation[]
+  optimizationRuns OptimizationRun[]
+  rebalanceSuggestions RebalanceSuggestion[]
+  optimizationConstraints OptimizationConstraint[]
+  simulationRuns SimulationRun[]
+  rebalanceProjections RebalanceProjection[]
+  portfolioStrategyProfiles PortfolioStrategyProfile[]
+  strategyRecommendations StrategyRecommendation[]
+  strategyConflicts StrategyConflict[]
+  tradeTickets TradeTicket[]
+  tradeTicketAuditLogs TradeTicketAuditLog[]
+  tradeApprovals TradeApproval[]
+  brokerExecutionRequests BrokerExecutionRequest[]
+  brokerOrderSubmissions BrokerOrderSubmission[]
+  executionSafetyChecks ExecutionSafetyCheck[]
+  brokerOrders BrokerOrder[]
+  brokerOrderEvents BrokerOrderEvent[]
+  brokerOrderFills BrokerOrderFill[]
+  orderReconciliationLogs OrderReconciliationLog[]
+  allocationHealthReports AllocationHealthReport[]
+  allocationSuggestions AllocationSuggestion[]
+  optionsPositions OptionsPosition[]
+  optionsExposureReports OptionsExposureReport[]
+  wheelStrategyReports WheelStrategyReport[]
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 }
@@ -510,6 +534,539 @@ model AnalyticsCache {
 
   @@index([userId, cacheType, expiresAt])
   @@map("analytics_cache")
+}
+
+model OptimizationRun {
+  id                 String                 @id @default(cuid())
+  userId             String                 @map("user_id")
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioMode      String                 @map("portfolio_mode") @db.VarChar(30)
+  optimizationGoal   String                 @map("optimization_goal") @db.VarChar(40)
+  riskProfile        String                 @map("risk_profile") @db.VarChar(30)
+  status             String                 @default("completed") @db.VarChar(30)
+  metadataJson       String                 @map("metadata") @db.LongText
+  scenarios          OptimizationScenario[]
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
+  @@map("optimization_runs")
+}
+
+model OptimizationScenario {
+  id                    String          @id @default(cuid())
+  optimizationRunId      String          @map("optimization_run_id")
+  optimizationRun        OptimizationRun @relation(fields: [optimizationRunId], references: [id], onDelete: Cascade)
+  scenarioName           String          @map("scenario_name") @db.VarChar(80)
+  expectedReturn         Float           @map("expected_return")
+  expectedVolatility     Float           @map("expected_volatility")
+  sharpeRatio            Float           @map("sharpe_ratio")
+  allocationJson         String          @map("allocation_json") @db.LongText
+  optionsAllocationJson  String?         @map("options_allocation_json") @db.LongText
+  metadataJson           String          @map("metadata") @db.LongText
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  @@index([optimizationRunId])
+  @@map("optimization_scenarios")
+}
+
+model RebalanceSuggestion {
+  id                    String   @id @default(cuid())
+  userId                String   @map("user_id")
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotId            String?  @map("snapshot_id")
+  title                 String
+  summary               String   @db.Text
+  currentAllocationJson String   @map("current_allocation_json") @db.LongText
+  targetAllocationJson  String   @map("target_allocation_json") @db.LongText
+  riskImpact            String   @map("risk_impact") @db.Text
+  volatilityImpact      String   @map("volatility_impact") @db.Text
+  status                String   @default("suggested") @db.VarChar(30)
+  metadataJson          String   @map("metadata") @db.LongText
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, status, createdAt])
+  @@map("rebalance_suggestions")
+}
+
+model SimulationRun {
+  id            String             @id @default(cuid())
+  userId        String             @map("user_id")
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenarioType  String             @map("scenario_type") @db.VarChar(50)
+  portfolioMode String             @map("portfolio_mode") @db.VarChar(30)
+  status        String             @default("completed") @db.VarChar(30)
+  metadataJson  String             @map("metadata") @db.LongText
+  results       SimulationResult[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([userId, scenarioType, createdAt])
+  @@map("simulation_runs")
+}
+
+model SimulationResult {
+  id                    String        @id @default(cuid())
+  simulationRunId        String        @map("simulation_run_id")
+  simulationRun          SimulationRun @relation(fields: [simulationRunId], references: [id], onDelete: Cascade)
+  scenarioName           String        @map("scenario_name") @db.VarChar(100)
+  projectedReturn        Float         @map("projected_return")
+  projectedVolatility    Float         @map("projected_volatility")
+  projectedDrawdown      Float         @map("projected_drawdown")
+  allocationJson         String        @map("allocation_json") @db.LongText
+  riskSummaryJson        String        @map("risk_summary_json") @db.LongText
+  metadataJson           String        @map("metadata") @db.LongText
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+
+  @@index([simulationRunId])
+  @@map("simulation_results")
+}
+
+model RebalanceProjection {
+  id                       String   @id @default(cuid())
+  userId                   String   @map("user_id")
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentAllocationJson    String   @map("current_allocation_json") @db.LongText
+  projectedAllocationJson  String   @map("projected_allocation_json") @db.LongText
+  riskReduction            Float    @map("risk_reduction")
+  expectedReturnChange     Float    @map("expected_return_change")
+  volatilityChange         Float    @map("volatility_change")
+  metadataJson             String   @map("metadata") @db.LongText
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@map("rebalance_projections")
+}
+
+model StressTestCache {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  portfolioMode String   @map("portfolio_mode") @db.VarChar(30)
+  dataJson      String   @map("data_json") @db.LongText
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, portfolioMode])
+  @@map("stress_test_cache")
+}
+
+model PortfolioProjectionCache {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  portfolioMode String   @map("portfolio_mode") @db.VarChar(30)
+  dataJson      String   @map("data_json") @db.LongText
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, portfolioMode])
+  @@map("portfolio_projection_cache")
+}
+
+model PortfolioStrategyProfile {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileType    String   @map("profile_type") @db.VarChar(50)
+  riskTolerance  Float    @map("risk_tolerance")
+  incomeTarget   Float    @map("income_target")
+  growthTarget   Float    @map("growth_target")
+  cashTarget     Float    @map("cash_target")
+  optionsTarget  Float    @map("options_target")
+  metadataJson   String   @map("metadata") @db.LongText
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([userId, profileType, updatedAt])
+  @@map("portfolio_strategy_profiles")
+}
+
+model StrategyRecommendation {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyMode       String   @map("strategy_mode") @db.VarChar(60)
+  title              String
+  summary            String   @db.Text
+  priority           String   @db.VarChar(30)
+  riskLevel          String   @map("risk_level") @db.VarChar(30)
+  recommendationJson String   @map("recommendation_json") @db.LongText
+  metadataJson       String   @map("metadata") @db.LongText
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, strategyMode, createdAt])
+  @@index([userId, priority, createdAt])
+  @@map("strategy_recommendations")
+}
+
+model StrategyConflict {
+  id                   String   @id @default(cuid())
+  userId               String   @map("user_id")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conflictType         String   @map("conflict_type") @db.VarChar(80)
+  severity             String   @db.VarChar(30)
+  description          String   @db.Text
+  resolutionSuggestion String   @map("resolution_suggestion") @db.Text
+  metadataJson         String   @map("metadata") @db.LongText
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, severity, createdAt])
+  @@index([userId, conflictType, createdAt])
+  @@map("strategy_conflicts")
+}
+
+model TradeTicket {
+  id             String                @id @default(cuid())
+  userId         String                @map("user_id")
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceType     String                @map("source_type") @db.VarChar(50)
+  sourceId       String?               @map("source_id") @db.VarChar(120)
+  ticketType     String                @map("ticket_type") @db.VarChar(40)
+  symbol         String                @db.VarChar(80)
+  side           String                @db.VarChar(20)
+  quantity       Float
+  orderType      String                @map("order_type") @db.VarChar(30)
+  limitPrice     Float?                @map("limit_price")
+  estimatedValue Float                 @map("estimated_value")
+  riskLevel      String                @map("risk_level") @db.VarChar(30)
+  status         String                @default("draft") @db.VarChar(30)
+  thesis         String                @db.Text
+  guardrailJson  String                @map("guardrail_json") @db.LongText
+  approvalJson   String?               @map("approval_json") @db.LongText
+  metadataJson   String                @map("metadata") @db.LongText
+  auditLogs      TradeTicketAuditLog[]
+  approvals      TradeApproval[]
+  executionRequests BrokerExecutionRequest[]
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  @@index([userId, status, createdAt])
+  @@index([userId, sourceType, sourceId])
+  @@map("trade_tickets")
+}
+
+model TradeTicketAuditLog {
+  id             String      @id @default(cuid())
+  tradeTicketId  String      @map("trade_ticket_id")
+  tradeTicket    TradeTicket @relation(fields: [tradeTicketId], references: [id], onDelete: Cascade)
+  userId         String      @map("user_id")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType      String      @map("event_type") @db.VarChar(50)
+  previousStatus String?     @map("previous_status") @db.VarChar(30)
+  newStatus      String?     @map("new_status") @db.VarChar(30)
+  message        String      @db.Text
+  metadataJson   String      @map("metadata") @db.LongText
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@index([tradeTicketId, createdAt])
+  @@index([userId, createdAt])
+  @@map("trade_ticket_audit_logs")
+}
+
+model TradeApproval {
+  id             String      @id @default(cuid())
+  tradeTicketId  String      @map("trade_ticket_id")
+  tradeTicket    TradeTicket @relation(fields: [tradeTicketId], references: [id], onDelete: Cascade)
+  userId         String      @map("user_id")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvalStatus String      @map("approval_status") @db.VarChar(30)
+  approvedBy     String      @map("approved_by") @db.VarChar(120)
+  decisionNote   String      @map("decision_note") @db.Text
+  guardrailJson  String      @map("guardrail_json") @db.LongText
+  metadataJson   String      @map("metadata") @db.LongText
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  @@index([tradeTicketId, createdAt])
+  @@index([userId, approvalStatus, createdAt])
+  @@map("trade_approvals")
+}
+
+model BrokerExecutionRequest {
+  id                   String                  @id @default(cuid())
+  userId               String                  @map("user_id")
+  user                 User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradeTicketId        String                  @map("trade_ticket_id")
+  tradeTicket          TradeTicket             @relation(fields: [tradeTicketId], references: [id], onDelete: Cascade)
+  broker               String                  @default("moomoo") @db.VarChar(40)
+  executionMode        String                  @map("execution_mode") @db.VarChar(30)
+  status               String                  @default("previewed") @db.VarChar(30)
+  symbol               String                  @db.VarChar(80)
+  brokerSymbol         String                  @map("broker_symbol") @db.VarChar(80)
+  side                 String                  @db.VarChar(20)
+  orderType            String                  @map("order_type") @db.VarChar(30)
+  quantity             Float
+  limitPrice           Float?                  @map("limit_price")
+  estimatedValue       Float                   @map("estimated_value")
+  confirmationRequired Boolean                 @default(true) @map("confirmation_required")
+  confirmedAt          DateTime?               @map("confirmed_at")
+  safetyJson           String                  @map("safety_json") @db.LongText
+  requestJson          String                  @map("request_json") @db.LongText
+  responseJson         String?                 @map("response_json") @db.LongText
+  metadataJson         String                  @map("metadata") @db.LongText
+  submissions          BrokerOrderSubmission[]
+  safetyChecks         ExecutionSafetyCheck[]
+  brokerOrders         BrokerOrder[]
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+
+  @@index([userId, status, createdAt])
+  @@index([tradeTicketId, createdAt])
+  @@index([broker, executionMode, status])
+  @@map("broker_execution_requests")
+}
+
+model BrokerOrderSubmission {
+  id                 String                 @id @default(cuid())
+  executionRequestId String                 @map("execution_request_id")
+  executionRequest   BrokerExecutionRequest @relation(fields: [executionRequestId], references: [id], onDelete: Cascade)
+  userId             String                 @map("user_id")
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker             String                 @default("moomoo") @db.VarChar(40)
+  brokerOrderId      String?                @map("broker_order_id") @db.VarChar(120)
+  brokerStatus       String                 @default("not_submitted") @map("broker_status") @db.VarChar(50)
+  submissionStatus   String                 @map("submission_status") @db.VarChar(30)
+  submitMode         String                 @map("submit_mode") @db.VarChar(30)
+  requestJson        String                 @map("request_json") @db.LongText
+  responseJson       String                 @map("response_json") @db.LongText
+  errorMessage       String?                @map("error_message") @db.Text
+  submittedAt        DateTime?              @map("submitted_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  @@index([executionRequestId, createdAt])
+  @@index([userId, submissionStatus, createdAt])
+  @@index([brokerOrderId])
+  @@map("broker_order_submissions")
+}
+
+model ExecutionSafetyCheck {
+  id                 String                 @id @default(cuid())
+  executionRequestId String                 @map("execution_request_id")
+  executionRequest   BrokerExecutionRequest @relation(fields: [executionRequestId], references: [id], onDelete: Cascade)
+  userId             String                 @map("user_id")
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkType          String                 @map("check_type") @db.VarChar(60)
+  checkStatus        String                 @map("check_status") @db.VarChar(30)
+  message            String                 @db.Text
+  detailJson         String                 @map("detail_json") @db.LongText
+  createdAt          DateTime               @default(now()) @map("created_at")
+
+  @@index([executionRequestId, createdAt])
+  @@index([userId, checkStatus, createdAt])
+  @@map("execution_safety_checks")
+}
+
+model BrokerOrder {
+  id                 String                   @id @default(cuid())
+  userId             String                   @map("user_id")
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executionRequestId String?                  @map("execution_request_id")
+  executionRequest   BrokerExecutionRequest?  @relation(fields: [executionRequestId], references: [id], onDelete: SetNull)
+  broker             String                   @default("moomoo") @db.VarChar(40)
+  brokerOrderId      String                   @map("broker_order_id") @db.VarChar(120)
+  brokerAccountId    String?                  @map("broker_account_id") @db.VarChar(120)
+  symbol             String                   @db.VarChar(80)
+  side               String                   @db.VarChar(30)
+  orderType          String                   @map("order_type") @db.VarChar(30)
+  status             String                   @db.VarChar(50)
+  quantity           Float
+  filledQuantity     Float                    @default(0) @map("filled_quantity")
+  limitPrice         Float?                   @map("limit_price")
+  averageFillPrice   Float?                   @map("average_fill_price")
+  currency           String                   @default("USD") @db.VarChar(12)
+  submittedAt        DateTime?                @map("submitted_at")
+  lastBrokerUpdateAt DateTime?                @map("last_broker_update_at")
+  metadataJson       String                   @map("metadata") @db.LongText
+  events             BrokerOrderEvent[]
+  fills              BrokerOrderFill[]
+  reconciliations    OrderReconciliationLog[]
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+
+  @@unique([userId, broker, brokerOrderId])
+  @@index([userId, status, createdAt])
+  @@index([executionRequestId])
+  @@index([brokerOrderId])
+  @@map("broker_orders")
+}
+
+model BrokerOrderEvent {
+  id                String      @id @default(cuid())
+  brokerOrderRowId  String      @map("broker_order_row_id")
+  brokerOrder       BrokerOrder @relation(fields: [brokerOrderRowId], references: [id], onDelete: Cascade)
+  userId            String      @map("user_id")
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType         String      @map("event_type") @db.VarChar(60)
+  previousStatus    String?     @map("previous_status") @db.VarChar(50)
+  newStatus         String?     @map("new_status") @db.VarChar(50)
+  message           String      @db.Text
+  brokerPayloadJson String      @map("broker_payload_json") @db.LongText
+  metadataJson      String      @map("metadata") @db.LongText
+  occurredAt        DateTime    @default(now()) @map("occurred_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  @@index([brokerOrderRowId, occurredAt])
+  @@index([userId, eventType, occurredAt])
+  @@map("broker_order_events")
+}
+
+model BrokerOrderFill {
+  id               String      @id @default(cuid())
+  brokerOrderRowId String      @map("broker_order_row_id")
+  brokerOrder      BrokerOrder @relation(fields: [brokerOrderRowId], references: [id], onDelete: Cascade)
+  userId           String      @map("user_id")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerFillId     String      @map("broker_fill_id") @db.VarChar(120)
+  quantity         Float
+  price            Float
+  fee              Float       @default(0)
+  currency         String      @default("USD") @db.VarChar(12)
+  executedAt       DateTime?   @map("executed_at")
+  metadataJson     String      @map("metadata") @db.LongText
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  @@unique([brokerOrderRowId, brokerFillId])
+  @@index([userId, executedAt])
+  @@map("broker_order_fills")
+}
+
+model OrderReconciliationLog {
+  id                 String       @id @default(cuid())
+  brokerOrderRowId   String?      @map("broker_order_row_id")
+  brokerOrder        BrokerOrder? @relation(fields: [brokerOrderRowId], references: [id], onDelete: SetNull)
+  userId             String       @map("user_id")
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reconciliationType String       @map("reconciliation_type") @db.VarChar(60)
+  reconciliationStatus String     @map("reconciliation_status") @db.VarChar(30)
+  mismatchJson       String       @map("mismatch_json") @db.LongText
+  actionRequired     Boolean      @default(false) @map("action_required")
+  message            String       @db.Text
+  metadataJson       String       @map("metadata") @db.LongText
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  @@index([brokerOrderRowId, createdAt])
+  @@index([userId, reconciliationStatus, createdAt])
+  @@map("order_reconciliation_logs")
+}
+
+model OptimizationConstraint {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  constraintKey String   @map("constraint_key") @db.VarChar(80)
+  constraintJson String  @map("constraint_json") @db.LongText
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, constraintKey])
+  @@index([userId, updatedAt])
+  @@map("optimization_constraints")
+}
+
+model AllocationHealthReport {
+  id                     String   @id @default(cuid())
+  userId                 String   @map("user_id")
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotDate           DateTime @map("snapshot_date")
+  allocationScore        Float    @map("allocation_score")
+  diversificationScore   Float    @map("diversification_score")
+  cashEfficiencyScore    Float    @map("cash_efficiency_score")
+  volatilityBalanceScore Float    @map("volatility_balance_score")
+  portfolioStyle         String   @map("portfolio_style") @db.VarChar(40)
+  healthLevel            String   @map("health_level") @db.VarChar(30)
+  metadataJson           String   @map("metadata") @db.LongText
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, snapshotDate])
+  @@index([userId, healthLevel, createdAt])
+  @@map("allocation_health_reports")
+}
+
+model AllocationSuggestion {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  summary            String   @db.Text
+  currentStateJson   String   @map("current_state_json") @db.LongText
+  suggestedStateJson String   @map("suggested_state_json") @db.LongText
+  impactEstimate     String   @map("impact_estimate") @db.Text
+  priority           String   @db.VarChar(30)
+  metadataJson       String   @map("metadata") @db.LongText
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, priority, createdAt])
+  @@map("allocation_suggestions")
+}
+
+model OptionsPosition {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccountId String?  @map("trading_account_id")
+  symbol           String   @db.VarChar(80)
+  optionType       String   @map("option_type") @db.VarChar(10)
+  strike           Float
+  expirationDate   DateTime @map("expiration_date")
+  contracts        Float
+  premium          Float
+  collateral       Float
+  status           String   @default("open") @db.VarChar(30)
+  metadataJson     String   @map("metadata") @db.LongText
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, symbol, expirationDate])
+  @@index([userId, optionType, status])
+  @@map("options_positions")
+}
+
+model OptionsExposureReport {
+  id                   String   @id @default(cuid())
+  userId               String   @map("user_id")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotDate         DateTime @map("snapshot_date")
+  totalOptionsExposure Float    @map("total_options_exposure")
+  putExposure          Float    @map("put_exposure")
+  callExposure         Float    @map("call_exposure")
+  collateralLocked     Float    @map("collateral_locked")
+  premiumGenerated     Float    @map("premium_generated")
+  assignmentRiskScore  Float    @map("assignment_risk_score")
+  metadataJson         String   @map("metadata") @db.LongText
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, snapshotDate])
+  @@map("options_exposure_reports")
+}
+
+model WheelStrategyReport {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol             String   @db.VarChar(40)
+  strategyStatus     String   @map("strategy_status") @db.VarChar(60)
+  premiumCollected   Float    @map("premium_collected")
+  assignmentCount    Int      @default(0) @map("assignment_count")
+  coveredCallCycles  Int      @default(0) @map("covered_call_cycles")
+  realizedIncome     Float    @map("realized_income")
+  metadataJson       String   @map("metadata") @db.LongText
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, symbol, createdAt])
+  @@map("wheel_strategy_reports")
 }
 
 model BenchmarkPrice {

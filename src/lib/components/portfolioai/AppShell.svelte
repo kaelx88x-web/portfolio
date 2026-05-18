@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
+  import { page, navigating } from '$app/stores';
   import Sidebar from './Sidebar.svelte';
   import Topbar  from './Topbar.svelte';
 
   export let showAiPanel = false;
 
   let sidebarCollapsed = false;
-  let aiPanelOpen = showAiPanel;
+  let mobileMenuOpen   = false;
+  let aiPanelOpen      = showAiPanel;
 
   const AI_PANEL_ROUTES = ['/dashboard', '/ai'];
 
@@ -15,7 +16,6 @@
     const sc = localStorage.getItem('portfolioai:sidebar-collapsed');
     if (sc !== null) sidebarCollapsed = sc === 'true';
 
-    // Per-route AI panel default (only on first visit — no stored pref)
     const stored = localStorage.getItem('portfolioai:ai-panel-open');
     if (stored !== null) {
       aiPanelOpen = stored === 'true';
@@ -25,10 +25,19 @@
     }
   });
 
+  // Close mobile menu on route change
+  $: if ($page.url.pathname) mobileMenuOpen = false;
+
   function toggleSidebar() {
-    sidebarCollapsed = !sidebarCollapsed;
-    localStorage.setItem('portfolioai:sidebar-collapsed', String(sidebarCollapsed));
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      mobileMenuOpen = !mobileMenuOpen;
+    } else {
+      sidebarCollapsed = !sidebarCollapsed;
+      localStorage.setItem('portfolioai:sidebar-collapsed', String(sidebarCollapsed));
+    }
   }
+
+  function closeMobileMenu() { mobileMenuOpen = false; }
 
   function toggleAiPanel() {
     aiPanelOpen = !aiPanelOpen;
@@ -37,6 +46,12 @@
 </script>
 
 <div class="shell">
+
+  <!-- Navigation progress bar -->
+  {#if $navigating}
+    <div class="nav-bar"><div class="nav-bar-fill"></div></div>
+  {/if}
+
   <!-- Topbar -->
   <header class="shell-topbar">
     <Topbar
@@ -48,8 +63,19 @@
   </header>
 
   <div class="shell-body">
+
+    <!-- Mobile sidebar backdrop -->
+    {#if mobileMenuOpen}
+      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+      <div class="mobile-backdrop" on:click={closeMobileMenu}></div>
+    {/if}
+
     <!-- Sidebar -->
-    <aside class="shell-sidebar" class:collapsed={sidebarCollapsed}>
+    <aside
+      class="shell-sidebar"
+      class:collapsed={sidebarCollapsed}
+      class:mobile-open={mobileMenuOpen}
+    >
       <Sidebar {sidebarCollapsed} on:toggleSidebar={toggleSidebar} />
     </aside>
 
@@ -61,7 +87,7 @@
   </div>
 </div>
 
-<!-- AI Panel — fixed overlay so it never squeezes page content -->
+<!-- AI Panel — fixed overlay -->
 {#if aiPanelOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="ai-panel-backdrop" on:click={toggleAiPanel}></div>
@@ -77,12 +103,22 @@
   </aside>
 {/if}
 
-<!-- Mobile overlay -->
-<div class="mobile-nav">
-  <slot />
-</div>
-
 <style>
+  .nav-bar {
+    position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 9999;
+    background: rgba(var(--primary-rgb), 0.15);
+  }
+  .nav-bar-fill {
+    height: 100%; width: 80%;
+    background: var(--primary);
+    animation: nav-progress 1.6s ease-in-out infinite;
+    border-radius: 0 2px 2px 0;
+  }
+  @keyframes nav-progress {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(150%); }
+  }
+
   .shell {
     display: flex; flex-direction: column;
     height: 100vh; overflow: hidden;
@@ -100,9 +136,10 @@
   }
 
   .shell-body {
-    display: flex; flex: 1; overflow: hidden;
+    display: flex; flex: 1; overflow: hidden; position: relative;
   }
 
+  /* ── Desktop sidebar ── */
   .shell-sidebar {
     width: 240px; flex-shrink: 0;
     transition: width 0.2s ease;
@@ -121,6 +158,7 @@
     min-width: 0;
   }
 
+  /* ── AI panel ── */
   .shell-ai-panel {
     position: fixed;
     top: 56px; right: 0; bottom: 0;
@@ -136,20 +174,46 @@
   }
 
   .ai-panel-backdrop {
-    position: fixed;
-    inset: 56px 0 0 0;
-    z-index: 29;
+    position: fixed; inset: 56px 0 0 0; z-index: 29;
     background: transparent;
   }
 
   .ai-panel-placeholder { padding: 8px; }
 
-  /* Hide the desktop shell on mobile, show mobile-nav slot */
+  /* ── Mobile ── */
   @media (max-width: 767px) {
-    .shell { display: none; }
-    .mobile-nav { display: block; }
-  }
-  @media (min-width: 768px) {
-    .mobile-nav { display: none; }
+    /* Sidebar becomes a fixed off-canvas drawer */
+    .shell-sidebar {
+      position: fixed;
+      top: 56px; left: 0; bottom: 0;
+      width: 260px !important;          /* override collapsed width */
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      z-index: 45;
+      border-right: 1px solid var(--overlay-border);
+    }
+    .shell-sidebar.mobile-open {
+      transform: translateX(0);
+      box-shadow: 4px 0 24px rgba(0,0,0,0.35);
+    }
+
+    /* Backdrop for mobile drawer */
+    .mobile-backdrop {
+      position: fixed; inset: 56px 0 0 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 44;
+      backdrop-filter: blur(2px);
+    }
+
+    /* Main takes full width */
+    .shell-main {
+      padding: 16px;
+    }
+
+    /* AI panel narrower on mobile */
+    .shell-ai-panel {
+      width: 100%;
+      max-width: 320px;
+    }
   }
 </style>

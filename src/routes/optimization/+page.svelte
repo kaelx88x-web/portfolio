@@ -10,6 +10,46 @@
   export let data: PageData;
   export let form: ActionData;
 
+  let running = false;
+  let progress = 0;
+  let progressInterval: ReturnType<typeof setInterval> | null = null;
+
+  const steps = [
+    { pct: 15, label: 'Loading portfolio context…' },
+    { pct: 30, label: 'Building optimization scenarios…' },
+    { pct: 50, label: 'Computing rebalance suggestions…' },
+    { pct: 65, label: 'Running stress test…' },
+    { pct: 78, label: 'Calculating portfolio projection…' },
+    { pct: 88, label: 'Caching results…' },
+    { pct: 94, label: 'Finalising…' }
+  ];
+  let stepLabel = steps[0].label;
+
+  function handleRunSubmit() {
+    running = true;
+    progress = 0;
+    stepLabel = steps[0].label;
+    let stepIndex = 0;
+    progressInterval = setInterval(() => {
+      const next = steps[stepIndex];
+      if (!next) return;
+      progress = next.pct;
+      stepLabel = next.label;
+      stepIndex++;
+      if (stepIndex >= steps.length && progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+    }, 900);
+  }
+
+  $: if (form) {
+    progress = 100;
+    stepLabel = 'Done!';
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    setTimeout(() => { running = false; progress = 0; }, 600);
+  }
+
   $: s = data.activeScenario;
 
   function guardrailStatusFor(g: typeof data.guardrail) {
@@ -42,8 +82,24 @@
   breadcrumb={[{ label: 'Portfolio', href: '/dashboard' }, { label: 'Optimization' }]}
 />
 
+{#if running}
+  <div class="run-overlay">
+    <div class="run-overlay-box">
+      <div class="run-spinner"></div>
+      <div class="run-title">Running Optimization</div>
+      <div class="run-step">{stepLabel}</div>
+      <div class="run-bar-wrap">
+        <div class="run-bar-fill" style="width: {progress}%"></div>
+      </div>
+      <div class="run-pct">{progress}%</div>
+    </div>
+  </div>
+{/if}
+
 {#if form?.message}<div class="notice">{form.message}</div>{/if}
 
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<div on:submit={handleRunSubmit}>
 <OptimizationModeSelector
   portfolioModes={data.portfolioModes}
   optimizationGoals={data.optimizationGoals}
@@ -52,6 +108,7 @@
   currentGoal={data.run.optimizationGoal}
   currentRisk={data.run.riskProfile}
 />
+</div>
 
 {#if stats.length > 0}
   <OptimizationStatStrip {stats} />
@@ -133,6 +190,31 @@
 </details>
 
 <style>
+  .run-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .run-overlay-box {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 36px 48px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+  .run-spinner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid rgba(var(--primary-rgb), 0.2);
+    border-top-color: var(--primary);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .run-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .run-step { font-size: 0.72rem; color: var(--muted); min-height: 1.2em; transition: opacity 0.2s; }
+  .run-bar-wrap { width: 240px; height: 6px; background: rgba(var(--primary-rgb), 0.15); border-radius: 999px; overflow: hidden; }
+  .run-bar-fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.7s ease; }
+  .run-pct { font-size: 0.72rem; font-weight: 700; color: var(--primary); }
+
   .notice { margin-bottom: 12px; border: 1px solid rgba(var(--success-rgb), 0.3); border-radius: 8px; background: rgba(var(--success-rgb), 0.08); color: var(--success); padding: 10px 12px; font-size: 0.78rem; }
   .hub-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 10px; }
   .hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }

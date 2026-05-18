@@ -13,6 +13,13 @@ import {
   saveUserPortfolioMode,
   type OptimizationConstraintSet
 } from '$lib/services/optimization-engine.service';
+import {
+  getStressTest,
+  getPortfolioProjection,
+  getRebalanceProjection,
+  saveStressTestCache,
+  savePortfolioProjectionCache
+} from '$lib/services/scenario-simulation.service';
 import { validatePortfolioGuardrails } from '$lib/services/guardrail.service';
 import type { PageServerLoad } from './$types';
 
@@ -42,13 +49,21 @@ export const actions: Actions = {
     try {
       const portfolioMode = parsePortfolioMode(form.get('portfolioMode'));
       const guardrail = await validatePortfolioGuardrails(user.id, portfolioMode);
-      await runOptimization(user.id, {
-        portfolioMode,
-        optimizationGoal: parseOptimizationGoal(form.get('optimizationGoal')),
-        riskProfile: parseRiskProfile(form.get('riskProfile')),
-        period: parseOptimizationPeriod(url.searchParams.get('period')),
-        benchmark: parseOptimizationBenchmark(url.searchParams.get('benchmark'))
-      });
+      const period = parseOptimizationPeriod(url.searchParams.get('period'));
+      const benchmark = parseOptimizationBenchmark(url.searchParams.get('benchmark'));
+      await runOptimization(user.id, { portfolioMode, optimizationGoal: parseOptimizationGoal(form.get('optimizationGoal')), riskProfile: parseRiskProfile(form.get('riskProfile')), period, benchmark });
+
+      // Pre-compute and cache heavy sub-page data so navigating to stress-test / projection / simulation is instant
+      const [stressTest, projection] = await Promise.all([
+        getStressTest(user.id, { period, benchmark, portfolioMode, skipCache: true }),
+        getPortfolioProjection(user.id, { period, benchmark, portfolioMode, skipCache: true }),
+        getRebalanceProjection(user.id, { period, benchmark, portfolioMode, persist: true })
+      ]);
+      await Promise.all([
+        saveStressTestCache(user.id, portfolioMode, stressTest),
+        savePortfolioProjectionCache(user.id, portfolioMode, projection)
+      ]);
+
       return { status: 'completed', message: 'Optimization run completed.', guardrail };
     } catch (error) {
       return fail(400, { message: error instanceof Error ? error.message : 'Optimization run failed.' });

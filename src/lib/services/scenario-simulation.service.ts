@@ -310,13 +310,64 @@ export async function getSimulationResults(
   return rows.map(mapSimulationResultRow);
 }
 
+type CacheRow = { dataJson: string };
+
+async function readStressTestCache(userId: string, portfolioMode: string) {
+  const rows = await prisma.$queryRaw<CacheRow[]>`
+    SELECT data_json AS dataJson FROM stress_test_cache
+    WHERE user_id = ${userId} AND portfolio_mode = ${portfolioMode}
+    ORDER BY created_at DESC LIMIT 1
+  `;
+  if (!rows[0]) return null;
+  try { return JSON.parse(rows[0].dataJson); } catch { return null; }
+}
+
+export async function saveStressTestCache(userId: string, portfolioMode: string, data: unknown) {
+  return writeStressTestCache(userId, portfolioMode, data);
+}
+
+async function writeStressTestCache(userId: string, portfolioMode: string, data: unknown) {
+  await prisma.$executeRaw`DELETE FROM stress_test_cache WHERE user_id = ${userId} AND portfolio_mode = ${portfolioMode}`;
+  await prisma.$executeRaw`
+    INSERT INTO stress_test_cache (id, user_id, portfolio_mode, data_json, created_at, updated_at)
+    VALUES (${randomUUID()}, ${userId}, ${portfolioMode}, ${JSON.stringify(data)}, NOW(), NOW())
+  `;
+}
+
+async function readProjectionCache(userId: string, portfolioMode: string) {
+  const rows = await prisma.$queryRaw<CacheRow[]>`
+    SELECT data_json AS dataJson FROM portfolio_projection_cache
+    WHERE user_id = ${userId} AND portfolio_mode = ${portfolioMode}
+    ORDER BY created_at DESC LIMIT 1
+  `;
+  if (!rows[0]) return null;
+  try { return JSON.parse(rows[0].dataJson) as PortfolioProjection; } catch { return null; }
+}
+
+export async function savePortfolioProjectionCache(userId: string, portfolioMode: string, data: PortfolioProjection) {
+  return writeProjectionCache(userId, portfolioMode, data);
+}
+
+async function writeProjectionCache(userId: string, portfolioMode: string, data: PortfolioProjection) {
+  await prisma.$executeRaw`DELETE FROM portfolio_projection_cache WHERE user_id = ${userId} AND portfolio_mode = ${portfolioMode}`;
+  await prisma.$executeRaw`
+    INSERT INTO portfolio_projection_cache (id, user_id, portfolio_mode, data_json, created_at, updated_at)
+    VALUES (${randomUUID()}, ${userId}, ${portfolioMode}, ${JSON.stringify(data)}, NOW(), NOW())
+  `;
+}
+
 export async function getStressTest(
   userId: string,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; portfolioMode?: PortfolioMode } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; portfolioMode?: PortfolioMode; skipCache?: boolean } = {}
 ) {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
   const portfolioMode = options.portfolioMode ?? 'hybrid';
+
+  if (!options.skipCache) {
+    const cached = await readStressTestCache(userId, portfolioMode);
+    if (cached) return cached;
+  }
   const [context, optionsRisk] = await Promise.all([
     buildAiPortfolioContext(userId, { period, benchmark }),
     portfolioMode === 'stock' ? Promise.resolve(null) : getOptionsRiskAnalysis(userId, { period, benchmark })
@@ -347,11 +398,16 @@ export async function getStressTest(
 
 export async function getPortfolioProjection(
   userId: string,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; portfolioMode?: PortfolioMode } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; portfolioMode?: PortfolioMode; skipCache?: boolean } = {}
 ): Promise<PortfolioProjection> {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
   const portfolioMode = options.portfolioMode ?? 'hybrid';
+
+  if (!options.skipCache) {
+    const cached = await readProjectionCache(userId, portfolioMode);
+    if (cached) return cached;
+  }
   const [context, premium] = await Promise.all([
     buildAiPortfolioContext(userId, { period, benchmark }),
     portfolioMode === 'stock' ? Promise.resolve(null) : getPremiumAnalytics(userId, { period, benchmark })

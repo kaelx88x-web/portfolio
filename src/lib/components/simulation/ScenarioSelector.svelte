@@ -84,7 +84,7 @@
 <style>
   .selector { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 12px; }
 
-  .field { display: grid; gap: 5px; min-width: min(14rem, 100%); }
+  .field { display: grid; gap: 5px; flex: 1 1 12rem; max-width: 20rem; }
   .field > span { color: var(--muted); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
 
   .drop { position: relative; }

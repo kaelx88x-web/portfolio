@@ -446,6 +446,35 @@ export type CashFlowItem = {
   remark: string;
 };
 
+export type MoomooOrderItem = {
+  broker_order_id: string;
+  symbol: string;
+  side: string;
+  order_type: string;
+  status: string;
+  quantity: number;
+  filled_quantity: number;
+  price: number;
+  average_filled_price: number;
+  currency: string;
+  submitted_at: string | null;
+  updated_broker_at: string | null;
+  metadata: Record<string, unknown>;
+};
+
+export type MoomooDealItem = {
+  broker_deal_id: string;
+  broker_order_id: string;
+  symbol: string;
+  side: string;
+  quantity: number;
+  price: number;
+  fee: number;
+  currency: string;
+  executed_at: string | null;
+  metadata: Record<string, unknown>;
+};
+
 export type PlateItem = {
   code: string;
   name: string;
@@ -570,6 +599,32 @@ export async function getAccountCashFlow(days = 30): Promise<CashFlowItem[]> {
     if (!res.ok) return [];
     const body = await res.json();
     return body.cashflow ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getMoomooOrders(preferReal = true, history = true): Promise<MoomooOrderItem[]> {
+  try {
+    const res = await fetch(`${bridgeBase()}/orders?prefer_real=${preferReal ? 'true' : 'false'}&history=${history ? 'true' : 'false'}`, {
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) return [];
+    const body = await res.json();
+    return body.orders ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getMoomooDeals(preferReal = true, history = true): Promise<MoomooDealItem[]> {
+  try {
+    const res = await fetch(`${bridgeBase()}/deals?prefer_real=${preferReal ? 'true' : 'false'}&history=${history ? 'true' : 'false'}`, {
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) return [];
+    const body = await res.json();
+    return body.deals ?? [];
   } catch {
     return [];
   }
@@ -704,4 +759,98 @@ function fromLaravelSync(data: any): MoomooSyncResult {
       pdt_seq: String(accountInfo.pdt_seq ?? '')
     }
   };
+}
+
+// ─── Options Discovery ───────────────────────────────────────────────────────
+
+export type OptionExpiryResult = {
+  symbol: string;
+  expiry_dates: string[];
+  count: number;
+};
+
+export type OptionChainRow = {
+  code: string | null;
+  symbol: string;
+  expiry: string;
+  option_type: string;
+  strike: number | null;
+  last_price: number | null;
+  bid: number | null;
+  ask: number | null;
+  mid: number | null;
+  volume: number | null;
+  open_interest: number | null;
+  implied_volatility: number | null;
+  delta: number | null;
+  gamma: number | null;
+  theta: number | null;
+  vega: number | null;
+};
+
+export type OptionChainResult = {
+  symbol: string;
+  expiry: string;
+  option_type: string;
+  count: number;
+  chain: OptionChainRow[];
+};
+
+export type OptionCandidate = {
+  underlying: string;
+  underlying_price: number | null;
+  strategy: 'covered_call' | 'cash_secured_put';
+  option_type: 'call' | 'put';
+  expiry: string;
+  strike: number | null;
+  bid: number | null;
+  ask: number | null;
+  mid: number | null;
+  collateral_per_contract: number | null;
+  premium_yield_pct: number | null;
+  implied_volatility: number | null;
+  delta: number | null;
+  theta: number | null;
+  open_interest: number | null;
+  option_code: string | null;
+};
+
+export type OptionCandidatesResult = {
+  symbols: string[];
+  mode: string;
+  count: number;
+  candidates: OptionCandidate[];
+};
+
+export async function getOptionExpiry(symbol: string): Promise<OptionExpiryResult> {
+  const res = await fetch(`${bridgeBase()}/options/expiry?symbol=${encodeURIComponent(symbol)}`, {
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!res.ok) throw new Error(`Options expiry fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getOptionChain(
+  symbol: string,
+  expiry: string,
+  optionType: 'call' | 'put' | 'all' = 'all'
+): Promise<OptionChainResult> {
+  const params = new URLSearchParams({ symbol, expiry, option_type: optionType });
+  const res = await fetch(`${bridgeBase()}/options/chain?${params}`, {
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!res.ok) throw new Error(`Options chain fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getOptionCandidates(
+  symbols: string[],
+  mode: 'cc' | 'csp' | 'both' = 'both'
+): Promise<OptionCandidatesResult> {
+  const params = new URLSearchParams({ symbols: symbols.join(','), mode });
+  const res = await fetch(`${bridgeBase()}/options/candidates?${params}`, {
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) throw new Error(`Options candidates fetch failed: ${res.status}`);
+  return res.json();
 }

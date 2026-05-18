@@ -45,6 +45,24 @@
   <main class="main-col">
     {#each data.results as result}<ScenarioSimulationCard {result} />{/each}
     <StressTestChart stressTest={data.stressTest} />
+
+    {#if data.portfolioMode === 'hybrid' || data.portfolioMode === 'options'}
+      <div class="next-step">
+        <div class="next-text">
+          <strong>Optimize your options strategy</strong>
+          <span>Review covered call and cash-secured put opportunities based on your current holdings.</span>
+        </div>
+        <a class="button" href="/optimization/options">Options Intelligence →</a>
+      </div>
+    {:else}
+      <div class="next-step">
+        <div class="next-text">
+          <strong>Review past optimization runs</strong>
+          <span>Compare how your portfolio metrics have changed over time.</span>
+        </div>
+        <a class="button" href="/optimization/history">View History →</a>
+      </div>
+    {/if}
   </main>
   <aside class="side-col">
     {#if data.stressTest.worst_case}<RiskProjectionCard summary={data.stressTest.worst_case.riskSummary} />{/if}
@@ -55,6 +73,10 @@
 
 <style>
   .notice { margin-bottom: 12px; border: 1px solid rgba(var(--success-rgb), 0.3); border-radius: 8px; background: rgba(var(--success-rgb), 0.08); color: var(--success); padding: 10px 12px; font-size: 0.78rem; }
+  .next-step { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid rgba(var(--primary-rgb), 0.22); border-radius: 8px; background: rgba(var(--primary-rgb), 0.05); padding: 14px 16px; }
+  .next-text { display: grid; gap: 3px; }
+  .next-text strong { font-size: 0.82rem; color: var(--text); }
+  .next-text span { font-size: 0.72rem; color: var(--muted); }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; gap: 12px; }
   .main-col, .side-col { display: grid; align-content: start; gap: 12px; }
   @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
