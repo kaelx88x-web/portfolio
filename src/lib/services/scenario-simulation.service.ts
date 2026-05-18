@@ -674,8 +674,13 @@ function buildRebalanceProjection(
   portfolioMode: PortfolioMode,
   constraints: OptimizationConstraintSet
 ): RebalanceProjection {
+  // Exclude option contracts (negative market value / ticker matches option pattern).
+  // They appear as liabilities in bySymbol and must not be shown as holdings to reduce.
+  const isOptionTicker = (label: string) => /\d{6}[CP]\d+/.test(label);
   const currentAllocation = context.allocation.bySymbol.length
-    ? context.allocation.bySymbol.map((slice) => ({ label: slice.label, percentage: round(slice.percentage) }))
+    ? context.allocation.bySymbol
+        .filter((slice) => slice.percentage > 0 && !isOptionTicker(slice.label))
+        .map((slice) => ({ label: slice.label, percentage: round(slice.percentage) }))
     : [{ label: 'Cash', percentage: 100 }];
 
   // Stocks used as covered call or CSP underlyings must not be capped — they are collateral.

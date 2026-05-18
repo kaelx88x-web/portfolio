@@ -200,8 +200,11 @@ export async function runOptimization(
     `;
   }
 
-  // Clear all previous suggestions for this user before inserting fresh ones
-  await prisma.$executeRaw`DELETE FROM rebalance_suggestions WHERE user_id = ${userId}`;
+  // Clear all previous suggestions and stale rebalance projections for this user
+  await Promise.all([
+    prisma.$executeRaw`DELETE FROM rebalance_suggestions WHERE user_id = ${userId}`,
+    prisma.$executeRaw`DELETE FROM rebalance_projections WHERE user_id = ${userId}`
+  ]);
 
   const suggestions = buildRebalanceSuggestions(context, scenarios, constraints);
   for (const suggestion of suggestions) {

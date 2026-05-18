@@ -42,7 +42,7 @@
   </div>
   <div class="rows">
     <div class="rows-head"><span>Holding</span><span>Now → After</span></div>
-    {#each projection.projectedAllocation.slice(0, 7) as row}
+    {#each projection.projectedAllocation.filter((r) => r.currentPct >= 0 && !(r.role === 'options' && r.deltaPct < 0)).slice(0, 7) as row}
       <div class="row">
         <span>{row.label}</span>
         <strong>{row.currentPct.toFixed(1)}% → {row.projectedPct.toFixed(1)}%</strong>
