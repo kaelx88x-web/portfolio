@@ -382,7 +382,7 @@ export async function getPortfolioProjection(
       upsideValue: round(expectedValue * (1 + volBand / 100)),
       expectedReturnPct: round((compoundFactor - 1) * 100),
       projectedDrawdownPct: round(Math.min(context.risk.maxDrawdownPct, -Math.abs(volBand * 0.7))),
-      volatilityPct: round(volatility * Math.sqrt(yearShare))
+      volatilityPct: round(volatility)  // annualised — constant across horizons; volBand (√t-scaled) drives the range bands above
     };
   });
   const riskSummary = buildRiskSummary(
