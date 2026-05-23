@@ -1,6 +1,7 @@
 import { getMoomooStatus, syncMoomoo } from '$lib/services/broker.service';
 import { takeSnapshot, writeSyncLog } from '$lib/services/snapshot.service';
 import { getDemoUser } from '$lib/server/demo-user';
+import { getOptionScanQueue } from '$lib/server/queues';
 import { prisma } from '$lib/server/db';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -23,8 +24,22 @@ export const actions: Actions = {
     const user = await getDemoUser();
     try {
       const result = await syncMoomoo();
-      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0);
+      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
       await writeSyncLog(user.id, 'success', result.holdings_count);
+
+      // Enqueue option alert scan after successful sync
+      try {
+        const queue = getOptionScanQueue();
+        await queue.add('moomoo-sync-scan', {
+          userId: user.id,
+          triggeredBy: 'moomoo-sync',
+        });
+        console.log('[broker] Option scan job enqueued after moomoo sync');
+      } catch (err) {
+        // Non-fatal — sync succeeded, alert scan can be triggered manually
+        console.warn('[broker] Failed to enqueue option scan:', (err as Error).message);
+      }
+
       return {
         success: true,
         message: `Synced ${result.holdings_count} holdings from ${result.account_label}.`,
