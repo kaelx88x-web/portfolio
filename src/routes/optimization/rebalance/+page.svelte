@@ -1,6 +1,5 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { animate, stagger } from 'motion';
   import { Sparkles, RefreshCw, TrendingUp, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-svelte';
@@ -14,15 +13,8 @@
   export let data: PageData;
   export let form: ActionData;
 
-  const modeLabel: Record<string, string> = {
-    stock: 'Stocks Only',
-    hybrid: 'Hybrid',
-    options: 'Active Options'
-  };
-
   let simulating = false;
   let aiLoading  = false;
-  let selectedMode: string = data.portfolioMode;
 
   $: aiSuggestions    = (form?.status === 'ai_completed' && form?.suggestions) ? form.suggestions : null;
   $: displaySuggestions = aiSuggestions ?? data.rebalance;
@@ -32,9 +24,6 @@
 
   function simulateEnhance() {
     return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('portfolioMode', selectedMode);
-      await goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
       await update({ reset: false });
       simulating = false;
     };
@@ -86,21 +75,10 @@
     {/if}
   </div>
 
-  <!-- Right: mode tabs + action buttons -->
+  <!-- Right: action buttons -->
   <div class="actions">
-    <div class="mode-tabs">
-      {#each data.portfolioModes as mode}
-        <button
-          class="mode-tab"
-          class:active={mode === selectedMode}
-          type="button"
-          on:click={() => (selectedMode = mode)}
-        >{modeLabel[mode] ?? mode}</button>
-      {/each}
-    </div>
-
     <form method="POST" action="?/simulate" use:enhance={simulateEnhance} on:submit={() => (simulating = true)}>
-      <input type="hidden" name="portfolioMode" value={selectedMode} />
+      <input type="hidden" name="portfolioMode" value={data.portfolioMode} />
       <button class="btn-outline" type="submit" disabled={simulating}>
         {#if simulating}<span class="spin"></span>{:else}<RefreshCw size={12} />{/if}
         {simulating ? 'Simulating…' : 'Simulate'}
@@ -108,7 +86,7 @@
     </form>
 
     <form method="POST" action="?/aiSuggest" use:enhance={aiEnhance} on:submit={() => (aiLoading = true)}>
-      <input type="hidden" name="portfolioMode" value={selectedMode} />
+      <input type="hidden" name="portfolioMode" value={data.portfolioMode} />
       <button class="btn-ai" type="submit" disabled={aiLoading}>
         {#if aiLoading}<span class="spin spin-ai"></span>{:else}<Sparkles size={12} />{/if}
         {aiLoading ? 'Asking AI…' : 'AI Suggest'}
@@ -196,29 +174,7 @@
 
   /* Mode tabs + buttons */
   .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .mode-tabs {
-    display: flex;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--bg);
-  }
-  .mode-tab {
-    padding: 6px 13px;
-    font-size: 0.71rem;
-    font-weight: 700;
-    color: var(--muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: all 0.12s;
-    white-space: nowrap;
-  }
-  .mode-tab + .mode-tab { border-left: 1px solid var(--border); }
-  .mode-tab.active { background: var(--primary); color: #fff; }
-  .mode-tab:not(.active):hover { background: var(--surface-1); color: var(--text); }
-
-  .btn-outline {
+.btn-outline {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 6px 13px; border-radius: 7px; white-space: nowrap;
     font-size: 0.71rem; font-weight: 700;
