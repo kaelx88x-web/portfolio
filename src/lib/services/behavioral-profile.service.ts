@@ -84,7 +84,7 @@ export async function getBehavioralProfile(userId: string): Promise<BehavioralPr
       LIMIT  30
     `,
     prisma.$queryRaw<Array<{ portfolioMode: string }>>`
-      SELECT portfolioMode FROM \`user\` WHERE id = ${userId} LIMIT 1
+      SELECT portfolio_mode AS portfolioMode FROM \`user\` WHERE id = ${userId} LIMIT 1
     `,
   ]);
 
@@ -135,7 +135,7 @@ function computeFomo(txs: TxRow[]): number {
   for (let i = 1; i < buys.length; i++) {
     if ((buys[i] - buys[i - 1]) / 86_400_000 <= 3) bursts++;
   }
-  return Math.min(100, Math.round((bursts / buys.length) * 100));
+  return Math.min(100, Math.round((bursts / (buys.length - 1)) * 100));
 }
 
 function computeShortTerm(txs: TxRow[]): number {
@@ -206,7 +206,7 @@ function buildEvidence(runs: RunRow[], txs: TxRow[], snaps: SnapRow[]): Behavior
     for (let i = 1; i < buys.length; i++) {
       if ((buys[i] - buys[i - 1]) / 86_400_000 <= 3) bursts++;
     }
-    const pct = Math.round((bursts / buys.length) * 100);
+    const pct = Math.round((bursts / (buys.length - 1)) * 100);
     if (pct >= 20) {
       lines.push({ text: `${pct}% trades beli dalam kluster 3 hari — `, boldPart: 'momentum buyer' });
     }
