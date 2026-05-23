@@ -21,10 +21,17 @@ export function getRedis(): Redis {
 
 export async function redisSet(key: string, value: string, ttlSeconds?: number): Promise<void> {
   const r = getRedis();
-  if (ttlSeconds) {
+  if (typeof ttlSeconds === 'number' && ttlSeconds > 0) {
     await r.setex(key, ttlSeconds, value);
   } else {
     await r.set(key, value);
+  }
+}
+
+export async function closeRedis(): Promise<void> {
+  if (_client) {
+    await _client.quit();
+    _client = null;
   }
 }
 

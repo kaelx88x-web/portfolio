@@ -1,6 +1,6 @@
 // src/lib/server/queues.ts
 import { Queue } from 'bullmq';
-import type { ConnectionOptions } from 'bullmq';
+import { getRedis } from './redis.js';
 
 // ─── Queue Names ────────────────────────────────────────────────────────────
 export const QUEUE_OPTIONS_SCAN   = 'options-scan';
@@ -49,44 +49,38 @@ export type ProcessAlertJobData = {
   alert: OptionAlert;
 };
 
-// ─── Connection Options ──────────────────────────────────────────────────────
-export function getRedisConnectionOptions(): ConnectionOptions {
-  const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
-  try {
-    const parsed = new URL(url);
-    return {
-      host: parsed.hostname || 'localhost',
-      port: parseInt(parsed.port || '6379'),
-      password: parsed.password || undefined,
-    };
-  } catch {
-    return { host: 'localhost', port: 6379 };
-  }
-}
+// ─── Queue Singletons ────────────────────────────────────────────────────────
+let _optionScanQueue: Queue<ScanOptionsJobData> | null = null;
+let _optionAlertsQueue: Queue<ProcessAlertJobData> | null = null;
 
-// ─── Queue Factories ─────────────────────────────────────────────────────────
 export function getOptionScanQueue(): Queue<ScanOptionsJobData> {
-  return new Queue<ScanOptionsJobData>(QUEUE_OPTIONS_SCAN, {
-    connection: getRedisConnectionOptions(),
-    defaultJobOptions: {
-      removeOnComplete: 50,
-      removeOnFail: 20,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-    },
-  });
+  if (!_optionScanQueue) {
+    _optionScanQueue = new Queue<ScanOptionsJobData>(QUEUE_OPTIONS_SCAN, {
+      connection: getRedis(),
+      defaultJobOptions: {
+        removeOnComplete: 50,
+        removeOnFail: 20,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    });
+  }
+  return _optionScanQueue;
 }
 
 export function getOptionAlertsQueue(): Queue<ProcessAlertJobData> {
-  return new Queue<ProcessAlertJobData>(QUEUE_OPTION_ALERTS, {
-    connection: getRedisConnectionOptions(),
-    defaultJobOptions: {
-      removeOnComplete: 100,
-      removeOnFail: 50,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 2000 },
-    },
-  });
+  if (!_optionAlertsQueue) {
+    _optionAlertsQueue = new Queue<ProcessAlertJobData>(QUEUE_OPTION_ALERTS, {
+      connection: getRedis(),
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 50,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      },
+    });
+  }
+  return _optionAlertsQueue;
 }
 
 // ─── Redis Keys ──────────────────────────────────────────────────────────────
