@@ -69,18 +69,17 @@ export async function getBehavioralProfile(userId: string): Promise<BehavioralPr
       LIMIT  50
     `,
     prisma.$queryRaw<TxRow[]>`
-      SELECT type, trade_date AS tradeDate
-      FROM   transactions
-      WHERE  user_id = ${userId}
-      ORDER  BY trade_date DESC
+      SELECT type, tradeDate
+      FROM   \`Transaction\`
+      WHERE  userId = ${userId}
+      ORDER  BY tradeDate DESC
       LIMIT  200
     `,
     prisma.$queryRaw<SnapRow[]>`
-      SELECT total_value   AS totalValue,
-             cash_balance  AS cashBalance
-      FROM   portfolio_snapshots
-      WHERE  user_id = ${userId}
-      ORDER  BY snapshot_date DESC
+      SELECT totalValue, cashBalance
+      FROM   \`PortfolioSnapshot\`
+      WHERE  userId = ${userId}
+      ORDER  BY snapshotDate DESC
       LIMIT  30
     `,
     prisma.$queryRaw<Array<{ portfolioMode: string }>>`
