@@ -1,7 +1,11 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
+  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import { animate, stagger } from 'motion';
+  import { Sparkles, RefreshCw, TrendingUp, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-svelte';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import AllocationComparisonChart from '$lib/components/optimization/AllocationComparisonChart.svelte';
-  import OptimizationStatStrip from '$lib/components/optimization/OptimizationStatStrip.svelte';
   import RebalanceSuggestionCard from '$lib/components/optimization/RebalanceSuggestionCard.svelte';
   import RebalanceProjectionCard from '$lib/components/simulation/RebalanceProjectionCard.svelte';
   import type { ActionData, PageData } from './$types';
@@ -15,12 +19,40 @@
     options: 'Active Options'
   };
 
-  $: riskReduction = data.rebalanceProjection?.riskReduction ?? 0;
-  $: stats = [
-    { label: 'Suggestions', value: String(data.rebalance.length), sub: data.rebalance.length > 0 ? 'Actions available' : 'None needed' },
-    { label: 'Status', value: data.rebalance.length > 0 ? 'Needs Action' : 'Up to Date', color: data.rebalance.length > 0 ? 'amber' as const : 'green' as const },
-    { label: 'Risk Reduction', value: data.rebalanceProjection ? `${riskReduction > 0 ? '−' : '+'}${Math.abs(riskReduction).toFixed(1)} pts` : '—', color: riskReduction > 0 ? 'green' as const : 'amber' as const, sub: 'After rebalance' }
-  ];
+  let simulating = false;
+  let aiLoading  = false;
+  let selectedMode: string = data.portfolioMode;
+
+  $: aiSuggestions    = (form?.status === 'ai_completed' && form?.suggestions) ? form.suggestions : null;
+  $: displaySuggestions = aiSuggestions ?? data.rebalance;
+  $: aiUsed           = form?.aiUsed === true;
+  $: riskReduction    = data.rebalanceProjection?.riskReduction ?? 0;
+  $: needsAction      = data.rebalance.length > 0;
+
+  function simulateEnhance() {
+    return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('portfolioMode', selectedMode);
+      await goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
+      await update({ reset: false });
+      simulating = false;
+    };
+  }
+
+  function aiEnhance() {
+    return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
+      await update({ reset: false });
+      aiLoading = false;
+    };
+  }
+
+  onMount(() => {
+    animate(
+      '.suggestion-anim',
+      { opacity: [0, 1], y: [14, 0] },
+      { delay: stagger(0.07), duration: 0.32, easing: 'ease-out' }
+    );
+  });
 </script>
 
 <PageHeader
@@ -29,60 +61,228 @@
   breadcrumb={[{ label: 'Optimization', href: '/optimization' }, { label: 'Rebalance' }]}
 />
 
-<OptimizationStatStrip {stats} />
+<!-- ── Control Bar ──────────────────────────────────────────────────── -->
+<div class="control-bar">
+  <!-- Left: status chips -->
+  <div class="chips">
+    <div class="chip" class:chip-amber={needsAction} class:chip-green={!needsAction}>
+      {#if needsAction}
+        <AlertTriangle size={11} />
+        {data.rebalance.length} action{data.rebalance.length !== 1 ? 's' : ''} needed
+      {:else}
+        <CheckCircle2 size={11} />
+        Portfolio up to date
+      {/if}
+    </div>
+    {#if data.rebalanceProjection}
+      <div class="chip" class:chip-green={riskReduction > 0} class:chip-amber={riskReduction <= 0}>
+        <TrendingUp size={11} />
+        Risk {riskReduction > 0 ? '−' : '+'}{Math.abs(riskReduction).toFixed(1)} pts
+      </div>
+    {/if}
+    {#if aiUsed}
+      <div class="chip chip-ai"><Sparkles size={11} /> AI active</div>
+    {/if}
+  </div>
 
-{#if form?.message}<div class="notice">{form.message}</div>{/if}
+  <!-- Right: mode tabs + action buttons -->
+  <div class="actions">
+    <div class="mode-tabs">
+      {#each data.portfolioModes as mode}
+        <button
+          class="mode-tab"
+          class:active={mode === selectedMode}
+          type="button"
+          on:click={() => (selectedMode = mode)}
+        >{modeLabel[mode] ?? mode}</button>
+      {/each}
+    </div>
 
+    <form method="POST" action="?/simulate" use:enhance={simulateEnhance} on:submit={() => (simulating = true)}>
+      <input type="hidden" name="portfolioMode" value={selectedMode} />
+      <button class="btn-outline" type="submit" disabled={simulating}>
+        {#if simulating}<span class="spin"></span>{:else}<RefreshCw size={12} />{/if}
+        {simulating ? 'Simulating…' : 'Simulate'}
+      </button>
+    </form>
+
+    <form method="POST" action="?/aiSuggest" use:enhance={aiEnhance} on:submit={() => (aiLoading = true)}>
+      <input type="hidden" name="portfolioMode" value={selectedMode} />
+      <button class="btn-ai" type="submit" disabled={aiLoading}>
+        {#if aiLoading}<span class="spin spin-ai"></span>{:else}<Sparkles size={12} />{/if}
+        {aiLoading ? 'Asking AI…' : 'AI Suggest'}
+      </button>
+    </form>
+  </div>
+</div>
+
+{#if form?.message}
+  <div class="notice" class:notice-ai={aiUsed}>
+    {#if aiUsed}<Sparkles size={13} />{/if}
+    {form.message}
+  </div>
+{/if}
+
+<!-- ── Main Layout ─────────────────────────────────────────────────── -->
 <div class="layout">
   <main class="list">
-    {#each data.rebalance as suggestion}<RebalanceSuggestionCard {suggestion} />{/each}
-    {#if data.rebalance.length === 0}<div class="empty">No rebalance actions needed at this time.</div>{/if}
+    {#each displaySuggestions as suggestion}
+      <div class="suggestion-anim">
+        <RebalanceSuggestionCard {suggestion} />
+      </div>
+    {/each}
 
-    <div class="next-step">
-      <div class="next-text">
-        <strong>Want to see the numbers over time?</strong>
-        <span>Run a projection to see how this rebalance affects your portfolio value in 1–5 years.</span>
+    {#if displaySuggestions.length === 0}
+      <div class="empty">
+        <CheckCircle2 size={30} strokeWidth={1.5} />
+        <strong>No rebalance actions needed</strong>
+        <span>Your portfolio allocation matches the target. Check back after your next sync or run a new optimization.</span>
       </div>
-      <a class="button" href="/optimization/projection">View Portfolio Projection →</a>
-    </div>
+    {/if}
+
+    <a class="cta-card" href="/optimization/projection">
+      <div>
+        <strong>View Portfolio Projection</strong>
+        <span>See how this rebalance affects portfolio value over 1–5 years</span>
+      </div>
+      <ArrowRight size={16} class="cta-arrow" />
+    </a>
   </main>
+
   <aside>
-    <form method="POST" action="?/simulate" class="simulate-card">
-      <div class="mode-label">Simulate for Portfolio Mode</div>
-      <div class="pills">
-        {#each data.portfolioModes as mode}
-          <label class="pill">
-            <input type="radio" name="portfolioMode" value={mode} checked={mode === data.portfolioMode} />
-            <span>{modeLabel[mode] ?? mode}</span>
-          </label>
-        {/each}
-      </div>
-      <button class="button" type="submit">Simulate Rebalance</button>
-    </form>
-    {#if data.rebalanceProjection}<RebalanceProjectionCard projection={data.rebalanceProjection} />{/if}
-    {#if data.rebalance[0]}<AllocationComparisonChart allocation={data.rebalance[0].targetAllocation} />{/if}
+    {#if data.rebalanceProjection}
+      <RebalanceProjectionCard projection={data.rebalanceProjection} />
+    {/if}
+    {#if data.rebalance[0]}
+      <AllocationComparisonChart allocation={data.rebalance[0].targetAllocation} />
+    {/if}
   </aside>
 </div>
 
 <style>
-  .notice { margin-bottom: 12px; border: 1px solid rgba(var(--success-rgb), 0.3); border-radius: 8px; background: rgba(var(--success-rgb), 0.08); color: var(--success); padding: 10px 12px; font-size: 0.78rem; }
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; gap: 12px; }
-  .list { display: grid; gap: 12px; align-content: start; }
-  .empty { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 20px; color: var(--muted); font-size: 0.78rem; text-align: center; }
-  aside { display: grid; align-content: start; gap: 12px; }
+  /* ── Control bar ──────────────────────────────────────────────────── */
+  .control-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--card);
+  }
+  .chip-amber { border-color: rgba(var(--warning-rgb),.4); color: var(--warning); background: rgba(var(--warning-rgb),.07); }
+  .chip-green { border-color: rgba(var(--success-rgb),.4); color: var(--success); background: rgba(var(--success-rgb),.07); }
+  .chip-ai    { border-color: rgba(var(--primary-rgb),.4); color: var(--primary); background: rgba(var(--primary-rgb),.07); }
 
-  .simulate-card { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 14px; display: grid; gap: 10px; }
-  .mode-label { color: var(--muted); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
-  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pill input { display: none; }
-  .pill span { display: block; border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.72rem; font-weight: 700; color: var(--muted); cursor: pointer; background: var(--bg); transition: all 0.12s; }
-  .pill input:checked + span { background: var(--primary); border-color: var(--primary); color: #fff; }
-  .pill span:hover { border-color: var(--primary); color: var(--primary); }
+  /* Mode tabs + buttons */
+  .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mode-tabs {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .mode-tab {
+    padding: 6px 13px;
+    font-size: 0.71rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .mode-tab + .mode-tab { border-left: 1px solid var(--border); }
+  .mode-tab.active { background: var(--primary); color: #fff; }
+  .mode-tab:not(.active):hover { background: var(--surface-1); color: var(--text); }
 
-  .next-step { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid rgba(var(--primary-rgb), 0.22); border-radius: 8px; background: rgba(var(--primary-rgb), 0.05); padding: 14px 16px; }
-  .next-text { display: grid; gap: 3px; }
-  .next-text strong { font-size: 0.82rem; color: var(--text); }
-  .next-text span { font-size: 0.72rem; color: var(--muted); }
-  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .next-step { flex-direction: column; align-items: flex-start; } }
+  .btn-outline {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 7px; white-space: nowrap;
+    font-size: 0.71rem; font-weight: 700;
+    color: var(--text); background: var(--card);
+    border: 1px solid var(--border); cursor: pointer;
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .btn-ai {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 7px; white-space: nowrap;
+    font-size: 0.71rem; font-weight: 700;
+    color: var(--primary); background: rgba(var(--primary-rgb),.1);
+    border: 1px solid rgba(var(--primary-rgb),.35); cursor: pointer;
+    transition: background 0.12s;
+  }
+  .btn-ai:hover:not(:disabled) { background: rgba(var(--primary-rgb),.18); }
+  .btn-ai:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Notice ───────────────────────────────────────────────────────── */
+  .notice {
+    display: flex; align-items: center; gap: 7px;
+    margin-bottom: 14px;
+    border: 1px solid rgba(var(--success-rgb),.3);
+    border-radius: 8px; background: rgba(var(--success-rgb),.07);
+    color: var(--success); padding: 10px 14px; font-size: 0.76rem;
+  }
+  .notice-ai { border-color: rgba(var(--primary-rgb),.3); background: rgba(var(--primary-rgb),.07); color: var(--primary); }
+
+  /* ── Layout ───────────────────────────────────────────────────────── */
+  .layout { display: grid; grid-template-columns: minmax(0,1fr) 22rem; gap: 14px; }
+  .list   { display: grid; gap: 10px; align-content: start; }
+  aside   { display: grid; align-content: start; gap: 12px; }
+
+  /* ── Suggestion anim wrapper ──────────────────────────────────────── */
+  .suggestion-anim { opacity: 0; }
+
+  /* ── Empty state ──────────────────────────────────────────────────── */
+  .empty {
+    display: grid; justify-items: center; gap: 8px;
+    padding: 40px 20px;
+    border: 1px dashed var(--border); border-radius: 10px;
+    color: var(--muted); text-align: center;
+  }
+  .empty strong { color: var(--text); font-size: 0.86rem; }
+  .empty span   { font-size: 0.73rem; max-width: 300px; line-height: 1.55; }
+
+  /* ── CTA card ─────────────────────────────────────────────────────── */
+  .cta-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 14px 18px;
+    border: 1px solid rgba(var(--primary-rgb),.2); border-radius: 10px;
+    background: rgba(var(--primary-rgb),.04); text-decoration: none;
+    transition: background 0.13s, border-color 0.13s;
+  }
+  .cta-card:hover { background: rgba(var(--primary-rgb),.09); border-color: rgba(var(--primary-rgb),.4); }
+  .cta-card div { display: grid; gap: 3px; }
+  .cta-card strong { font-size: 0.82rem; color: var(--text); }
+  .cta-card span   { font-size: 0.7rem;  color: var(--muted); }
+  :global(.cta-arrow) { flex-shrink: 0; color: var(--primary); opacity: 0.7; }
+
+  /* ── Spinner ──────────────────────────────────────────────────────── */
+  .spin { display:inline-block; width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:spin .7s linear infinite; }
+  .spin-ai { border-color:rgba(var(--primary-rgb),.3); border-top-color:var(--primary); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive ───────────────────────────────────────────────────── */
+  @media (max-width: 1050px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 700px)  {
+    .control-bar { flex-direction: column; align-items: flex-start; }
+    .actions { width: 100%; flex-wrap: wrap; }
+  }
 </style>
