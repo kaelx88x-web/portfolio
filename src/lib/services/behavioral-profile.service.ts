@@ -84,7 +84,7 @@ export async function getBehavioralProfile(userId: string): Promise<BehavioralPr
       LIMIT  30
     `,
     prisma.$queryRaw<Array<{ portfolioMode: string }>>`
-      SELECT portfolio_mode AS portfolioMode FROM \`user\` WHERE id = ${userId} LIMIT 1
+      SELECT portfolioMode FROM \`user\` WHERE id = ${userId} LIMIT 1
     `,
   ]);
 
