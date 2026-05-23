@@ -8,7 +8,7 @@ import Redis from 'ioredis';
 import { getWorkerConnection } from './connection.js';
 import { QUEUE_OPTIONS_SCAN, QUEUE_OPTION_ALERTS, redisKey, redisTTL } from '../src/lib/server/queues.js';
 import { detectAlerts, fromDbOptionsPosition } from '../src/lib/services/option-scanner.service.js';
-import type { ScanOptionsJobData, ProcessAlertJobData } from '../src/lib/server/queues.js';
+import type { ScanOptionsJobData, ProcessAlertJobData, OptionPosition } from '../src/lib/server/queues.js';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +26,7 @@ export function createOptionScannerWorker() {
       console.log(`[OptionScannerWorker] job ${job.id} — userId=${userId} triggeredBy=${triggeredBy}`);
 
       // Fetch option positions from DB
-      let positions = [];
+      let positions: OptionPosition[] = [];
       try {
         const rows = await prisma.optionsPosition.findMany({
           where: { userId, status: 'active' },
