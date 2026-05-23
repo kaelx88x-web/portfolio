@@ -11,14 +11,20 @@
     "db:push": "prisma db push",
     "db:init": "php scripts/init-sqlite.php && prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "workers": "tsx workers/index.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run workers\""
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@sveltejs/adapter-auto": "^3.3.1",
     "@sveltejs/kit": "^2.8.5",
     "@sveltejs/vite-plugin-svelte": "^4.0.4",
+    "bullmq": "^5.77.1",
+    "concurrently": "^9.2.1",
+    "dotenv": "^17.4.2",
     "echarts": "^6.0.0",
+    "ioredis": "^5.10.1",
     "lucide-svelte": "^0.468.0",
     "marked": "^18.0.3",
     "svelte": "^5.1.3",
