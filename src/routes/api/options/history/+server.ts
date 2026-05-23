@@ -8,7 +8,8 @@ export const GET: RequestHandler = async ({ url }) => {
   const user = await getDemoUser();
   const userId = user.id;
 
-  const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '20', 10), 100);
+  const rawLimit = parseInt(url.searchParams.get('limit') ?? '20', 10);
+  const limit = Math.min(isNaN(rawLimit) ? 20 : rawLimit, 100);
   const acknowledgedParam = url.searchParams.get('acknowledged');
   const acknowledgedFilter =
     acknowledgedParam === null ? undefined : acknowledgedParam === 'true';

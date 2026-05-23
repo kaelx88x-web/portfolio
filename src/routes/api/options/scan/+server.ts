@@ -14,5 +14,8 @@ export const POST: RequestHandler = async () => {
     triggeredBy: 'manual',
   });
 
+  if (!job.id) {
+    return json({ error: 'Queue did not assign a job ID' }, { status: 500 });
+  }
   return json({ queued: true, jobId: job.id });
 };
