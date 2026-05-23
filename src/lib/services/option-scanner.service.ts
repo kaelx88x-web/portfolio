@@ -250,7 +250,7 @@ export function fromDbOptionsPosition(row: {
   const dte = Math.max(0, Math.ceil((row.expirationDate.getTime() - Date.now()) / 86_400_000));
 
   let meta: Record<string, unknown> = {};
-  try { meta = JSON.parse(row.metadataJson); } catch { /* ignore */ }
+  try { meta = JSON.parse(row.metadataJson ?? '{}'); } catch { /* ignore */ }
 
   const currentValue = typeof meta.currentValue === 'number' ? meta.currentValue : 0;
   const rawProfit =
