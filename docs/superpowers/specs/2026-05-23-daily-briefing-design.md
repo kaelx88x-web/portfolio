@@ -1,4 +1,4 @@
-# Daily Portfolio Briefing AI — Design Spec (v2)
+# Daily Portfolio Briefing AI — Design Spec (v3)
 
 **Date:** 2026-05-23  
 **Feature:** Daily Portfolio Briefing AI — Phase 1: Stock Portfolio Focus  
@@ -9,12 +9,145 @@
 
 ## Overview
 
-A daily human-readable portfolio briefing for stock holdings, styled as a mobile-first morning report from an AI financial coach. Markov chains classify portfolio health state and market regime. Claude receives the computed states and writes the narrative, recommendations, and final decision.
+A daily human-readable portfolio briefing for stock holdings. Markov chains (3-state transition model + stationary distribution) drive market regime classification and position sizing signals. Claude receives the computed Markov output and writes the human-friendly narrative and recommendations.
 
-Phase 1 scope: **stock positions only** (NIO, SCHG, SPYT, etc.).  
-Options Screener, Wheel Tracker, and Portfolio Health dashboard are out of scope for Phase 1.
+Phase 1: **stock positions only** (NIO, SCHG, SPYT, etc.).  
+Options Screener, Wheel Tracker, Portfolio Health dashboard → Phase 2+.  
+This is read-only and advisory. No trades execute automatically.
 
-This is a read-only advisory feature. No trades are placed automatically.
+---
+
+## Markov Chain — Market Regime Engine
+
+### States
+
+```
+Bull      — uptrend, high confidence, full position sizing
+Sideways  — consolidation, uncertain, reduced sizing
+Bear      — downtrend, defensive, minimal or no new positions
+```
+
+### Transition Matrix (historically calibrated)
+
+Rows = current state. Columns = tomorrow's state.
+
+```
+          Bull    Side    Bear
+Bull      0.82    0.15    0.03
+Sideways  0.40    0.35    0.25
+Bear      0.05    0.20    0.75
+```
+
+Properties:
+- **Stickiness**: Bull stays Bull 82% of the time. Bear stays Bear 75%. Markets trend.
+- **Asymmetry**: Recovery (Bear→Bull) is slow (5%). Crashes (Bull→Bear) are rare but fast (3%).
+- **Sideways as buffer**: Acts as an intermediate transition zone.
+
+### Signal Generation Formula
+
+```
+signal = P(Bull_t+1) − P(Bear_t+1)
+```
+
+Where `[P(Bull), P(Side), P(Bear)]_t+1 = state_vector_t × transition_matrix`
+
+| Signal range | Interpretation | Position recommendation |
+|---|---|---|
+| > +0.50 | Strong Bull | Full position / aggressive |
+| +0.20 to +0.50 | Mild Bull | Normal position |
+| 0 to +0.20 | Uncertain | Reduced position — watch |
+| < 0 | Bear / Risk-Off | No new positions — manage existing |
+
+**Example — Scenario A (Sticky Bull):**
+```
+state_vector = [0.80, 0.15, 0.05]  (80% bull confidence today)
+tomorrow     = [0.80, 0.15, 0.05] × matrix
+             ≈ [0.68, 0.17, 0.05]  (loosely)
+signal       = 0.80 − 0.05 = +0.75  → STRONG BUY signal
+position_pct = 75% of available capital
+```
+
+**Example — Scenario B (Regime Shift):**
+```
+state_vector = [0.30, 0.25, 0.45]  (uncertainty detected)
+signal       = 0.30 − 0.45 = −0.15 → DEFENSIVE
+position_pct = 15% — cut exposure, no new entries
+```
+
+### Stationary Distribution (Long-term DCA view)
+
+Compute `M^n` as `n → ∞` (matrix exponentiation, typically converges by n=50).
+
+```
+stationary ≈ [0.41, 0.22, 0.37]
+```
+
+Interpretation: Over the long run, markets are Bull ~41% of the time, Sideways ~22%, Bear ~37%.  
+Used in briefing to show: *"Historically, you are in the [Bear] phase (~37% of time). DCA into dips is statistically sound."*
+
+### Regime Detection from Observables (HMM-lite)
+
+Observable signals update the current state belief vector:
+
+| Observable | Effect |
+|---|---|
+| VIX > 25 | shifts probability toward Bear |
+| VIX 15–25 | neutral |
+| VIX < 15 | shifts toward Bull |
+| Breadth negative | shifts toward Bear |
+| Breadth positive | shifts toward Bull |
+| Portfolio today P&L < -2% | shifts toward Bear |
+| Portfolio today P&L > +1% | shifts toward Bull |
+
+Update formula: `posterior = prior × likelihood / normalise`  
+This is a simplified Bayesian observation update (HMM emission step).
+
+---
+
+## Markov Chain — Portfolio Health Engine
+
+### States
+
+```
+Healthy   — portfolio performing, adequate cash, low concentration risk
+Moderate  — some stress indicators, manageable
+Stressed  — multiple risk factors present, action required
+```
+
+### Transition Matrix
+
+```
+              Healthy   Moderate   Stressed
+Healthy       0.80      0.18       0.02
+Moderate      0.30      0.55       0.15
+Stressed      0.10      0.30       0.60
+```
+
+### Observations (from live moomoo holdings)
+
+| Metric | Pushes toward |
+|---|---|
+| unrealizedPnl > +3% | Healthy |
+| unrealizedPnl 0% to +3% | Moderate |
+| unrealizedPnl < -5% | Stressed |
+| cashBuffer > 15% | Healthy |
+| cashBuffer < 5% | Stressed |
+| topHolding > 50% of portfolio | Stressed (concentration) |
+| topHolding < 30% | Healthy |
+
+**Health score (0–100):**
+```
+score = P(Healthy) × 100 + P(Moderate) × 55 + P(Stressed) × 10
+```
+
+**Health label mapping:**
+| Score | Label |
+|---|---|
+| 80–100 | Excellent |
+| 65–79 | Good |
+| 45–64 | Moderate |
+| 25–44 | Risky |
+| 0–24 | Critical |
 
 ---
 
@@ -22,87 +155,63 @@ This is a read-only advisory feature. No trades are placed automatically.
 
 ```
 moomoo broker service
-  → live stock holdings (symbol, quantity, avg cost, market price, unrealized P&L, today P&L)
+  → live stock holdings (symbol, qty, avg cost, market price, unrealizedPnl, todayPl)
+  → account info (cash, total assets)
 
-MarkovRegimeEngine
-  → inputs: mock VIX delta, breadth signal, price momentum
-  → output: regime state vector + current regime label
-  → states: Bullish | Neutral | Bearish | HighVolatility | RiskOff
+markov-regime.service.ts
+  → initialises state vector from mock observables (VIX 22.4, breadth: negative)
+  → applies HMM observation update
+  → multiplies by transition matrix → tomorrow's probabilities
+  → computes signal = P(Bull) - P(Bear)
+  → computes stationary distribution (M^50)
+  → returns: { state, signal, confidence, vector, stationary, positionPct }
 
-MarkovHealthEngine
-  → inputs: unrealized P&L %, cash buffer %, concentration (top holding %), today P&L %
-  → output: health state probability vector + current health label
-  → states: Excellent | Good | Moderate | Risky | Critical
+markov-health.service.ts
+  → computes observations from live holdings
+  → initialises state vector from observations
+  → applies transition matrix
+  → computes health score
+  → returns: { state, score, healthLabel, vector }
 
-            ↓
 daily-briefing.service.ts
-  → assembles: holdings + regime state + health state
-  → sends to Claude: computed states + raw holdings data
-  → Claude writes: greeting, position summaries, market pulse narrative, final decision text
-  → returns typed BriefingResult
+  → collects: holdings + regime result + health result
+  → passes to Claude:
+      - current regime state + signal strength
+      - health state + score
+      - position list with P&L
+      - stationary distribution insight
+      - DCA opportunity flag (bear phase + stationary says ~37% of time)
+  → Claude returns: greeting, position notes, marketPulse narrative, finalDecision text
+  → merges and returns BriefingResult (cached 10 min)
 
-+page.server.ts  → load() calls service, returns BriefingResult (cached 10 min)
-+page.svelte     → renders mobile-first layout (matching screenshot design)
++page.server.ts  → load() → BriefingResult
++page.svelte     → mobile-first layout
 ```
-
----
-
-## Markov Chain Design
-
-### MarkovRegimeEngine
-
-**States (5):** `Bullish`, `Neutral`, `Bearish`, `HighVolatility`, `RiskOff`
-
-**Observations (inputs):**
-- `vixDelta`: change in VIX today (mock phase 1)
-- `breadth`: -1 (negative) | 0 (neutral) | 1 (positive)  (mock phase 1)
-- `momentum`: portfolio weighted price momentum over 5 days
-
-**Transition matrix:** Preset probabilities encoding regime stickiness (e.g. Bearish has 60% chance of staying Bearish, 25% Neutral, 15% HighVolatility). Observations shift the probability vector via Bayes update.
-
-**Output:** `{ state: 'Bearish', confidence: 0.74, vector: [0.04, 0.12, 0.74, 0.08, 0.02] }`
-
----
-
-### MarkovHealthEngine
-
-**States (5):** `Excellent`, `Good`, `Moderate`, `Risky`, `Critical`
-
-**Observations (inputs from live holdings):**
-- `unrealizedPnlPct`: total unrealized P&L as % of portfolio value
-- `cashBufferPct`: cash as % of total assets
-- `concentrationPct`: largest single holding as % of portfolio
-- `todayPlPct`: today's P&L as % of portfolio value
-
-**Scoring rules (map observations → state):**
-| Condition | Score toward state |
-|---|---|
-| unrealizedPnl > +5% | Excellent |
-| unrealizedPnl 0% to +5% | Good |
-| unrealizedPnl -5% to 0% | Moderate |
-| unrealizedPnl -5% to -15% | Risky |
-| unrealizedPnl < -15% | Critical |
-| concentration > 50% | adds Risky pressure |
-| cashBuffer < 5% | adds Risky pressure |
-| cashBuffer > 20% | adds Good pressure |
-
-**Transition matrix:** Health state is sticky (70% self-transition). Observations update the probability vector. Final state = argmax of posterior.
-
-**Output:** `{ state: 'Moderate', confidence: 0.68, score: 62, vector: [0.03, 0.18, 0.68, 0.09, 0.02] }`
 
 ---
 
 ## Types
 
 ```ts
-type RegimeState = 'Bullish' | 'Neutral' | 'Bearish' | 'HighVolatility' | 'RiskOff';
-type HealthState = 'Excellent' | 'Good' | 'Moderate' | 'Risky' | 'Critical';
+type RegimeState  = 'Bull' | 'Sideways' | 'Bear';
+type HealthState  = 'Healthy' | 'Moderate' | 'Stressed';
+type HealthLabel  = 'Excellent' | 'Good' | 'Moderate' | 'Risky' | 'Critical';
 
-type MarkovResult<T extends string> = {
-  state: T;
+type MarkovRegimeResult = {
+  state: RegimeState;
+  signal: number;          // P(Bull) - P(Bear), range -1 to +1
   confidence: number;      // 0–1
-  score: number;           // 0–100 numeric score
-  vector: number[];        // probability over all states
+  vector: [number, number, number];       // [Bull, Sideways, Bear]
+  stationary: [number, number, number];  // long-run distribution
+  positionPct: number;     // recommended position sizing %
+  positionLabel: string;   // "Full position" | "Reduced" | "Defensive"
+};
+
+type MarkovHealthResult = {
+  state: HealthState;
+  label: HealthLabel;
+  score: number;           // 0–100
+  vector: [number, number, number];  // [Healthy, Moderate, Stressed]
 };
 
 type PositionSummary = {
@@ -112,22 +221,24 @@ type PositionSummary = {
   marketValue: number;
   unrealizedPnl: number;
   todayPl: number;
-  note: string;            // Claude-generated one-liner e.g. "long term hold"
+  note: string;            // Claude-written one-liner
 };
 
-type BriefingResult = {
+export type BriefingResult = {
   greeting: string;
   generatedAt: string;
-  health: MarkovResult<HealthState>;
-  regime: MarkovResult<RegimeState>;
+  regime: MarkovRegimeResult;
+  health: MarkovHealthResult;
   netUnrealizedPnl: number;
-  thetaEstimate: number;       // 0 for stock-only phase; shows "--" in UI
-  premiumCollected: number;    // 0 for stock-only phase; shows "--" in UI
+  thetaEstimate: number;       // 0 in phase 1 (shows "--")
+  premiumCollected: number;    // 0 in phase 1 (shows "--")
   positions: PositionSummary[];
-  marketPulse: string;         // Claude-generated narrative paragraph
+  marketPulse: string;         // Claude-written narrative
+  dcaInsight: string;          // Claude-written stationary distribution insight
   finalDecision: {
-    action: string;            // short label e.g. "Manage existing positions only"
-    reasoning: string;         // plain-language explanation
+    action: string;
+    reasoning: string;
+    signal: number;            // raw Markov signal for display
     allowNewPositions: boolean;
   };
 };
@@ -137,89 +248,83 @@ type BriefingResult = {
 
 ## New Files
 
-### `src/lib/services/markov-regime.service.ts`
-Implements `MarkovRegimeEngine`. Exports `getMarketRegime(): MarkovResult<RegimeState>`.  
-Phase 1: uses mock VIX (22.4) and mock breadth (-1). Transition matrix hardcoded.  
-`// TODO: replace mock inputs with real market data API`
+| File | Purpose |
+|---|---|
+| `src/lib/services/markov-regime.service.ts` | 3-state transition matrix, signal formula, stationary distribution, HMM-lite observation update |
+| `src/lib/services/markov-health.service.ts` | 3-state portfolio health, score formula, label mapping |
+| `src/lib/services/daily-briefing.service.ts` | Orchestrator: fetches holdings, runs Markov engines, calls Claude, caches result |
+| `src/routes/ai/daily-briefing/+page.server.ts` | `load()` + `refresh` action |
+| `src/routes/ai/daily-briefing/+page.svelte` | Mobile-first briefing UI |
+| `src/lib/components/ai/DailyBriefingMiniCard.svelte` | Compact dashboard card |
 
-### `src/lib/services/markov-health.service.ts`
-Implements `MarkovHealthEngine`. Exports `getPortfolioHealth(holdings, accountInfo): MarkovResult<HealthState>`.  
-Computes observations from live moomoo holdings, applies transition matrix, returns state + score.
+---
 
-### `src/lib/services/daily-briefing.service.ts`
-Main orchestrator:
-1. Fetches live holdings from moomoo broker service
-2. Calls `getPortfolioHealth()` → health state
-3. Calls `getMarketRegime()` → regime state
-4. Builds Claude prompt with: computed states + raw holdings JSON
-5. Claude returns `BriefingResult` fields (greeting, position notes, marketPulse, finalDecision)
-6. Merges Claude output with computed Markov fields
-7. Returns complete `BriefingResult`
-
-**Cache:** In-memory map keyed by `userId + date string`, TTL 10 minutes.
-
-### `src/routes/ai/daily-briefing/+page.server.ts`
-- `load()` → calls `getDailyBriefing(userId)`, returns `BriefingResult`
-- `actions: { refresh }` → clears cache entry and redirects
-
-### `src/routes/ai/daily-briefing/+page.svelte`
-Mobile-first layout matching the screenshot design:
+## UI Layout (Mobile-first, matching screenshot)
 
 ```
-┌─────────────────────────────────┐
-│ Good morning, Azhar             │
-│ [Bearish regime badge]          │
-│ Portfolio health: Moderate ●    │
-├─────────────────────────────────┤
-│ Net P&L   │ Theta   │ Premium   │
-│ -$31.82   │ +$4.20  │ $18.50    │
-├─────────────────────────────────┤
-│ POSITIONS                       │
-│ NIO  100 shares   -$105  unreal │
-│ NIO CC  CC $5.50  +$8.50/day   │
-│ SCHG  ETF Growth  -$1.10 LT    │
-│ SPYT  ETF Income  -$0.35       │
-├─────────────────────────────────┤
-│ MARKET PULSE                    │
-│ [VIX bar + narrative text]      │
-│ VIX 22.4                        │
-├─────────────────────────────────┤
-│ [ ○ Ask portfolio anything ↑ ]  │
-└─────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ Good morning, Azhar                 │
+│                      [Bearish 📉]   │
+│ Portfolio health: ● Moderate        │
+│ needs attention                     │
+├─────────────────────────────────────┤
+│  Net P&L   │  Theta   │  Premium    │
+│  -$31.82   │  --      │  --         │
+│  (red)     │  (grey)  │  (grey)     │
+├─────────────────────────────────────┤
+│ MARKOV SIGNAL ━━━━━━━━━━━━━━━━━━━   │
+│ Bull 30%  │ Side 25% │ Bear 45%     │
+│ Signal: -0.15  → Defensive          │
+│ ████░░░░░░░░░ (signal bar)          │
+├─────────────────────────────────────┤
+│ POSITIONS                           │
+│ NIO    100 shares   -$105   unreal  │
+│ SCHG   ETF Growth   -$1.10  LT hold │
+│ SPYT   ETF Income   -$0.35  div 12% │
+├─────────────────────────────────────┤
+│ MARKET PULSE                        │
+│ VIX elevated at 22.4.               │
+│ Market breadth negative.            │
+│ Avoid opening new positions today.  │
+│ [████████████░░] VIX 22.4           │
+├─────────────────────────────────────┤
+│ DCA INSIGHT                         │
+│ Historically Bear ~37% of time.     │
+│ Accumulating at dips is sound.      │
+├─────────────────────────────────────┤
+│ [ ○ Ask portfolio anything ↑ ]      │
+└─────────────────────────────────────┘
 ```
 
-**Styling:** Dark background `#111318`, card sections with subtle borders, green for gains, red for losses, amber for caution. Status dot for health. Bottom sticky "Ask portfolio" bar linking to AI Copilot.
-
-### `src/lib/components/ai/DailyBriefingMiniCard.svelte`
-Purely presentational compact card for the dashboard. Props: `briefing: BriefingResult | null`. Shows health badge, net P&L, regime label, and link to `/ai/daily-briefing`.
+**Styling:** `#111318` background, card sections with `#1c2030` bg + `#252d40` borders.  
+Green `#4ade80`, Red `#f87171`, Amber `#fbbf24`, Muted `#4b5a72`.  
+Signal bar: filled green (bull) → grey (side) → filled red (bear).  
+Mobile first, stacks cleanly at 375px width.
 
 ---
 
 ## Modified Files
 
-### `src/routes/ai/+page.svelte`
-Add Daily Briefing button to the `.page-actions` row.
-
-### `src/routes/dashboard/+page.svelte` + `+page.server.ts`
-Dashboard `load()` calls `getDailyBriefing(userId)` (cached). Passes result to `DailyBriefingMiniCard`.
+- `src/routes/ai/+page.svelte` — add Daily Briefing button to actions row
+- `src/routes/dashboard/+page.svelte` + `+page.server.ts` — add `DailyBriefingMiniCard`
 
 ---
 
 ## Error Handling
 
-- **Moomoo not connected** → shows warning state, disables Markov health engine, shows "Connect broker to generate briefing"
-- **Claude API fails** → error state with Retry button
-- **Claude returns malformed JSON** → service catches, returns safe fallback with Markov-computed fields intact and `finalDecision.reasoning: "Unable to generate narrative. Markov analysis still available."`
+- Moomoo disconnected → show warning, prompt to connect broker
+- Claude API fails → show error state with Retry button; Markov results still displayed
+- Claude malformed JSON → fallback: show Markov data, suppress narrative fields
 
 ---
 
 ## Out of Scope — Phase 1
 
-- Options alerts (covered call / short put tracking)
+- Options alerts, covered call / short put tracking
 - Options Screener
 - Wheel Strategy Tracker
-- Portfolio Health dashboard (separate page)
-- Real-time market data API (VIX, breadth)
-- Persistent briefing history
-- Push notifications / scheduled generation
-- Auto-trading or order placement
+- Separate Portfolio Health dashboard page
+- Real-time VIX / breadth API (mock values in phase 1)
+- Persistent briefing history / log
+- Automated DCA execution
+- Push notifications
