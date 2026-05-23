@@ -182,6 +182,14 @@
     badgeColor="blue"
     href="/optimization/history"
   />
+  <OptimizationHubCard
+    icon="🧠"
+    name="Behavioral Profile"
+    description="Discover your actual investor profile — derived from your optimization history and transaction patterns, not just what you say."
+    badge="New"
+    badgeColor="amber"
+    href="/optimization/behavioral"
+  />
 </div>
 
 <details class="constraints-section">
