@@ -58,6 +58,7 @@ model User {
   allocationHealthReports AllocationHealthReport[]
   allocationSuggestions AllocationSuggestion[]
   optionsPositions OptionsPosition[]
+  optionAlerts      OptionAlert[]
   optionsExposureReports OptionsExposureReport[]
   wheelStrategyReports WheelStrategyReport[]
   createdAt        DateTime            @default(now())
@@ -1298,4 +1299,24 @@ model PortfolioHealthReport {
   @@unique([userId, snapshotDate])
   @@index([userId, snapshotDate])
   @@map("portfolio_health_reports")
+}
+
+model OptionAlert {
+  id             String    @id @default(cuid())
+  userId         String    @db.VarChar(191)
+  symbol         String    @db.VarChar(50)
+  optionType     String    @db.VarChar(30)
+  severity       String    @db.VarChar(20)
+  message        String    @db.Text
+  recommendation String    @db.Text
+  positionJson   String    @db.LongText
+  detectedAt     DateTime  @default(now())
+  acknowledged   Boolean   @default(false)
+  acknowledgedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, detectedAt])
+  @@index([userId, acknowledged])
 }
