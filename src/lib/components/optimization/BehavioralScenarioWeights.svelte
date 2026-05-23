@@ -25,7 +25,7 @@
   <div class="params-grid">
     <div class="param-card">
       <span class="plabel">Cash floor minimum</span>
-      <strong class="pval">{weights.cashFloorPct}% <span class="note">(bukan {weights.cashFloorPct === 3 ? 5 : weights.cashFloorPct === 10 ? 5 : 3}%)</span></strong>
+      <strong class="pval">{weights.cashFloorPct}% <span class="note">(bukan {weights.cashFloorPct === 3 ? 5 : weights.cashFloorPct === 10 ? 3 : 5}%)</span></strong>
     </div>
     <div class="param-card">
       <span class="plabel">Goal default</span>
