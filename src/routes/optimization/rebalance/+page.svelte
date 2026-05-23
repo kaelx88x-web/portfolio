@@ -8,6 +8,7 @@
   import AllocationComparisonChart from '$lib/components/optimization/AllocationComparisonChart.svelte';
   import RebalanceSuggestionCard from '$lib/components/optimization/RebalanceSuggestionCard.svelte';
   import RebalanceProjectionCard from '$lib/components/simulation/RebalanceProjectionCard.svelte';
+  import BehavioralInfluenceCard from '$lib/components/optimization/BehavioralInfluenceCard.svelte';
   import type { ActionData, PageData } from './$types';
 
   export let data: PageData;
@@ -121,6 +122,13 @@
     {#if aiUsed}<Sparkles size={13} />{/if}
     {form.message}
   </div>
+{/if}
+
+{#if data.behavioralProfile}
+  <BehavioralInfluenceCard
+    profile={data.behavioralProfile}
+    explanation={data.behavioralExplanation}
+  />
 {/if}
 
 <!-- ── Main Layout ─────────────────────────────────────────────────── -->
