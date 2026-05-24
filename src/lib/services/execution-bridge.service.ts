@@ -149,9 +149,7 @@ export async function coveredCallToTicket(
   const expiry = nearestMonthlyExpiry(dte);
   const contractSymbol = toContractSymbol(candidate.symbol, expiry, 'C', candidate.suggested_strike);
   // limitPrice = per-share premium (estimated_premium already in dollars for all contracts)
-  const premiumPerShare = candidate.possible_contracts > 0
-    ? candidate.estimated_premium / (candidate.possible_contracts * 100)
-    : 0;
+  const premiumPerShare = candidate.estimated_premium / (candidate.possible_contracts * 100);
 
   return createTradeTicket(userId, {
     sourceType: 'options_bridge',
