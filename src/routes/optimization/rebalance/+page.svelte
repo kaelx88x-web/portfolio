@@ -60,6 +60,7 @@
     panelSkipped = [];
     panelTicketIds = '';
     executionResults = null;
+    executionLoading = false;
   }
 
   $: aiSuggestions    = (form?.status === 'ai_completed' && form?.suggestions) ? form.suggestions : null;
