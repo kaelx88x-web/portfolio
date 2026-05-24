@@ -1,6 +1,11 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  import { Zap } from 'lucide-svelte';
   import type { CoveredCallCandidate } from '$lib/services/options-intelligence.service';
   export let rows: CoveredCallCandidate[] = [];
+  export let executeEnabled = false;
+
+  const dispatch = createEventDispatcher<{ execute: CoveredCallCandidate }>();
 
   const statusColor = (s: string) => s === 'covered' ? 'green' : s === 'partially_covered' ? 'amber' : 'blue';
   const statusLabel = (s: string) => s === 'covered' ? 'Covered' : s === 'partially_covered' ? 'Partial' : 'Available';
@@ -25,6 +30,7 @@
             <th class="r">Suggested Strike</th>
             <th class="r">Est. Premium</th>
             <th>Status</th>
+            {#if executeEnabled}<th></th>{/if}
           </tr>
         </thead>
         <tbody>
@@ -39,11 +45,20 @@
                 {#if row.estimated_premium > 0}${row.estimated_premium.toLocaleString()}{:else if row.active_contracts > 0}<span class="roll">Roll opportunity</span>{:else}—{/if}
               </td>
               <td><span class="badge {statusColor(row.coverage_status)}">{statusLabel(row.coverage_status)}</span></td>
+              {#if executeEnabled}
+                <td class="exec-cell">
+                  {#if row.possible_contracts > 0}
+                    <button class="exec-btn" type="button" on:click={() => dispatch('execute', row)}>
+                      <Zap size={11} /> Execute
+                    </button>
+                  {/if}
+                </td>
+              {/if}
             </tr>
             {#if row.coverage_status === 'covered' && row.active_contracts > 0}
-              <tr class="note-row"><td colspan="7"><span class="note">✓ {row.active_contracts} active covered call. Consider rolling to a higher strike or later expiry to capture more premium.</span></td></tr>
+              <tr class="note-row"><td colspan={executeEnabled ? 8 : 7}><span class="note">✓ {row.active_contracts} active covered call. Consider rolling to a higher strike or later expiry to capture more premium.</span></td></tr>
             {:else if row.note && row.possible_contracts > 0}
-              <tr class="note-row"><td colspan="7"><span class="note">{row.note}</span></td></tr>
+              <tr class="note-row"><td colspan={executeEnabled ? 8 : 7}><span class="note">{row.note}</span></td></tr>
             {/if}
           {/each}
         </tbody>
@@ -87,4 +102,8 @@
   .empty { display: grid; gap: 6px; padding: 24px; text-align: center; color: var(--muted); font-size: 0.76rem; }
   .empty-icon { font-size: 1.8rem; }
   .empty-sub { font-size: 0.68rem; }
+
+  .exec-cell { text-align: right; white-space: nowrap; }
+  .exec-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; color: var(--primary); background: rgba(var(--primary-rgb), 0.1); border: 1px solid rgba(var(--primary-rgb), 0.3); border-radius: 4px; padding: 3px 8px; cursor: pointer; transition: all 0.1s; }
+  .exec-btn:hover { background: rgba(var(--primary-rgb), 0.18); }
 </style>

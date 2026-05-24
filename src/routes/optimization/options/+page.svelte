@@ -1,15 +1,20 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import { Coins, RefreshCw, ShieldAlert, Table2 } from 'lucide-svelte';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import AssignmentRiskCard from '$lib/components/options/AssignmentRiskCard.svelte';
   import CollateralUsageChart from '$lib/components/options/CollateralUsageChart.svelte';
   import CoveredCallTable from '$lib/components/options/CoveredCallTable.svelte';
+  import ExecutionConfirmPanel from '$lib/components/execution/ExecutionConfirmPanel.svelte';
   import OptimizationStatStrip from '$lib/components/optimization/OptimizationStatStrip.svelte';
   import OptionsExposureCard from '$lib/components/options/OptionsExposureCard.svelte';
   import PremiumYieldCard from '$lib/components/options/PremiumYieldCard.svelte';
   import PutExposureChart from '$lib/components/options/PutExposureChart.svelte';
   import WheelStrategyCard from '$lib/components/options/WheelStrategyCard.svelte';
   import type { ActionData, PageData } from './$types';
+  import type { TradeTicket } from '$lib/services/trade-layer.service';
+  import type { CoveredCallCandidate, PutExposureRow } from '$lib/services/options-intelligence.service';
+  import type { DTE } from '$lib/services/execution-bridge.service';
 
   export let data: PageData;
   export let form: ActionData;
@@ -19,6 +24,85 @@
     return status === 'high' ? 'red' : status === 'medium' ? 'amber' : 'green';
   }
   $: stats = data.widgets.slice(0, 4).map((w) => ({ label: w.label, value: w.value, color: statusColor(w.status) }));
+
+  type ActivePanel = {
+    symbol: string;
+    optionType: 'call' | 'put';
+    prevTicketId: string | null;
+    selectedDte: DTE;
+  };
+
+  let activePanel: ActivePanel | null = null;
+  let panelTicket: TradeTicket | null = null;
+  let executionLoading = false;
+  let executionResult: { ticketId: string; status: string; message: string; brokerOrderId?: string | null } | null = null;
+
+  $: if (form?.status === 'queued' && form?.ticket) {
+    panelTicket = form.ticket as TradeTicket;
+    executionResult = null;
+    executionLoading = false;
+    if (activePanel) activePanel = { ...activePanel, prevTicketId: (form.ticket as TradeTicket).id };
+  }
+
+  $: if (form?.status === 'executed') {
+    executionLoading = false;
+    executionResult = {
+      ticketId: String(form.ticketId ?? ''),
+      status: 'submitted',
+      message: String(form.message ?? 'Submitted.'),
+      brokerOrderId: (form.brokerOrderId as string | null) ?? null
+    };
+  }
+
+  function openPanel(symbol: string, optionType: 'call' | 'put') {
+    activePanel = { symbol, optionType, prevTicketId: null, selectedDte: 30 };
+    panelTicket = null;
+    executionResult = null;
+  }
+
+  function closePanel() {
+    activePanel = null;
+    panelTicket = null;
+    executionResult = null;
+    executionLoading = false;
+  }
+
+  function handleCoveredCallExecute(e: CustomEvent<CoveredCallCandidate>) {
+    openPanel(e.detail.symbol, 'call');
+  }
+
+  function handlePutExecute(symbol: string) {
+    openPanel(symbol, 'put');
+  }
+
+  function queueOptionEnhance() {
+    return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
+      await update({ reset: false });
+    };
+  }
+
+  function executeOptionEnhance() {
+    return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
+      await update({ reset: false });
+      executionLoading = false;
+    };
+  }
+
+  // Auto-queue when a NEW panel opens (symbol/type changed, not DTE change)
+  let prevPanelKey = '';
+  $: {
+    if (activePanel) {
+      const key = `${activePanel.symbol}-${activePanel.optionType}`;
+      if (key !== prevPanelKey) {
+        prevPanelKey = key;
+        setTimeout(() => {
+          (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
+        }, 0);
+      }
+    } else {
+      prevPanelKey = '';
+    }
+  }
 </script>
 
 <PageHeader
@@ -42,11 +126,92 @@
 
 {#if form?.message}<div class="notice">{form.message}</div>{/if}
 
+{#if activePanel}
+  <form id="queue-option-form" method="POST" action="?/queueOption" use:enhance={queueOptionEnhance}>
+    <input type="hidden" name="symbol" value={activePanel.symbol} />
+    <input type="hidden" name="optionType" value={activePanel.optionType} />
+    <input type="hidden" name="dte" value={activePanel.selectedDte} />
+    <input type="hidden" name="prevTicketId" value={activePanel.prevTicketId ?? ''} />
+  </form>
+{/if}
+
+{#if panelTicket}
+  <form id="execute-option-form" method="POST" action="?/executeOption" use:enhance={executeOptionEnhance} on:submit={() => (executionLoading = true)}>
+    <input type="hidden" name="ticketId" value={panelTicket.id} />
+  </form>
+{/if}
+
 <div class="layout">
   <main class="main-col">
     <OptionsExposureCard exposure={data.exposure} />
-    <CoveredCallTable rows={data.coveredCalls} />
+    <CoveredCallTable
+      rows={data.coveredCalls}
+      executeEnabled={true}
+      on:execute={handleCoveredCallExecute}
+    />
+
+    {#if activePanel?.optionType === 'call'}
+      {#if !panelTicket}
+        <div class="panel-loading">⚡ Queuing covered call ticket…</div>
+      {:else}
+        <ExecutionConfirmPanel
+          tickets={[panelTicket]}
+          mode="option"
+          selectedDte={activePanel.selectedDte}
+          loading={executionLoading}
+          results={executionResult ? [executionResult] : null}
+          on:confirm={() => {
+            executionLoading = true;
+            (document.getElementById('execute-option-form') as HTMLFormElement)?.requestSubmit();
+          }}
+          on:cancel={closePanel}
+          on:dteChange={(e) => {
+            if (activePanel) {
+              activePanel = { ...activePanel, selectedDte: e.detail, prevTicketId: panelTicket?.id ?? null };
+              setTimeout(() => {
+                (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
+              }, 0);
+            }
+          }}
+        />
+      {/if}
+    {/if}
+
     <PutExposureChart rows={data.puts} />
+
+    {#if data.puts.length > 0}
+      <div class="put-execute-bar">
+        <div class="put-execute-label">Execute CSP</div>
+        {#each data.puts as row}
+          <button class="put-exec-btn" type="button" on:click={() => handlePutExecute(row.symbol)}>
+            ⚡ {row.symbol.replace(/^US\./, '')} ${row.strike} Put
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    {#if activePanel?.optionType === 'put' && panelTicket}
+      <ExecutionConfirmPanel
+        tickets={[panelTicket]}
+        mode="option"
+        selectedDte={activePanel?.selectedDte ?? 30}
+        loading={executionLoading}
+        results={executionResult ? [executionResult] : null}
+        on:confirm={() => {
+          executionLoading = true;
+          (document.getElementById('execute-option-form') as HTMLFormElement)?.requestSubmit();
+        }}
+        on:cancel={closePanel}
+        on:dteChange={(e) => {
+          if (activePanel) {
+            activePanel = { ...activePanel, selectedDte: e.detail, prevTicketId: panelTicket?.id ?? null };
+            setTimeout(() => {
+              (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
+            }, 0);
+          }
+        }}
+      />
+    {/if}
 
     <div class="next-step">
       <div class="next-text">
@@ -82,4 +247,9 @@
   .wheel-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
   @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .actions-bar { flex-direction: column; align-items: flex-start; } }
+  .put-execute-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+  .put-execute-label { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; margin-right: 4px; }
+  .put-exec-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 700; color: var(--primary); background: rgba(var(--primary-rgb), 0.08); border: 1px solid rgba(var(--primary-rgb), 0.25); border-radius: 4px; padding: 4px 10px; cursor: pointer; transition: all 0.1s; }
+  .put-exec-btn:hover { background: rgba(var(--primary-rgb), 0.16); }
+  .panel-loading { font-size: 0.72rem; color: var(--muted); padding: 10px 0; }
 </style>
