@@ -34,7 +34,7 @@
 
 <ScenarioSelector
   scenarioTypes={data.scenarioTypes}
-  portfolioModes={data.portfolioModes}
+  portfolioModes={[]}
   activeScenario={data.latestRun?.scenarioType ?? 'bear_market'}
   activeMode={data.portfolioMode}
 />
@@ -46,23 +46,13 @@
     {#each data.results as result}<ScenarioSimulationCard {result} />{/each}
     <StressTestChart stressTest={data.stressTest} />
 
-    {#if data.portfolioMode === 'hybrid' || data.portfolioMode === 'options'}
-      <div class="next-step">
-        <div class="next-text">
-          <strong>Optimize your options strategy</strong>
-          <span>Review covered call and cash-secured put opportunities based on your current holdings.</span>
-        </div>
-        <a class="button" href="/optimization/options">Options Intelligence →</a>
+    <div class="next-step">
+      <div class="next-text">
+        <strong>Review past optimization runs</strong>
+        <span>Compare how your portfolio metrics have changed over time.</span>
       </div>
-    {:else}
-      <div class="next-step">
-        <div class="next-text">
-          <strong>Review past optimization runs</strong>
-          <span>Compare how your portfolio metrics have changed over time.</span>
-        </div>
-        <a class="button" href="/optimization/history">View History →</a>
-      </div>
-    {/if}
+      <a class="button" href="/optimization/history">View History →</a>
+    </div>
   </main>
   <aside class="side-col">
     {#if data.stressTest.worst_case}<RiskProjectionCard summary={data.stressTest.worst_case.riskSummary} />{/if}

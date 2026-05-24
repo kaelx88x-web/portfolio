@@ -59,24 +59,26 @@
     </div>
   </div>
 
-  <div class="field">
-    <span>Mode</span>
-    <div class="drop" class:open={modeOpen}>
-      <button type="button" class="drop-trigger" on:click={() => { modeOpen = !modeOpen; scenarioOpen = false; }}>
-        <span>{label(selectedMode)}</span>
-        <ChevronDown size={14} />
-      </button>
-      {#if modeOpen}
-        <div class="drop-menu">
-          {#each portfolioModes as mode}
-            <button type="button" class="drop-item" class:active={mode === selectedMode} on:click={() => selectMode(mode)}>
-              {label(mode)}
-            </button>
-          {/each}
-        </div>
-      {/if}
+  {#if portfolioModes.length > 0}
+    <div class="field">
+      <span>Mode</span>
+      <div class="drop" class:open={modeOpen}>
+        <button type="button" class="drop-trigger" on:click={() => { modeOpen = !modeOpen; scenarioOpen = false; }}>
+          <span>{label(selectedMode)}</span>
+          <ChevronDown size={14} />
+        </button>
+        {#if modeOpen}
+          <div class="drop-menu">
+            {#each portfolioModes as mode}
+              <button type="button" class="drop-item" class:active={mode === selectedMode} on:click={() => selectMode(mode)}>
+                {label(mode)}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 
   <button class="button run-btn" type="submit"><Play size={14} /> Run Simulation</button>
 </form>
