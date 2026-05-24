@@ -59,6 +59,7 @@
   }
 
   // AI strategy state
+  $: hasAiRecommendation = (data.recommendedStrategy?.confidence ?? 0) > 0;
   $: recommended = (data.recommendedStrategy?.riskLevel ?? 'moderate') as RiskLevel;
   $: confidence = data.recommendedStrategy?.confidence ?? 0;
   let selectedRisk: RiskLevel = 'moderate';
@@ -157,23 +158,14 @@
   <form method="POST" action="?/run" use:enhance class="run-form">
     <input type="hidden" name="riskLevel" value={selectedRisk} />
 
-    {#if data.recommendedStrategy}
-      <AiStrategySelector
-        {recommended}
-        {confidence}
-        bind:selected={selectedRisk}
-        on:change={(e) => (selectedRisk = e.detail)}
-      />
-    {:else}
-      <!-- Skeleton while behavioral profile loads -->
-      <div class="skeleton-wrap">
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-      </div>
-    {/if}
+    <AiStrategySelector
+      {recommended}
+      confidence={hasAiRecommendation ? confidence : 0}
+      bind:selected={selectedRisk}
+      on:change={(e) => (selectedRisk = e.detail)}
+    />
 
-    {#if showConflict && data.recommendedStrategy}
+    {#if showConflict && hasAiRecommendation}
       <div class="conflict-notice">
         <span>⚠</span>
         AI detects your actual behavior is <strong>{riskLabels[aiRecommendedLevel]}</strong>.
@@ -366,27 +358,6 @@
   }
 
   /* ── Skeleton ─────────────────────────────────────────────────────── */
-  .skeleton-wrap {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-  .skeleton-card {
-    height: 120px;
-    border-radius: 10px;
-    background: var(--border);
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 0.6;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
-
   /* ── Conflict notice ──────────────────────────────────────────────── */
   .conflict-notice {
     display: flex;
@@ -476,9 +447,6 @@
     }
     .behavioral-card {
       grid-column: span 2;
-    }
-    .skeleton-wrap {
-      grid-template-columns: 1fr;
     }
     .run-row {
       justify-content: stretch;

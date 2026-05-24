@@ -314,13 +314,20 @@ function blendScenarioWeights(
   return { conservative: c, balanced: b, aggressive: a };
 }
 
-function validateStrategyConsistency(strategy: RecommendedStrategy): void {
+export function validateStrategyConsistency(strategy: RecommendedStrategy): void {
   const clamp = RISK_CLAMPS[strategy.riskLevel];
   if (strategy.cashFloorPct < clamp.cashFloorMin) {
-    console.warn(`[behavioral] cashFloorPct ${strategy.cashFloorPct} is below min ${clamp.cashFloorMin} for ${strategy.riskLevel}`);
+    throw new Error(`Cash floor ${strategy.cashFloorPct}% is below the ${clamp.cashFloorMin}% minimum for ${strategy.riskLevel}.`);
   }
   if (strategy.cashFloorPct > clamp.cashFloorMax) {
-    console.warn(`[behavioral] cashFloorPct ${strategy.cashFloorPct} exceeds max ${clamp.cashFloorMax} for ${strategy.riskLevel}`);
+    throw new Error(`Cash floor ${strategy.cashFloorPct}% exceeds the ${clamp.cashFloorMax}% maximum for ${strategy.riskLevel}.`);
+  }
+  const totalWeight =
+    strategy.scenarioWeights.conservative +
+    strategy.scenarioWeights.balanced +
+    strategy.scenarioWeights.aggressive;
+  if (totalWeight !== 100) {
+    throw new Error(`Scenario weights must total 100%, received ${totalWeight}%.`);
   }
   const dominantWeight = Math.max(
     strategy.scenarioWeights.conservative,
@@ -388,6 +395,33 @@ const DEFAULT_STRATEGY: RecommendedStrategy = {
   aiRecommendedLevel: 'moderate',
 };
 
+function buildDefaultStrategy(userRiskLevel?: RiskLevel): RecommendedStrategy {
+  if (!userRiskLevel) {
+    return { ...DEFAULT_STRATEGY, scenarioWeights: { ...DEFAULT_STRATEGY.scenarioWeights } };
+  }
+
+  const strategy: RecommendedStrategy = {
+    ...DEFAULT_STRATEGY,
+    riskLevel: userRiskLevel,
+    portfolioMode: userRiskLevel === 'aggressive' ? 'options' : userRiskLevel === 'conservative' ? 'stock' : 'hybrid',
+    riskProfile: userRiskLevel === 'aggressive' ? 'aggressive' : userRiskLevel === 'conservative' ? 'conservative' : 'balanced',
+    optimizationGoal:
+      userRiskLevel === 'aggressive' ? 'maximum_return' :
+      userRiskLevel === 'conservative' ? 'minimum_volatility' :
+      'maximum_sharpe',
+    cashFloorPct:
+      userRiskLevel === 'aggressive' ? 3 :
+      userRiskLevel === 'conservative' ? 10 :
+      5,
+    scenarioWeights: blendScenarioWeights(DEFAULT_STRATEGY.scenarioWeights, userRiskLevel),
+    conflictDetected: false,
+    aiRecommendedLevel: 'moderate',
+  };
+
+  validateStrategyConsistency(strategy);
+  return strategy;
+}
+
 // ─── In-memory cache (5-min TTL) ─────────────────────────────────────────────
 
 const _strategyCache = new Map<string, { data: RecommendedStrategy; ts: number }>();
@@ -403,7 +437,7 @@ export async function getRecommendedStrategy(
 
   const profile = await getBehavioralProfile(userId);
   const result  = profile.dataPoints === 0
-    ? { ...DEFAULT_STRATEGY, scenarioWeights: { ...DEFAULT_STRATEGY.scenarioWeights } }
+    ? buildDefaultStrategy(userRiskLevel)
     : buildRecommendedStrategy(profile, userRiskLevel);
 
   if (_strategyCache.size > 500) _strategyCache.clear(); // prevent unbounded growth

@@ -1,0 +1,429 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "◈" [ref=e7] [cursor=pointer]
+          - generic [ref=e9]:
+            - generic [ref=e10]: Total Portfolio
+            - generic [ref=e11]:
+              - generic [ref=e12]: $812.68
+              - generic [ref=e13]: +$2.22 (+0.27%)
+          - button "Moomoo Live (1017296631818262) LIVE" [ref=e16] [cursor=pointer]:
+            - generic [ref=e18]: Moomoo Live (1017296631818262)
+            - generic [ref=e19]: LIVE
+            - img [ref=e20]
+        - generic [ref=e22]:
+          - button "Ask AI" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+            - text: Ask AI
+          - button "Notifications" [ref=e26] [cursor=pointer]:
+            - img [ref=e27]
+          - button "PA" [ref=e31] [cursor=pointer]
+          - button "Toggle sidebar" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+          - button "Toggle AI panel" [ref=e39] [cursor=pointer]:
+            - img [ref=e40]
+          - button "Light mode" [ref=e328] [cursor=pointer]:
+            - img [ref=e329]
+    - generic [ref=e46]:
+      - complementary [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e50]:
+            - generic [ref=e51]: ◈
+            - generic [ref=e52]:
+              - generic [ref=e53]: PortfolioAI
+              - generic [ref=e54]: AI Portfolio OS
+          - link "Dashboard" [ref=e56] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e57]
+            - generic [ref=e62]: Dashboard
+          - navigation [ref=e330]:
+            - button "Portfolio" [ref=e332] [cursor=pointer]:
+              - img [ref=e333]
+              - generic [ref=e334]: Portfolio
+              - img [ref=e336]
+            - button "Broker" [ref=e338] [cursor=pointer]:
+              - img [ref=e339]
+              - generic [ref=e340]: Broker
+              - img [ref=e342]
+            - generic [ref=e343]:
+              - button "Optimize LIVE" [ref=e344] [cursor=pointer]:
+                - img [ref=e345]
+                - generic [ref=e346]: Optimize
+                - generic [ref=e347]: LIVE
+                - img [ref=e349]
+              - link "Rebalance" [ref=e351] [cursor=pointer]:
+                - /url: /optimization/rebalance
+                - text: Rebalance
+            - button "Trades SANDBOX" [ref=e354] [cursor=pointer]:
+              - img [ref=e355]
+              - generic [ref=e356]: Trades
+              - generic [ref=e357]: SANDBOX
+              - img [ref=e359]
+          - generic [ref=e99]:
+            - button "ADVANCED MODE ← Switch to Beginner" [ref=e360] [cursor=pointer]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: ADVANCED MODE
+                - generic [ref=e103]: ← Switch to Beginner
+            - button "Collapse" [ref=e106] [cursor=pointer]:
+              - img [ref=e107]
+              - generic [ref=e109]: Collapse
+            - link "Settings" [ref=e110] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e111]
+              - generic [ref=e114]: Settings
+      - main [ref=e115]:
+        - generic [ref=e116]:
+          - navigation [ref=e117]:
+            - link "Optimization" [ref=e118] [cursor=pointer]:
+              - /url: /optimization
+            - generic [ref=e119]: /
+            - generic [ref=e120]: Rebalance
+          - heading "Rebalance Suggestions" [level=1] [ref=e121]
+          - paragraph [ref=e122]: What to buy, reduce, or add to move your portfolio toward the target allocation.
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - generic [ref=e125]: Suggestions
+            - strong [ref=e126]: "1"
+            - generic [ref=e127]: Actions available
+          - generic [ref=e128]:
+            - generic [ref=e129]: Status
+            - strong [ref=e130]: Needs Action
+          - generic [ref=e131]:
+            - generic [ref=e132]: Risk Reduction
+            - strong [ref=e133]: −8.4 pts
+            - generic [ref=e134]: After rebalance
+        - generic [ref=e362]:
+          - img [ref=e363]
+          - text: AI generated 5 suggestions for hybrid mode.
+        - generic [ref=e135]:
+          - main [ref=e136]:
+            - generic [ref=e364]:
+              - img [ref=e365]
+              - text: AI-generated suggestions
+            - article [ref=e137]:
+              - generic [ref=e138]:
+                - img [ref=e139]
+                - heading "Reduce Single Stock Concentration (NIO)" [level=2] [ref=e366]
+              - paragraph [ref=e143]: Your NIO position is 64.4% of your portfolio, significantly exceeding the 15% single stock maximum. To align with your risk constraints, sell 70 shares of NIO. This will reduce your NIO allocation to approximately 14.5% of your portfolio, bringing it within the desired limit.
+              - generic [ref=e144]:
+                - generic [ref=e145]: Suggested Actions
+                - generic [ref=e146]:
+                  - generic [ref=e147]: REDUCE
+                  - generic [ref=e148]: US.SCHG
+                  - generic [ref=e149]: 19.7% → 15.0%
+                  - link "Trade" [ref=e150] [cursor=pointer]:
+                    - /url: /trades?symbol=SCHG&ticketType=sell&thesis=Reduce+Single+Stock+Concentration+%28NIO%29+%E2%80%94+Your+NIO+position+is+64.4%25+of+your+portfolio%2C+significantly+exceeding+the+15%25+single+stock+maximum.+To+align+with+your+r&sourceType=rebalance
+                    - img [ref=e151]
+                    - text: Trade
+                - generic [ref=e154]:
+                  - generic [ref=e155]: ADD
+                  - generic [ref=e156]: Options Income Sleeve
+                  - generic [ref=e157]: → 3.8%
+                  - link "Trade" [ref=e158] [cursor=pointer]:
+                    - /url: /trades?symbol=Options+Income+Sleeve&ticketType=buy&thesis=Reduce+Single+Stock+Concentration+%28NIO%29+%E2%80%94+Your+NIO+position+is+64.4%25+of+your+portfolio%2C+significantly+exceeding+the+15%25+single+stock+maximum.+To+align+with+your+r&sourceType=rebalance
+                    - img [ref=e159]
+                    - text: Trade
+                - generic [ref=e162]:
+                  - generic [ref=e163]: ADD
+                  - generic [ref=e164]: Diversified Core Basket
+                  - generic [ref=e165]: → 0.9%
+                  - link "Trade" [ref=e166] [cursor=pointer]:
+                    - /url: /trades?symbol=Diversified+Core+Basket&ticketType=buy&thesis=Reduce+Single+Stock+Concentration+%28NIO%29+%E2%80%94+Your+NIO+position+is+64.4%25+of+your+portfolio%2C+significantly+exceeding+the+15%25+single+stock+maximum.+To+align+with+your+r&sourceType=rebalance
+                    - img [ref=e167]
+                    - text: Trade
+              - generic [ref=e170]:
+                - generic [ref=e171]:
+                  - generic [ref=e172]: Risk impact
+                  - strong [ref=e173]: This action will substantially decrease your idiosyncratic risk associated with a single volatile stock.
+                - generic [ref=e174]:
+                  - generic [ref=e175]: Volatility impact
+                  - strong [ref=e176]: Reducing your largest, most volatile holding will likely decrease overall portfolio volatility.
+              - generic [ref=e177]: Suggestion only. No automatic trading or order placement.
+            - article [ref=e367]:
+              - generic [ref=e368]:
+                - img [ref=e369]
+                - heading "Increase Cash Reserve" [level=2] [ref=e370]
+              - paragraph [ref=e371]: Your current cash ratio is 0.0%, falling below the 5% minimum cash constraint. To meet this requirement and improve liquidity, the sale of NIO shares should free up capital. Allocate approximately $40 to cash to bring your cash ratio to around 5% of your updated portfolio value.
+              - generic [ref=e372]:
+                - generic [ref=e373]: Suggested Actions
+                - generic [ref=e374]:
+                  - generic [ref=e375]: REDUCE
+                  - generic [ref=e376]: US.SCHG
+                  - generic [ref=e377]: 19.7% → 15.0%
+                  - link "Trade" [ref=e378] [cursor=pointer]:
+                    - /url: /trades?symbol=SCHG&ticketType=sell&thesis=Increase+Cash+Reserve+%E2%80%94+Your+current+cash+ratio+is+0.0%25%2C+falling+below+the+5%25+minimum+cash+constraint.+To+meet+this+requirement+and+improve+liqu&sourceType=rebalance
+                    - img [ref=e379]
+                    - text: Trade
+                - generic [ref=e380]:
+                  - generic [ref=e381]: ADD
+                  - generic [ref=e382]: Options Income Sleeve
+                  - generic [ref=e383]: → 3.8%
+                  - link "Trade" [ref=e384] [cursor=pointer]:
+                    - /url: /trades?symbol=Options+Income+Sleeve&ticketType=buy&thesis=Increase+Cash+Reserve+%E2%80%94+Your+current+cash+ratio+is+0.0%25%2C+falling+below+the+5%25+minimum+cash+constraint.+To+meet+this+requirement+and+improve+liqu&sourceType=rebalance
+                    - img [ref=e385]
+                    - text: Trade
+                - generic [ref=e386]:
+                  - generic [ref=e387]: ADD
+                  - generic [ref=e388]: Diversified Core Basket
+                  - generic [ref=e389]: → 0.9%
+                  - link "Trade" [ref=e390] [cursor=pointer]:
+                    - /url: /trades?symbol=Diversified+Core+Basket&ticketType=buy&thesis=Increase+Cash+Reserve+%E2%80%94+Your+current+cash+ratio+is+0.0%25%2C+falling+below+the+5%25+minimum+cash+constraint.+To+meet+this+requirement+and+improve+liqu&sourceType=rebalance
+                    - img [ref=e391]
+                    - text: Trade
+              - generic [ref=e392]:
+                - generic [ref=e393]:
+                  - generic [ref=e394]: Risk impact
+                  - strong [ref=e395]: A higher cash reserve provides a buffer against market downturns and improves liquidity.
+                - generic [ref=e396]:
+                  - generic [ref=e397]: Volatility impact
+                  - strong [ref=e398]: Increased cash acts as a non-volatile asset, which can help dampen overall portfolio volatility.
+              - generic [ref=e399]: Suggestion only. No automatic trading or order placement.
+            - article [ref=e400]:
+              - generic [ref=e401]:
+                - img [ref=e402]
+                - heading "Diversify with Additional ETFs" [level=2] [ref=e403]
+              - paragraph [ref=e404]: After reducing your NIO holding and increasing cash, you will have available capital. Consider adding to your existing ETF positions (SCHG, SPYT) or introducing a new broad-market or sector-specific ETF to further diversify your equity exposure and reduce reliance on individual stocks.
+              - generic [ref=e405]:
+                - generic [ref=e406]: Suggested Actions
+                - generic [ref=e407]:
+                  - generic [ref=e408]: REDUCE
+                  - generic [ref=e409]: US.SCHG
+                  - generic [ref=e410]: 19.7% → 15.0%
+                  - link "Trade" [ref=e411] [cursor=pointer]:
+                    - /url: /trades?symbol=SCHG&ticketType=sell&thesis=Diversify+with+Additional+ETFs+%E2%80%94+After+reducing+your+NIO+holding+and+increasing+cash%2C+you+will+have+available+capital.+Consider+adding+to+your+existing+E&sourceType=rebalance
+                    - img [ref=e412]
+                    - text: Trade
+                - generic [ref=e413]:
+                  - generic [ref=e414]: ADD
+                  - generic [ref=e415]: Options Income Sleeve
+                  - generic [ref=e416]: → 3.8%
+                  - link "Trade" [ref=e417] [cursor=pointer]:
+                    - /url: /trades?symbol=Options+Income+Sleeve&ticketType=buy&thesis=Diversify+with+Additional+ETFs+%E2%80%94+After+reducing+your+NIO+holding+and+increasing+cash%2C+you+will+have+available+capital.+Consider+adding+to+your+existing+E&sourceType=rebalance
+                    - img [ref=e418]
+                    - text: Trade
+                - generic [ref=e419]:
+                  - generic [ref=e420]: ADD
+                  - generic [ref=e421]: Diversified Core Basket
+                  - generic [ref=e422]: → 0.9%
+                  - link "Trade" [ref=e423] [cursor=pointer]:
+                    - /url: /trades?symbol=Diversified+Core+Basket&ticketType=buy&thesis=Diversify+with+Additional+ETFs+%E2%80%94+After+reducing+your+NIO+holding+and+increasing+cash%2C+you+will+have+available+capital.+Consider+adding+to+your+existing+E&sourceType=rebalance
+                    - img [ref=e424]
+                    - text: Trade
+              - generic [ref=e425]:
+                - generic [ref=e426]:
+                  - generic [ref=e427]: Risk impact
+                  - strong [ref=e428]: Diversifying across more ETFs will spread your investment risk across multiple companies and sectors.
+                - generic [ref=e429]:
+                  - generic [ref=e430]: Volatility impact
+                  - strong [ref=e431]: Broadening your ETF exposure can help stabilize returns and potentially lower portfolio volatility compared to concentrated stock holdings.
+              - generic [ref=e432]: Suggestion only. No automatic trading or order placement.
+            - article [ref=e433]:
+              - generic [ref=e434]:
+                - img [ref=e435]
+                - heading "Adjust Options Strategy (NIO Covered Calls)" [level=2] [ref=e436]
+              - paragraph [ref=e437]: With a significant reduction in your NIO shares, your existing NIO covered call (NIO260529C5500) will no longer be fully covered. You will be long 30 shares of NIO after the proposed sale, making your current covered call on 100 shares 70 shares uncovered. Consider closing 70 contracts of the NIO covered call to match your reduced share count and maintain a truly covered position.
+              - generic [ref=e438]:
+                - generic [ref=e439]: Suggested Actions
+                - generic [ref=e440]:
+                  - generic [ref=e441]: REDUCE
+                  - generic [ref=e442]: US.SCHG
+                  - generic [ref=e443]: 19.7% → 15.0%
+                  - link "Trade" [ref=e444] [cursor=pointer]:
+                    - /url: /trades?symbol=SCHG&ticketType=sell&thesis=Adjust+Options+Strategy+%28NIO+Covered+Calls%29+%E2%80%94+With+a+significant+reduction+in+your+NIO+shares%2C+your+existing+NIO+covered+call+%28NIO260529C5500%29+will+no+longer+be+fully&sourceType=rebalance
+                    - img [ref=e445]
+                    - text: Trade
+                - generic [ref=e446]:
+                  - generic [ref=e447]: ADD
+                  - generic [ref=e448]: Options Income Sleeve
+                  - generic [ref=e449]: → 3.8%
+                  - link "Trade" [ref=e450] [cursor=pointer]:
+                    - /url: /trades?symbol=Options+Income+Sleeve&ticketType=buy&thesis=Adjust+Options+Strategy+%28NIO+Covered+Calls%29+%E2%80%94+With+a+significant+reduction+in+your+NIO+shares%2C+your+existing+NIO+covered+call+%28NIO260529C5500%29+will+no+longer+be+fully&sourceType=rebalance
+                    - img [ref=e451]
+                    - text: Trade
+                - generic [ref=e452]:
+                  - generic [ref=e453]: ADD
+                  - generic [ref=e454]: Diversified Core Basket
+                  - generic [ref=e455]: → 0.9%
+                  - link "Trade" [ref=e456] [cursor=pointer]:
+                    - /url: /trades?symbol=Diversified+Core+Basket&ticketType=buy&thesis=Adjust+Options+Strategy+%28NIO+Covered+Calls%29+%E2%80%94+With+a+significant+reduction+in+your+NIO+shares%2C+your+existing+NIO+covered+call+%28NIO260529C5500%29+will+no+longer+be+fully&sourceType=rebalance
+                    - img [ref=e457]
+                    - text: Trade
+              - generic [ref=e458]:
+                - generic [ref=e459]:
+                  - generic [ref=e460]: Risk impact
+                  - strong [ref=e461]: Aligning your covered call contracts with your share count prevents an unintended naked call position, significantly reducing your potential downside risk.
+                - generic [ref=e462]:
+                  - generic [ref=e463]: Volatility impact
+                  - strong [ref=e464]: Maintaining a truly covered call strategy will continue to slightly reduce effective volatility on the underlying shares while generating income.
+              - generic [ref=e465]: Suggestion only. No automatic trading or order placement.
+            - article [ref=e466]:
+              - generic [ref=e467]:
+                - img [ref=e468]
+                - heading "Assess Overall Options Exposure" [level=2] [ref=e469]
+              - paragraph [ref=e470]: Your active options include a put on PATH, and both a covered call and put on NIO. While specific option constraints are not provided, ensure that your total capital at risk in options (including potential margin for uncovered portions) remains manageable and aligned with your overall risk tolerance for the 'Hybrid' mode. With the proposed NIO share reduction, you will need to re-evaluate the NIO put strategy.
+              - generic [ref=e471]:
+                - generic [ref=e472]: Suggested Actions
+                - generic [ref=e473]:
+                  - generic [ref=e474]: REDUCE
+                  - generic [ref=e475]: US.SCHG
+                  - generic [ref=e476]: 19.7% → 15.0%
+                  - link "Trade" [ref=e477] [cursor=pointer]:
+                    - /url: /trades?symbol=SCHG&ticketType=sell&thesis=Assess+Overall+Options+Exposure+%E2%80%94+Your+active+options+include+a+put+on+PATH%2C+and+both+a+covered+call+and+put+on+NIO.+While+specific+option+constraints+are&sourceType=rebalance
+                    - img [ref=e478]
+                    - text: Trade
+                - generic [ref=e479]:
+                  - generic [ref=e480]: ADD
+                  - generic [ref=e481]: Options Income Sleeve
+                  - generic [ref=e482]: → 3.8%
+                  - link "Trade" [ref=e483] [cursor=pointer]:
+                    - /url: /trades?symbol=Options+Income+Sleeve&ticketType=buy&thesis=Assess+Overall+Options+Exposure+%E2%80%94+Your+active+options+include+a+put+on+PATH%2C+and+both+a+covered+call+and+put+on+NIO.+While+specific+option+constraints+are&sourceType=rebalance
+                    - img [ref=e484]
+                    - text: Trade
+                - generic [ref=e485]:
+                  - generic [ref=e486]: ADD
+                  - generic [ref=e487]: Diversified Core Basket
+                  - generic [ref=e488]: → 0.9%
+                  - link "Trade" [ref=e489] [cursor=pointer]:
+                    - /url: /trades?symbol=Diversified+Core+Basket&ticketType=buy&thesis=Assess+Overall+Options+Exposure+%E2%80%94+Your+active+options+include+a+put+on+PATH%2C+and+both+a+covered+call+and+put+on+NIO.+While+specific+option+constraints+are&sourceType=rebalance
+                    - img [ref=e490]
+                    - text: Trade
+              - generic [ref=e491]:
+                - generic [ref=e492]:
+                  - generic [ref=e493]: Risk impact
+                  - strong [ref=e494]: Regularly reviewing your options positions helps ensure you are not overexposed to directional bets or excessive leverage, mitigating potential losses.
+                - generic [ref=e495]:
+                  - generic [ref=e496]: Volatility impact
+                  - strong [ref=e497]: Careful management of options exposure can help fine-tune portfolio volatility, using strategies like covered calls to reduce it and options spreads to manage directional bets.
+              - generic [ref=e498]: Suggestion only. No automatic trading or order placement.
+            - generic [ref=e178]:
+              - generic [ref=e179]:
+                - strong [ref=e180]: Want to see the numbers over time?
+                - generic [ref=e181]: Run a projection to see how this rebalance affects your portfolio value in 1–5 years.
+              - link "View Portfolio Projection →" [ref=e182] [cursor=pointer]:
+                - /url: /optimization/projection
+          - complementary [ref=e183]:
+            - generic [ref=e184]:
+              - generic [ref=e185]: Simulate for Portfolio Mode
+              - generic [ref=e186]:
+                - generic [ref=e188] [cursor=pointer]: Stocks Only
+                - generic [ref=e190] [cursor=pointer]: Hybrid
+                - generic [ref=e192] [cursor=pointer]: Active Options
+              - button "Simulate Rebalance" [ref=e193] [cursor=pointer]
+            - generic [ref=e194]:
+              - generic [ref=e195]:
+                - img [ref=e196]
+                - generic [ref=e198]:
+                  - generic [ref=e199]: AI Suggestions
+                  - generic [ref=e200]: Generate contextual suggestions using AI for Hybrid mode
+              - button "Get AI Suggestions" [ref=e201] [cursor=pointer]:
+                - img [ref=e499]
+                - text: Get AI Suggestions
+            - article [ref=e204]:
+              - generic [ref=e205]:
+                - generic [ref=e206]:
+                  - text: After Rebalance
+                  - heading "Projected Impact" [level=2] [ref=e207]
+                - img [ref=e208]
+              - generic [ref=e211]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]: Risk Score
+                  - strong [ref=e214]: −8.4 pts
+                  - emphasis [ref=e215]: Lower risk
+                - generic [ref=e216]:
+                  - generic [ref=e217]: Expected Return
+                  - strong [ref=e218]: +0.02%
+                  - emphasis [ref=e219]: Improves
+                - generic [ref=e220]:
+                  - generic [ref=e221]: Price Swings
+                  - strong [ref=e222]: "-0.09%"
+                  - emphasis [ref=e223]: Less volatile
+              - generic [ref=e224]:
+                - generic [ref=e225]:
+                  - generic [ref=e226]: Holding
+                  - generic [ref=e227]: Now → After
+                - generic [ref=e228]:
+                  - generic [ref=e229]: US.NIO
+                  - strong [ref=e230]: 70.1% → 70.1%
+                - generic [ref=e231]:
+                  - generic [ref=e232]: US.SCHG
+                  - strong [ref=e233]: 19.7% → 15.0%
+                - generic [ref=e234]:
+                  - generic [ref=e235]: US.SPYT
+                  - strong [ref=e236]: 10.2% → 10.2%
+                - generic [ref=e237]:
+                  - generic [ref=e238]: Diversified Core Basket
+                  - strong [ref=e239]: 0.0% → 3.3%
+                - generic [ref=e240]:
+                  - generic [ref=e241]: Defensive ETF Sleeve
+                  - strong [ref=e242]: 0.0% → 0.9%
+                - generic [ref=e243]:
+                  - generic [ref=e244]: Cash Reserve
+                  - strong [ref=e245]: 42.5% → 0.5%
+              - paragraph [ref=e246]: Rebalance caps oversized holdings at the 15% constraint and redirects freed capital into diversified stock and defensive sleeves. Option underlyings are preserved.
+            - article [ref=e247]:
+              - generic [ref=e248]:
+                - generic [ref=e249]:
+                  - text: Allocation Comparison
+                  - paragraph [ref=e250]: Current vs. scenario target per holding
+                - generic [ref=e251]:
+                  - text: Current
+                  - text: Target
+              - generic [ref=e254]:
+                - generic [ref=e255]:
+                  - generic [ref=e256]:
+                    - generic [ref=e257]: US.NIO
+                    - generic [ref=e258]: —
+                  - generic [ref=e259]:
+                    - generic [ref=e260]:
+                      - generic [ref=e261]: Now
+                      - generic [ref=e264]: 70.1%
+                    - generic [ref=e265]:
+                      - generic [ref=e266]: Target
+                      - generic [ref=e269]: 70.1%
+                - generic [ref=e270]:
+                  - generic [ref=e271]:
+                    - generic [ref=e272]: US.SCHG
+                    - generic [ref=e273]: ▼ 4.7%
+                  - generic [ref=e274]:
+                    - generic [ref=e275]:
+                      - generic [ref=e276]: Now
+                      - generic [ref=e279]: 19.7%
+                    - generic [ref=e280]:
+                      - generic [ref=e281]: Target
+                      - generic [ref=e284]: 15.0%
+                - generic [ref=e285]:
+                  - generic [ref=e286]:
+                    - generic [ref=e287]: US.SPYT
+                    - generic [ref=e288]: —
+                  - generic [ref=e289]:
+                    - generic [ref=e290]:
+                      - generic [ref=e291]: Now
+                      - generic [ref=e294]: 10.2%
+                    - generic [ref=e295]:
+                      - generic [ref=e296]: Target
+                      - generic [ref=e299]: 10.2%
+                - generic [ref=e300]:
+                  - generic [ref=e301]:
+                    - generic [ref=e302]: Diversified Core Basket
+                    - generic [ref=e303]: ▲ 0.9%
+                  - generic [ref=e304]:
+                    - generic [ref=e305]:
+                      - generic [ref=e306]: Now
+                      - generic [ref=e308]: 0.0%
+                    - generic [ref=e309]:
+                      - generic [ref=e310]: Target
+                      - generic [ref=e313]: 0.9%
+                - generic [ref=e314]:
+                  - generic [ref=e315]:
+                    - generic [ref=e316]: Options Income Sleeve
+                    - generic [ref=e317]: ▲ 3.8%
+                  - generic [ref=e318]:
+                    - generic [ref=e319]:
+                      - generic [ref=e320]: Now
+                      - generic [ref=e322]: 0.0%
+                    - generic [ref=e323]:
+                      - generic [ref=e324]: Target
+                      - generic [ref=e327]: 3.8%
+  - generic [ref=e361]: PortfolioAI

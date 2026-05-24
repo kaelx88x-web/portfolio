@@ -20,28 +20,28 @@ import {
 import { validatePortfolioGuardrails } from '$lib/services/guardrail.service';
 import {
   getRecommendedStrategy,
+  validateStrategyConsistency,
   type RiskLevel,
 } from '$lib/services/behavioral-profile.service';
 import type { PageServerLoad } from './$types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseRiskLevel(value: FormDataEntryValue | string | null): RiskLevel {
-  const valid: RiskLevel[] = ['conservative', 'moderate', 'aggressive'];
-  return valid.includes(value as RiskLevel) ? (value as RiskLevel) : 'moderate';
+const VALID_RISK_LEVELS: RiskLevel[] = ['conservative', 'moderate', 'aggressive'];
+
+function isRiskLevel(value: FormDataEntryValue | null): value is RiskLevel {
+  return typeof value === 'string' && VALID_RISK_LEVELS.includes(value as RiskLevel);
 }
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
   const user      = await getDemoUser();
   const period    = parseOptimizationPeriod(url.searchParams.get('period'));
   const benchmark = parseOptimizationBenchmark(url.searchParams.get('benchmark'));
 
-  const [dashboard, recommendedStrategy] = await Promise.all([
-    getOptimizationDashboard(user.id, { period, benchmark }),
-    getRecommendedStrategy(user.id).catch(() => null),
-  ]);
+  const dashboard = await getOptimizationDashboard(user.id, { period, benchmark });
+  const recommendedStrategy = locals.recommendedStrategy ?? null;
 
   const portfolioMode = recommendedStrategy?.portfolioMode ?? 'hybrid';
   const guardrail = await validatePortfolioGuardrails(user.id, portfolioMode).catch(() => null);
@@ -62,10 +62,16 @@ export const actions: Actions = {
   run: async ({ request, url }) => {
     const user      = await getDemoUser();
     const form      = await request.formData();
-    const riskLevel = parseRiskLevel(form.get('riskLevel'));
+    const riskLevelValue = form.get('riskLevel');
+    if (!isRiskLevel(riskLevelValue)) {
+      return fail(400, { message: 'Invalid risk level' });
+    }
+
+    const riskLevel = riskLevelValue;
     try {
       // Get AI-blended strategy for this user's chosen risk level
       const strategy  = await getRecommendedStrategy(user.id, riskLevel);
+      validateStrategyConsistency(strategy);
       const guardrail = await validatePortfolioGuardrails(user.id, strategy.portfolioMode);
       const period    = parseOptimizationPeriod(url.searchParams.get('period'));
       const benchmark = parseOptimizationBenchmark(url.searchParams.get('benchmark'));

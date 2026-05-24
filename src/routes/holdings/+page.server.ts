@@ -42,7 +42,7 @@ export const actions: Actions = {
     const user = await getDemoUser();
     try {
       const result = await syncMoomoo();
-      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0);
+      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
       return {
         refreshResult: {
           updated: result.holdings_count,

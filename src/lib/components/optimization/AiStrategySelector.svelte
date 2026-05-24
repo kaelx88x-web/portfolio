@@ -31,13 +31,13 @@
       aria-checked={selected === card.level}
       class="card"
       class:active={selected === card.level}
-      class:is-ai={card.level === recommended}
+      class:is-ai={confidence > 0 && card.level === recommended}
       on:click={() => select(card.level)}
     >
-      {#if card.level === recommended}
+      {#if confidence > 0 && card.level === recommended}
         <div class="ai-badge">
           <Sparkles size={9} />
-          AI Pick{confidence > 0 ? ` · ${confidence}%` : ''}
+          AI Pick - {confidence}%
         </div>
       {/if}
       <div class="icon">{card.icon}</div>

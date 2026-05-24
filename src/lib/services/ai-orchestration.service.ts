@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { env } from '$env/dynamic/private';
 import { prisma } from '$lib/server/db';
 import {
   buildAiPortfolioContext,
@@ -220,7 +221,7 @@ export function listAiTools() {
 }
 
 export function listAiProviders() {
-  const openAiEnabled = process.env.AI_PROVIDER_OPENAI_ENABLED !== 'false' && Boolean(process.env.OPENAI_API_KEY);
+  const openAiEnabled = env.AI_PROVIDER_OPENAI_ENABLED !== 'false' && Boolean(env.OPENAI_API_KEY);
   return [
     {
       provider: 'local',
@@ -231,29 +232,29 @@ export function listAiProviders() {
     },
     {
       provider: 'openai',
-      model: process.env.AI_MODEL ?? 'gpt-4o-mini',
+      model: env.AI_MODEL ?? 'gpt-4o-mini',
       active: openAiEnabled,
       priority: 20,
       supportedFeatures: ['fast_chat', 'deep_analysis', 'structured_response']
     },
     {
       provider: 'claude',
-      model: process.env.AI_CLAUDE_MODEL ?? 'claude-provider-ready',
-      active: process.env.AI_PROVIDER_CLAUDE_ENABLED === 'true',
+      model: env.AI_CLAUDE_MODEL ?? 'claude-provider-ready',
+      active: env.AI_PROVIDER_CLAUDE_ENABLED === 'true',
       priority: 30,
       supportedFeatures: ['deep_analysis', 'long_report']
     },
     {
       provider: 'gemini',
-      model: process.env.AI_GEMINI_MODEL ?? 'gemini-provider-ready',
-      active: process.env.AI_PROVIDER_GEMINI_ENABLED === 'true',
+      model: env.AI_GEMINI_MODEL ?? 'gemini-provider-ready',
+      active: env.AI_PROVIDER_GEMINI_ENABLED === 'true',
       priority: 40,
       supportedFeatures: ['long_report', 'large_context']
     },
     {
       provider: 'ollama',
-      model: process.env.AI_OLLAMA_MODEL ?? 'local-provider-ready',
-      active: process.env.AI_PROVIDER_OLLAMA_ENABLED === 'true',
+      model: env.AI_OLLAMA_MODEL ?? 'local-provider-ready',
+      active: env.AI_PROVIDER_OLLAMA_ENABLED === 'true',
       priority: 50,
       supportedFeatures: ['local_privacy_mode', 'offline_fallback']
     }
@@ -274,7 +275,7 @@ export async function getAiOrchestrationOverview(userId: string) {
     logs,
     toolLogs,
     memoryBlocks,
-    enabled: process.env.AI_ORCHESTRATION_ENABLED !== 'false'
+    enabled: env.AI_ORCHESTRATION_ENABLED !== 'false'
   };
 }
 
@@ -409,7 +410,7 @@ function contextScopeForIntent(intent: AiIntentType): AiContextScope {
 }
 
 function toolsForIntent(intent: AiIntentType): AiToolType[] {
-  if (process.env.AI_ENABLE_TOOL_CALLING === 'false') return [];
+  if (env.AI_ENABLE_TOOL_CALLING === 'false') return [];
   if (intent === 'risk_question') return ['risk_analysis_tool', 'holdings_tool', 'snapshot_tool'];
   if (intent === 'allocation_question') return ['allocation_tool', 'portfolio_tool', 'holdings_tool'];
   if (intent === 'performance_question') return ['portfolio_tool', 'holdings_tool', 'snapshot_tool'];
@@ -522,8 +523,20 @@ function routeProvider(intent: AiIntentType, mode: string): AiProviderRoute {
   const gemini = providers.find((provider) => provider.provider === 'gemini' && provider.active);
   const ollama = providers.find((provider) => provider.provider === 'ollama' && provider.active);
 
-  if (process.env.AI_ENABLE_PROVIDER_ROUTING === 'false') {
+  if (env.AI_ENABLE_PROVIDER_ROUTING === 'false') {
     return { provider: 'local', model: local?.model ?? 'portfolio-rules-engine', reason: 'Provider routing disabled.', fallbackProvider: 'local' };
+  }
+
+  // Force single provider when AI_PROVIDER is explicitly set
+  const forcedProvider = env.AI_PROVIDER;
+  if (forcedProvider === 'gemini' && gemini) {
+    return { provider: 'gemini', model: gemini.model, reason: 'Gemini selected as active provider.', fallbackProvider: 'local' };
+  }
+  if (forcedProvider === 'claude' && claude) {
+    return { provider: 'claude', model: claude.model, reason: 'Claude selected as active provider.', fallbackProvider: 'local' };
+  }
+  if (forcedProvider === 'openai' && openai) {
+    return { provider: 'openai', model: openai.model, reason: 'OpenAI selected as active provider.', fallbackProvider: 'local' };
   }
 
   if (mode === 'deep_analysis' && claude) {
@@ -617,12 +630,12 @@ function promptTypeForIntent(intent: AiIntentType): PromptType {
 }
 
 async function executeProvider(provider: AiProviderRoute, prompt: { system: string; user: string }) {
-  if (provider.provider === 'openai' && process.env.OPENAI_API_KEY) {
+  if (provider.provider === 'openai' && env.OPENAI_API_KEY) {
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          authorization: `Bearer ${env.OPENAI_API_KEY}`,
           'content-type': 'application/json'
         },
         body: JSON.stringify({
@@ -631,9 +644,9 @@ async function executeProvider(provider: AiProviderRoute, prompt: { system: stri
             { role: 'system', content: prompt.system },
             { role: 'user', content: prompt.user }
           ],
-          temperature: Number(process.env.AI_TEMPERATURE ?? 0.2),
+          temperature: Number(env.AI_TEMPERATURE ?? 0.2),
           response_format: { type: 'json_object' },
-          max_tokens: Number(process.env.AI_MAX_TOKENS ?? 1200)
+          max_tokens: Number(env.AI_MAX_TOKENS ?? 1200)
         })
       });
 
@@ -645,8 +658,34 @@ async function executeProvider(provider: AiProviderRoute, prompt: { system: stri
     }
   }
 
+  if (provider.provider === 'gemini' && env.GEMINI_API_KEY) {
+    const model = provider.model === 'gemini-provider-ready' ? 'gemini-2.0-flash' : provider.model;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: prompt.system }] },
+          contents: [{ role: 'user', parts: [{ text: prompt.user }] }],
+          generationConfig: {
+            temperature: Number(env.AI_TEMPERATURE ?? 0.2),
+            maxOutputTokens: Number(env.AI_MAX_TOKENS ?? 1200),
+            responseMimeType: 'application/json'
+          }
+        })
+      });
+
+      if (!response.ok) throw new Error(`Gemini provider failed with ${response.status}.`);
+      const payload = await response.json();
+      return { content: payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}' };
+    } catch {
+      return { content: '{}' };
+    }
+  }
+
   if (provider.provider === 'ollama') {
-    const ollamaUrl = process.env.AI_OLLAMA_URL ?? 'http://localhost:11434';
+    const ollamaUrl = env.AI_OLLAMA_URL ?? 'http://localhost:11434';
     try {
       const response = await fetch(`${ollamaUrl}/api/chat`, {
         method: 'POST',
@@ -659,7 +698,7 @@ async function executeProvider(provider: AiProviderRoute, prompt: { system: stri
           ],
           stream: false,
           format: 'json',
-          options: { temperature: Number(process.env.AI_TEMPERATURE ?? 0.2) }
+          options: { temperature: Number(env.AI_TEMPERATURE ?? 0.2) }
         })
       });
 
@@ -833,7 +872,7 @@ async function saveConversationTurn(
 }
 
 async function readMemoryBlocks(userId: string, conversationId: string | null, limit = 4): Promise<MemoryBlockRow[]> {
-  if (process.env.AI_ENABLE_MEMORY === 'false') return [];
+  if (env.AI_ENABLE_MEMORY === 'false') return [];
   try {
     if (conversationId) {
       return prisma.$queryRaw<MemoryBlockRow[]>(
@@ -869,7 +908,7 @@ async function writeMemoryBlock(
   response: AiStructuredResponse,
   context: AiPortfolioContext
 ) {
-  if (process.env.AI_ENABLE_MEMORY === 'false') return null;
+  if (env.AI_ENABLE_MEMORY === 'false') return null;
   const id = randomUUID();
   const now = new Date();
   const summary = [

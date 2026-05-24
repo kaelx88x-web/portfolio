@@ -1,35 +1,25 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { page } from '$app/stores';
   import {
-    LayoutDashboard, PieChart, Link2, FlaskConical, BarChart3,
-    Bot, Sliders, Users, Microscope, Settings, ChevronRight,
-    Briefcase, ChevronLeft, TrendingUp, Download, Eye, MessageCircle, Wallet
+    LayoutDashboard, PieChart, Link2,
+    Sliders, Settings, ChevronRight,
+    ClipboardList, ChevronLeft, Download, Eye, MessageCircle, Wallet, TrendingUp
   } from 'lucide-svelte';
   import ComingSoonBadge from './badges/ComingSoonBadge.svelte';
+  import { beginnerMode } from '$lib/stores/ui';
 
   export let sidebarCollapsed = false;
 
   const dispatch = createEventDispatcher();
 
-  // Beginner / Advanced mode — persisted in localStorage
-  let beginnerMode = true;
-  onMount(() => {
-    const stored = localStorage.getItem('portfolioai_mode');
-    beginnerMode = stored !== 'advanced';
-  });
-  function toggleMode() {
-    beginnerMode = !beginnerMode;
-    localStorage.setItem('portfolioai_mode', beginnerMode ? 'beginner' : 'advanced');
-  }
-
   type BeginnerNavItem = { label: string; subtitle: string; href: string; icon: any };
   const beginnerNav: BeginnerNavItem[] = [
-    { label: 'My Portfolio', subtitle: 'Your stocks & investments',          href: '/holdings',            icon: Wallet },
-    { label: 'Add Data',     subtitle: 'Import from Moomoo or CSV',          href: '/import',              icon: Download },
-    { label: 'My Returns',   subtitle: 'Your investment returns',            href: '/analytics/portfolio', icon: TrendingUp },
-    { label: 'Watchlist',    subtitle: 'Stocks you\'re watching',            href: '/watchlist',           icon: Eye },
-    { label: 'Ask AI',       subtitle: 'Ask questions about your portfolio', href: '/ai/copilot',          icon: MessageCircle },
+    { label: 'My Portfolio', subtitle: 'Your stocks & investments', href: '/holdings',              icon: Wallet },
+    { label: 'Add Data',     subtitle: 'Import from Moomoo or CSV', href: '/import',               icon: Download },
+    { label: 'My Returns',   subtitle: 'Your investment returns',   href: '/snapshots',            icon: TrendingUp },
+    { label: 'Watchlist',    subtitle: 'Stocks you\'re watching',   href: '/watchlist',            icon: Eye },
+    { label: 'Rebalance',    subtitle: 'AI portfolio rebalancing',  href: '/optimization/rebalance', icon: MessageCircle },
   ];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,7 +29,7 @@
     id: string;
     label: string;
     icon: AnyComponent;
-    badge?: 'READ_ONLY' | 'SANDBOX' | 'COMING_SOON' | 'AI';
+    badge?: 'READ_ONLY' | 'SANDBOX' | 'COMING_SOON' | 'AI' | 'LIVE';
     items: NavItem[];
   };
 
@@ -47,75 +37,34 @@
     {
       id: 'portfolio', label: 'Portfolio', icon: PieChart,
       items: [
-        { label: 'Overview',     href: '/portfolio' },
         { label: 'Holdings',     href: '/holdings' },
         { label: 'Transactions', href: '/transactions' },
-        { label: 'Snapshots',    href: '/snapshots' },
         { label: 'Accounts',     href: '/accounts' },
         { label: 'Watchlist',    href: '/watchlist' },
-        { label: 'Sectors',      href: '/sectors' },
-        { label: 'Markets',      href: '/markets' },
+        { label: 'Snapshots',    href: '/snapshots' },
       ],
     },
     {
-      id: 'broker', label: 'Broker Sync', icon: Link2,
+      id: 'broker', label: 'Broker', icon: Link2,
       items: [
-        { label: 'Connections', href: '/broker' },
-        { label: 'Moomoo',      href: '/broker' },
-        { label: 'Cash Flow',   href: '/cashflow' },
-        { label: 'CSV Import',  href: '/import' },
-        { label: 'Sync Logs',   href: '/broker' },
+        { label: 'Connections',  href: '/broker' },
+        { label: 'Fund Balance', href: '/fund-balance' },
+        { label: 'Import',       href: '/import' },
       ],
     },
     {
-      id: 'paper', label: 'Paper Trading', icon: Briefcase, badge: 'SANDBOX',
+      id: 'optimization', label: 'Optimize', icon: Sliders, badge: 'LIVE',
       items: [
-        { label: 'Dashboard',  href: '/paper-trading' },
-        { label: 'Positions',  href: '/paper-trading' },
-        { label: 'Orders',     href: '/paper-trading' },
-        { label: 'History',    href: '/paper-trading' },
+        { label: 'Rebalance', href: '/optimization/rebalance' },
       ],
     },
     {
-      id: 'analytics', label: 'Analytics', icon: BarChart3,
+      id: 'trades', label: 'Trades', icon: ClipboardList, badge: 'SANDBOX',
       items: [
-        { label: 'Overview',          href: '/analytics' },
-        { label: 'Portfolio Metrics', href: '/analytics/portfolio' },
-        { label: 'Risk Analysis',     href: '/analytics/risk' },
-        { label: 'Exposure',          href: '/analytics/exposure' },
-        { label: 'Diversification',   href: '/analytics/diversification' },
-        { label: 'Benchmark',         href: '/analytics/benchmark' },
-        { label: 'Performance',       href: '/analytics/performance' },
-        { label: 'Attribution',       href: '/analytics/performance/attribution' },
-        { label: 'Income',            href: '/analytics' },
+        { label: 'Overview', href: '/trades' },
+        { label: 'Tickets',  href: '/trades/tickets' },
+        { label: 'Orders',   href: '/orders' },
       ],
-    },
-    {
-      id: 'ai', label: 'AI Workspace', icon: Bot, badge: 'AI',
-      items: [
-        { label: 'AI Copilot',      href: '/ai/copilot' },
-        { label: 'Portfolio Assistant', href: '/ai/portfolio-assistant' },
-        { label: 'Risk Advisor',     href: '/ai/risk-advisor' },
-        { label: 'AI Insights',     href: '/ai/insights' },
-        { label: 'Conversations',   href: '/ai/conversations' },
-        { label: 'Orchestrator',     href: '/ai/orchestrator' },
-        { label: 'Providers',        href: '/ai/providers' },
-        { label: 'Tools',            href: '/ai/tools' },
-        { label: 'Prompt Explorer', href: '/ai/prompts' },
-        { label: 'AI Memory',       href: '/ai/memory' },
-      ],
-    },
-    {
-      id: 'optimization', label: 'Optimization', icon: Sliders, badge: 'COMING_SOON',
-      items: [],
-    },
-    {
-      id: 'multiagent', label: 'Multi-Agent AI', icon: Users, badge: 'COMING_SOON',
-      items: [],
-    },
-    {
-      id: 'quant', label: 'Quant Lab', icon: Microscope, badge: 'COMING_SOON',
-      items: [],
     },
   ];
 
@@ -176,7 +125,7 @@
   <div class="sb-divider"></div>
 
   <!-- Nav: Beginner or Advanced -->
-  {#if beginnerMode && !sidebarCollapsed}
+  {#if $beginnerMode && !sidebarCollapsed}
     <nav class="sb-nav custom-scrollbar">
       {#each beginnerNav as item}
         {@const active = activePath === item.href || activePath.startsWith(item.href + '/')}
@@ -217,6 +166,8 @@
                 <span class="badge-sandbox">SANDBOX</span>
               {:else if group.badge === 'AI'}
                 <span class="badge-ai">✦</span>
+              {:else if group.badge === 'LIVE'}
+                <span class="badge-live">LIVE</span>
               {:else if group.badge === 'COMING_SOON'}
                 <ComingSoonBadge />
               {/if}
@@ -247,12 +198,12 @@
   <!-- Bottom: mode toggle + collapse + settings -->
   <div class="sb-bottom">
     {#if !sidebarCollapsed}
-      <button class="sb-mode-toggle" class:beginner={beginnerMode} on:click={toggleMode}>
+      <button class="sb-mode-toggle" class:beginner={$beginnerMode} on:click={() => beginnerMode.toggle()}>
         <div class="sb-mode-info">
-          <span class="sb-mode-label">{beginnerMode ? 'BEGINNER MODE' : 'ADVANCED MODE'}</span>
-          <span class="sb-mode-hint">{beginnerMode ? 'Switch to Advanced →' : '← Switch to Beginner'}</span>
+          <span class="sb-mode-label">{$beginnerMode ? 'BEGINNER MODE' : 'ADVANCED MODE'}</span>
+          <span class="sb-mode-hint">{$beginnerMode ? 'Switch to Advanced →' : '← Switch to Beginner'}</span>
         </div>
-        <div class="sb-mode-pill" class:on={beginnerMode}>
+        <div class="sb-mode-pill" class:on={$beginnerMode}>
           <div class="sb-mode-dot"></div>
         </div>
       </button>
@@ -331,6 +282,7 @@
 
   .badge-sandbox { font-size: 0.55rem; font-weight: 700; padding: 1px 6px; border-radius: 20px; background: rgba(var(--warning-rgb),0.12); color: var(--warning); }
   .badge-ai { font-size: 0.7rem; color: var(--primary); }
+  .badge-live { font-size: 0.55rem; font-weight: 700; padding: 1px 6px; border-radius: 20px; background: rgba(var(--success-rgb),0.12); color: var(--success); }
 
   .sb-sub { padding: 2px 0 4px 24px; }
   .sb-sub-item {

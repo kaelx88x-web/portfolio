@@ -1,17 +1,16 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+
   export let suggestions: string[] = [];
-  export let conversationId: string | null = null;
+
+  const dispatch = createEventDispatcher<{ select: string }>();
 </script>
 
 <div class="chips">
   {#each suggestions as suggestion}
-    <form method="POST" action="?/ask">
-      <input type="hidden" name="question" value={suggestion} />
-      {#if conversationId}
-        <input type="hidden" name="conversationId" value={conversationId} />
-      {/if}
-      <button class="chip" type="submit">{suggestion}</button>
-    </form>
+    <button class="chip" type="button" on:click={() => dispatch('select', suggestion)}>
+      {suggestion}
+    </button>
   {/each}
   {#if suggestions.length === 0}
     <span class="chips-empty">No suggestions available.</span>

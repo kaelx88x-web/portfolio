@@ -8,7 +8,13 @@
   const isOptions = suggestion.metadata?.source === 'options-mode' || suggestion.metadata?.mode === 'options';
   const hideAllocation = isHybrid || isOptions;
 
-  const riskLevel: 'safe' | 'watch' | 'risk' = suggestion.metadata?.riskLevel ?? 'safe';
+  type SafetyRiskLevel = 'safe' | 'watch' | 'risk';
+
+  function parseSafetyRiskLevel(value: unknown): SafetyRiskLevel {
+    return value === 'watch' || value === 'risk' || value === 'safe' ? value : 'safe';
+  }
+
+  const riskLevel = parseSafetyRiskLevel(suggestion.metadata?.riskLevel);
   const safetyLabel = { safe: 'Safe', watch: 'Watch', risk: 'At Risk' };
 
   $: actions = hideAllocation ? [] : suggestion.targetAllocation

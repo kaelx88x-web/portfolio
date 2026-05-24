@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bot, BrainCircuit, DatabaseZap, FileText, History, MessageSquareText, Route, ShieldAlert, Sparkles } from 'lucide-svelte';
+  import { Bot, BrainCircuit, DatabaseZap, FileText, History, MessageSquareText, Route, ShieldAlert, Sliders, Sparkles } from 'lucide-svelte';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import AiDisclaimerBox from '$lib/components/ai/AiDisclaimerBox.svelte';
   import AiInsightHistory from '$lib/components/ai/AiInsightHistory.svelte';
@@ -22,6 +22,7 @@
     <a class="button-secondary" href="/ai/conversations"><History size={15} /> Conversations</a>
     <a class="button-secondary" href="/ai/portfolio-assistant"><MessageSquareText size={15} /> Assistant</a>
     <a class="button-secondary" href="/ai/risk-advisor"><ShieldAlert size={15} /> Risk Advisor</a>
+    <a class="button-secondary" href="/optimization"><Sliders size={15} /> Optimization</a>
     <a class="button-secondary" href="/ai/orchestrator"><Route size={15} /> Orchestrator</a>
     <a class="button-secondary" href="/ai/prompts"><FileText size={15} /> Prompts</a>
     <a class="button-secondary" href="/ai/memory"><DatabaseZap size={15} /> Memory</a>

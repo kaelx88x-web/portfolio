@@ -4,16 +4,14 @@ import {
   parseSimulationBenchmark,
   parseSimulationPeriod,
 } from '$lib/services/scenario-simulation.service';
-import { getRecommendedStrategy } from '$lib/services/behavioral-profile.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
   const user      = await getDemoUser();
   const period    = parseSimulationPeriod(url.searchParams.get('period'));
   const benchmark = parseSimulationBenchmark(url.searchParams.get('benchmark'));
 
-  const strategy      = await getRecommendedStrategy(user.id).catch(() => null);
-  const portfolioMode = strategy?.portfolioMode ?? 'hybrid';
+  const portfolioMode = locals.recommendedStrategy?.portfolioMode ?? 'hybrid';
 
   return {
     period,

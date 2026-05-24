@@ -1,0 +1,273 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "◈" [ref=e7] [cursor=pointer]
+        - generic [ref=e9]:
+          - generic [ref=e10]: Total Portfolio
+          - generic [ref=e11]:
+            - generic [ref=e12]: $1,257.64
+            - generic [ref=e13]: +$0.00 (+0.00%)
+        - button "Moomoo Live (1017296631818262) LIVE" [ref=e16] [cursor=pointer]:
+          - generic [ref=e18]: Moomoo Live (1017296631818262)
+          - generic [ref=e19]: LIVE
+          - img [ref=e20]
+      - generic [ref=e22]:
+        - button "Ask AI" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+          - text: Ask AI
+        - button "Notifications" [ref=e26] [cursor=pointer]:
+          - img [ref=e27]
+        - button "PA" [ref=e31] [cursor=pointer]
+        - button "Toggle sidebar" [ref=e33] [cursor=pointer]:
+          - img [ref=e34]
+        - button "Toggle AI panel" [ref=e39] [cursor=pointer]:
+          - img [ref=e40]
+        - button "Dark mode" [ref=e43] [cursor=pointer]:
+          - img [ref=e44]
+  - generic [ref=e46]:
+    - complementary [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e50]:
+          - generic [ref=e51]: ◈
+          - generic [ref=e52]:
+            - generic [ref=e53]: PortfolioAI
+            - generic [ref=e54]: AI Portfolio OS
+        - link "Dashboard" [ref=e56] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e57]
+          - generic [ref=e62]: Dashboard
+        - navigation [ref=e64]:
+          - link "My Portfolio Your stocks & investments" [ref=e65] [cursor=pointer]:
+            - /url: /holdings
+            - img [ref=e66]
+            - generic [ref=e69]:
+              - generic [ref=e70]: My Portfolio
+              - generic [ref=e71]: Your stocks & investments
+          - link "Add Data Import from Moomoo or CSV" [ref=e72] [cursor=pointer]:
+            - /url: /import
+            - img [ref=e73]
+            - generic [ref=e76]:
+              - generic [ref=e77]: Add Data
+              - generic [ref=e78]: Import from Moomoo or CSV
+          - link "My Returns Your investment returns" [ref=e79] [cursor=pointer]:
+            - /url: /snapshots
+            - img [ref=e80]
+            - generic [ref=e83]:
+              - generic [ref=e84]: My Returns
+              - generic [ref=e85]: Your investment returns
+          - link "Watchlist Stocks you're watching" [ref=e86] [cursor=pointer]:
+            - /url: /watchlist
+            - img [ref=e87]
+            - generic [ref=e90]:
+              - generic [ref=e91]: Watchlist
+              - generic [ref=e92]: Stocks you're watching
+          - link "Rebalance AI portfolio rebalancing" [ref=e93] [cursor=pointer]:
+            - /url: /optimization/rebalance
+            - img [ref=e94]
+            - generic [ref=e96]:
+              - generic [ref=e97]: Rebalance
+              - generic [ref=e98]: AI portfolio rebalancing
+        - generic [ref=e99]:
+          - button "BEGINNER MODE Switch to Advanced →" [ref=e100] [cursor=pointer]:
+            - generic [ref=e101]:
+              - generic [ref=e102]: BEGINNER MODE
+              - generic [ref=e103]: Switch to Advanced →
+          - button "Collapse" [ref=e106] [cursor=pointer]:
+            - img [ref=e107]
+            - generic [ref=e109]: Collapse
+          - link "Settings" [ref=e110] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e111]
+            - generic [ref=e114]: Settings
+    - main [ref=e115]:
+      - generic [ref=e116]:
+        - navigation [ref=e117]:
+          - link "Optimization" [ref=e118] [cursor=pointer]:
+            - /url: /optimization
+          - generic [ref=e119]: /
+          - generic [ref=e120]: Rebalance
+        - heading "Rebalance Suggestions" [level=1] [ref=e121]
+        - paragraph [ref=e122]: What to buy, reduce, or add to move your portfolio toward the target allocation.
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - generic [ref=e125]: Suggestions
+          - strong [ref=e126]: "1"
+          - generic [ref=e127]: Actions available
+        - generic [ref=e128]:
+          - generic [ref=e129]: Status
+          - strong [ref=e130]: Needs Action
+        - generic [ref=e131]:
+          - generic [ref=e132]: Risk Reduction
+          - strong [ref=e133]: −8.4 pts
+          - generic [ref=e134]: After rebalance
+      - generic [ref=e135]:
+        - main [ref=e136]:
+          - article [ref=e137]:
+            - generic [ref=e138]:
+              - img [ref=e139]
+              - heading "Reduce US.SCHG concentration pressure" [level=2] [ref=e142]
+            - paragraph [ref=e143]: US.SCHG is 19.71% of visible allocation. The balanced scenario caps single-name exposure and redirects excess weight into diversified sleeves.
+            - generic [ref=e144]:
+              - generic [ref=e145]: Suggested Actions
+              - generic [ref=e146]:
+                - generic [ref=e147]: REDUCE
+                - generic [ref=e148]: US.SCHG
+                - generic [ref=e149]: 19.7% → 15.0%
+                - link "Trade" [ref=e150] [cursor=pointer]:
+                  - /url: /trades?symbol=SCHG&ticketType=sell&thesis=Reduce+US.SCHG+concentration+pressure+%E2%80%94+US.SCHG+is+19.71%25+of+visible+allocation.+The+balanced+scenario+caps+single-name+exposure+and+redirects+excess+weight+int&sourceType=rebalance
+                  - img [ref=e151]
+                  - text: Trade
+              - generic [ref=e154]:
+                - generic [ref=e155]: ADD
+                - generic [ref=e156]: Options Income Sleeve
+                - generic [ref=e157]: → 3.8%
+                - link "Trade" [ref=e158] [cursor=pointer]:
+                  - /url: /trades?symbol=Options+Income+Sleeve&ticketType=buy&thesis=Reduce+US.SCHG+concentration+pressure+%E2%80%94+US.SCHG+is+19.71%25+of+visible+allocation.+The+balanced+scenario+caps+single-name+exposure+and+redirects+excess+weight+int&sourceType=rebalance
+                  - img [ref=e159]
+                  - text: Trade
+              - generic [ref=e162]:
+                - generic [ref=e163]: ADD
+                - generic [ref=e164]: Diversified Core Basket
+                - generic [ref=e165]: → 0.9%
+                - link "Trade" [ref=e166] [cursor=pointer]:
+                  - /url: /trades?symbol=Diversified+Core+Basket&ticketType=buy&thesis=Reduce+US.SCHG+concentration+pressure+%E2%80%94+US.SCHG+is+19.71%25+of+visible+allocation.+The+balanced+scenario+caps+single-name+exposure+and+redirects+excess+weight+int&sourceType=rebalance
+                  - img [ref=e167]
+                  - text: Trade
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - generic [ref=e172]: Risk impact
+                - strong [ref=e173]: Single-name concentration is brought closer to the 15% constraint.
+              - generic [ref=e174]:
+                - generic [ref=e175]: Volatility impact
+                - strong [ref=e176]: Estimated volatility moves from 92.48% toward 18.90% in the scenario model.
+            - generic [ref=e177]: Suggestion only. No automatic trading or order placement.
+          - generic [ref=e178]:
+            - generic [ref=e179]:
+              - strong [ref=e180]: Want to see the numbers over time?
+              - generic [ref=e181]: Run a projection to see how this rebalance affects your portfolio value in 1–5 years.
+            - link "View Portfolio Projection →" [ref=e182] [cursor=pointer]:
+              - /url: /optimization/projection
+        - complementary [ref=e183]:
+          - generic [ref=e184]:
+            - generic [ref=e185]: Simulate for Portfolio Mode
+            - generic [ref=e186]:
+              - generic [ref=e188] [cursor=pointer]: Stocks Only
+              - generic [ref=e190] [cursor=pointer]: Hybrid
+              - generic [ref=e192] [cursor=pointer]: Active Options
+            - button "Simulate Rebalance" [ref=e193] [cursor=pointer]
+          - generic [ref=e194]:
+            - generic [ref=e195]:
+              - img [ref=e196]
+              - generic [ref=e198]:
+                - generic [ref=e199]: AI Suggestions
+                - generic [ref=e200]: Generate contextual suggestions using AI for Hybrid mode
+            - button "Get AI Suggestions" [ref=e201] [cursor=pointer]:
+              - img [ref=e202]
+              - text: Get AI Suggestions
+          - article [ref=e204]:
+            - generic [ref=e205]:
+              - generic [ref=e206]:
+                - text: After Rebalance
+                - heading "Projected Impact" [level=2] [ref=e207]
+              - img [ref=e208]
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - generic [ref=e213]: Risk Score
+                - strong [ref=e214]: −8.4 pts
+                - emphasis [ref=e215]: Lower risk
+              - generic [ref=e216]:
+                - generic [ref=e217]: Expected Return
+                - strong [ref=e218]: +0.02%
+                - emphasis [ref=e219]: Improves
+              - generic [ref=e220]:
+                - generic [ref=e221]: Price Swings
+                - strong [ref=e222]: "-0.09%"
+                - emphasis [ref=e223]: Less volatile
+            - generic [ref=e224]:
+              - generic [ref=e225]:
+                - generic [ref=e226]: Holding
+                - generic [ref=e227]: Now → After
+              - generic [ref=e228]:
+                - generic [ref=e229]: US.NIO
+                - strong [ref=e230]: 70.1% → 70.1%
+              - generic [ref=e231]:
+                - generic [ref=e232]: US.SCHG
+                - strong [ref=e233]: 19.7% → 15.0%
+              - generic [ref=e234]:
+                - generic [ref=e235]: US.SPYT
+                - strong [ref=e236]: 10.2% → 10.2%
+              - generic [ref=e237]:
+                - generic [ref=e238]: Diversified Core Basket
+                - strong [ref=e239]: 0.0% → 3.3%
+              - generic [ref=e240]:
+                - generic [ref=e241]: Defensive ETF Sleeve
+                - strong [ref=e242]: 0.0% → 0.9%
+              - generic [ref=e243]:
+                - generic [ref=e244]: Cash Reserve
+                - strong [ref=e245]: 42.5% → 0.5%
+            - paragraph [ref=e246]: Rebalance caps oversized holdings at the 15% constraint and redirects freed capital into diversified stock and defensive sleeves. Option underlyings are preserved.
+          - article [ref=e247]:
+            - generic [ref=e248]:
+              - generic [ref=e249]:
+                - text: Allocation Comparison
+                - paragraph [ref=e250]: Current vs. scenario target per holding
+              - generic [ref=e251]:
+                - text: Current
+                - text: Target
+            - generic [ref=e254]:
+              - generic [ref=e255]:
+                - generic [ref=e256]:
+                  - generic [ref=e257]: US.NIO
+                  - generic [ref=e258]: —
+                - generic [ref=e259]:
+                  - generic [ref=e260]:
+                    - generic [ref=e261]: Now
+                    - generic [ref=e264]: 70.1%
+                  - generic [ref=e265]:
+                    - generic [ref=e266]: Target
+                    - generic [ref=e269]: 70.1%
+              - generic [ref=e270]:
+                - generic [ref=e271]:
+                  - generic [ref=e272]: US.SCHG
+                  - generic [ref=e273]: ▼ 4.7%
+                - generic [ref=e274]:
+                  - generic [ref=e275]:
+                    - generic [ref=e276]: Now
+                    - generic [ref=e279]: 19.7%
+                  - generic [ref=e280]:
+                    - generic [ref=e281]: Target
+                    - generic [ref=e284]: 15.0%
+              - generic [ref=e285]:
+                - generic [ref=e286]:
+                  - generic [ref=e287]: US.SPYT
+                  - generic [ref=e288]: —
+                - generic [ref=e289]:
+                  - generic [ref=e290]:
+                    - generic [ref=e291]: Now
+                    - generic [ref=e294]: 10.2%
+                  - generic [ref=e295]:
+                    - generic [ref=e296]: Target
+                    - generic [ref=e299]: 10.2%
+              - generic [ref=e300]:
+                - generic [ref=e301]:
+                  - generic [ref=e302]: Diversified Core Basket
+                  - generic [ref=e303]: ▲ 0.9%
+                - generic [ref=e304]:
+                  - generic [ref=e305]:
+                    - generic [ref=e306]: Now
+                    - generic [ref=e308]: 0.0%
+                  - generic [ref=e309]:
+                    - generic [ref=e310]: Target
+                    - generic [ref=e313]: 0.9%
+              - generic [ref=e314]:
+                - generic [ref=e315]:
+                  - generic [ref=e316]: Options Income Sleeve
+                  - generic [ref=e317]: ▲ 3.8%
+                - generic [ref=e318]:
+                  - generic [ref=e319]:
+                    - generic [ref=e320]: Now
+                    - generic [ref=e322]: 0.0%
+                  - generic [ref=e323]:
+                    - generic [ref=e324]: Target
+                    - generic [ref=e327]: 3.8%

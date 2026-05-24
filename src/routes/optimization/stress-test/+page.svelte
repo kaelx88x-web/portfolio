@@ -4,6 +4,7 @@
   import RiskProjectionCard from '$lib/components/simulation/RiskProjectionCard.svelte';
   import ScenarioSimulationCard from '$lib/components/simulation/ScenarioSimulationCard.svelte';
   import StressTestChart from '$lib/components/simulation/StressTestChart.svelte';
+  import type { ScenarioSimulationResult } from '$lib/services/scenario-simulation.service';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -12,7 +13,7 @@
   $: stats = [
     { label: 'Stress Result', value: worst?.riskSummary.risk_level.toUpperCase() ?? 'N/A', color: worst?.riskSummary.risk_level === 'high' ? 'red' as const : worst?.riskSummary.risk_level === 'medium' ? 'amber' as const : 'green' as const, sub: 'Worst scenario' },
     { label: 'Worst Drawdown', value: worst ? `${worst.projectedDrawdown.toFixed(1)}%` : '—', color: 'red' as const, sub: worst?.scenarioName ?? '' },
-    { label: 'Peak Volatility', value: `${Math.max(...data.stressTest.scenarios.map((s) => s.projectedVolatility), 0).toFixed(1)}%`, sub: 'Across all scenarios' },
+    { label: 'Peak Volatility', value: `${Math.max(...data.stressTest.scenarios.map((s: ScenarioSimulationResult) => s.projectedVolatility), 0).toFixed(1)}%`, sub: 'Across all scenarios' },
     { label: 'Risk Score', value: worst ? `${worst.riskSummary.scenario_risk_score}/100` : '—', color: worst?.riskSummary.risk_level === 'high' ? 'red' as const : 'amber' as const, sub: 'Worst case score' }
   ];
 </script>

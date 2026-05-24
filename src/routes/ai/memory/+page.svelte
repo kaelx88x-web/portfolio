@@ -77,6 +77,11 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    align-items: center;
+  }
+
+  .page-actions :global(form) {
+    display: contents;
   }
 
   .type-tabs {

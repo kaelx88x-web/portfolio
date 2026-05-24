@@ -1,6 +1,5 @@
 <script lang="ts">
   import { date, money, number, percent } from '$lib/format';
-  import AiMemoryCompressionBadge from './AiMemoryCompressionBadge.svelte';
 
   export let memory: any = null;
 </script>
@@ -8,11 +7,8 @@
 {#if memory}
   <article class="memory-card">
     <div class="memory-head">
-      <div>
-        <h2>{memory.snapshotType?.replaceAll('_', ' ')}</h2>
-        <p>{memory.summary}</p>
-      </div>
-      <AiMemoryCompressionBadge raw={memory.tokens?.raw ?? 0} compressed={memory.tokens?.compressed ?? 0} />
+      <h2>{memory.snapshotType?.replaceAll('_', ' ')}</h2>
+      <p>{memory.summary}</p>
     </div>
 
     <div class="memory-grid">
@@ -62,10 +58,6 @@
   }
 
   .memory-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
     margin-bottom: 14px;
   }
 

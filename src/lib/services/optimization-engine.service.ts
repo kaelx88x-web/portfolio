@@ -248,6 +248,173 @@ export async function getOptimizationScenarios(userId: string, runId?: string) {
   return rows.map(mapScenarioRow);
 }
 
+export async function getRebalanceSuggestionsByMode(userId: string, portfolioMode: PortfolioMode) {
+  if (portfolioMode === 'stock') return getRebalanceSuggestions(userId);
+
+  const [base, context, constraints] = await Promise.all([
+    getRebalanceSuggestions(userId),
+    buildAiPortfolioContext(userId),
+    getOptimizationConstraints(userId)
+  ]);
+
+  const currentAllocation = context.allocation.bySymbol.map((s) => ({ label: s.label, percentage: round(s.percentage, 2) }));
+  const scenarios = await getOptimizationScenarios(userId);
+  const target = scenarios.find((s) => s.scenarioName.toLowerCase().includes('balanced')) ?? scenarios[0];
+  const targetAllocation: OptimizationAllocation[] = target?.allocation ?? currentAllocation.map((s) => ({
+    label: s.label, currentPct: s.percentage, targetPct: s.percentage, deltaPct: 0, role: 'holding' as const
+  }));
+  const extra: RebalanceSuggestion[] = [];
+
+  // Stocks held in the portfolio (non-option)
+  const stockHoldings = context.portfolio.holdings.filter(
+    (h) => h.assetType.toLowerCase() !== 'option' && h.marketValue > 0
+  );
+
+  // Active option symbols already written (extract underlying ticker)
+  const activeUnderlyings = new Set(
+    context.portfolio.holdings
+      .filter((h) => h.assetType.toLowerCase() === 'option')
+      .map((h) => h.symbol.replace(/^US\./, '').match(/^([A-Z]+)\d{6}[CP]/)?.[1])
+      .filter((s): s is string => !!s)
+  );
+
+  if (portfolioMode === 'options') {
+    // 1. Stocks below lot size — can't write covered calls yet
+    const belowLot = stockHoldings.filter(
+      (h) => {
+        const clean = h.symbol.replace(/^US\./, '');
+        return h.quantity > 0 && h.quantity < 100 && h.quantity >= 50 && !activeUnderlyings.has(clean);
+      }
+    );
+    for (const h of belowLot.slice(0, 3)) {
+      const needed = 100 - Math.floor(h.quantity);
+      const cleanSym = h.symbol.replace(/^US\./, '');
+      extra.push({
+        title: `Round up ${cleanSym} to write covered calls`,
+        summary: `You hold ${Math.floor(h.quantity)} shares of ${cleanSym}. Adding ${needed} more reaches the 100-share lot size needed to write a covered call.`,
+        currentAllocation,
+        targetAllocation,
+        riskImpact: 'Covered call writing generates premium income and reduces effective cost basis.',
+        volatilityImpact: 'Premium collected offsets downside by the credit received.',
+        status: 'suggested',
+        metadata: { source: 'options-mode', rule: 'lot_size', guardrail: 'Review only. No trade is placed.' }
+      });
+    }
+
+    // 2. Stocks ≥100 shares with no active covered call
+    const callCandidates = stockHoldings.filter((h) => {
+      const clean = h.symbol.replace(/^US\./, '');
+      return h.quantity >= 100 && !activeUnderlyings.has(clean);
+    });
+    if (callCandidates.length > 0) {
+      const names = callCandidates.slice(0, 3).map((h) => h.symbol.replace(/^US\./, '')).join(', ');
+      extra.push({
+        title: `Open covered calls on ${callCandidates.length > 1 ? `${callCandidates.length} eligible holdings` : names}`,
+        summary: `${names}${callCandidates.length > 3 ? ` and ${callCandidates.length - 3} others` : ''} each hold ≥100 shares with no active covered call. Writing calls against these positions generates monthly premium.`,
+        currentAllocation,
+        targetAllocation,
+        riskImpact: 'Active covered call income reduces cost basis and provides soft downside cushion.',
+        volatilityImpact: 'Upside is capped at the strike price but downside is partially offset by the premium received.',
+        status: 'suggested',
+        metadata: { source: 'options-mode', rule: 'covered_call_candidate', guardrail: 'Review only.' }
+      });
+    }
+
+    // 3. Cash-secured put collateral check
+    if (context.portfolio.cashRatio < 15) {
+      extra.push({
+        title: 'Increase cash buffer for cash-secured puts',
+        summary: `Cash is ${context.portfolio.cashRatio.toFixed(1)}% of portfolio. Cash-secured puts require collateral equal to 100× the strike price. A 15% minimum is recommended for active options mode.`,
+        currentAllocation,
+        targetAllocation,
+        riskImpact: 'Insufficient cash can force position closure or margin calls if puts are assigned.',
+        volatilityImpact: 'Adequate cash reserve allows riding out assignment events without forced selling.',
+        status: 'suggested',
+        metadata: { source: 'options-mode', rule: 'csp_collateral', guardrail: 'Liquidity planning only.' }
+      });
+    }
+
+    // 4. Options exposure limit
+    const optionValue = context.portfolio.holdings
+      .filter((h) => h.assetType.toLowerCase() === 'option')
+      .reduce((sum, h) => sum + Math.abs(h.marketValue), 0);
+    const optionsExposurePct = context.portfolio.value > 0 ? (optionValue / context.portfolio.value) * 100 : 0;
+    if (optionsExposurePct > constraints.optionsMaxPct) {
+      extra.push({
+        title: 'Reduce options overlay size',
+        summary: `Options positions represent ${optionsExposurePct.toFixed(1)}% of portfolio value, above the ${constraints.optionsMaxPct}% constraint. Consider closing the smallest or furthest OTM positions first.`,
+        currentAllocation,
+        targetAllocation,
+        riskImpact: 'Oversized options overlay amplifies assignment and volatility risk.',
+        volatilityImpact: 'Trimming the overlay brings the portfolio closer to the configured risk constraint.',
+        status: 'suggested',
+        metadata: { source: 'options-mode', rule: 'options_gt_max', guardrail: 'Review only.' }
+      });
+    }
+
+    return extra;
+  }
+
+  // hybrid: safety checks — is the options overlay safe?
+  const optionValue = context.portfolio.holdings
+    .filter((h) => h.assetType.toLowerCase() === 'option')
+    .reduce((sum, h) => sum + Math.abs(h.marketValue), 0);
+  const optionsExposurePct = context.portfolio.value > 0 ? (optionValue / context.portfolio.value) * 100 : 0;
+  const cashRatio = context.portfolio.cashRatio;
+
+  // 1. Options exposure safety
+  const exposureSafe = optionsExposurePct <= constraints.optionsMaxPct * 0.7;
+  const exposureWatch = !exposureSafe && optionsExposurePct <= constraints.optionsMaxPct;
+  const exposureRiskLevel = exposureSafe ? 'safe' : exposureWatch ? 'watch' : 'risk';
+  extra.push({
+    title: 'Options overlay exposure',
+    summary: optionValue === 0
+      ? 'No active options positions. Your hybrid portfolio has no options exposure.'
+      : `Options positions are ${optionsExposurePct.toFixed(1)}% of your portfolio (limit: ${constraints.optionsMaxPct}%). ${exposureSafe ? 'Within safe range.' : exposureWatch ? 'Approaching limit — monitor closely.' : 'Above limit — consider closing smallest positions first.'}`,
+    currentAllocation,
+    targetAllocation,
+    riskImpact: exposureSafe ? 'Options overlay is within safe bounds.' : 'Options exposure is elevated — monitor assignment risk.',
+    volatilityImpact: 'Hybrid mode keeps most capital in stocks. Options are a selective income layer.',
+    status: 'suggested',
+    metadata: { source: 'hybrid-mode', rule: 'options_exposure', riskLevel: exposureRiskLevel, guardrail: 'Review only.' }
+  });
+
+  // 2. Cash buffer safety
+  const cashSafe = cashRatio >= 10;
+  const cashWatch = !cashSafe && cashRatio >= 5;
+  const cashRiskLevel = cashSafe ? 'safe' : cashWatch ? 'watch' : 'risk';
+  extra.push({
+    title: 'Cash buffer for options assignment',
+    summary: cashRatio === 0
+      ? 'No cash detected. If any options are assigned, you may not have enough capital to cover.'
+      : `Cash is ${cashRatio.toFixed(1)}% of your portfolio. ${cashSafe ? 'Sufficient buffer for potential assignments.' : cashWatch ? 'Low cash — consider keeping at least 10% for assignment cover.' : 'Very low cash — assignment risk is high if puts are exercised.'}`,
+    currentAllocation,
+    targetAllocation,
+    riskImpact: cashSafe ? 'Cash buffer is healthy for assignment scenarios.' : 'Low cash raises risk of forced selling if options are assigned.',
+    volatilityImpact: 'Adequate cash prevents margin stress during high-volatility periods.',
+    status: 'suggested',
+    metadata: { source: 'hybrid-mode', rule: 'cash_buffer', riskLevel: cashRiskLevel, guardrail: 'Review only.' }
+  });
+
+  // 3. Covered call opportunity (if eligible)
+  const hybridCandidates = stockHoldings.filter((h) => h.quantity >= 100 && !activeUnderlyings.has(h.symbol.replace(/^US\./, '')));
+  if (hybridCandidates.length > 0) {
+    const names = hybridCandidates.slice(0, 2).map((h) => h.symbol.replace(/^US\./, '')).join(', ');
+    extra.push({
+      title: `Covered call opportunity`,
+      summary: `${names}${hybridCandidates.length > 2 ? ` and ${hybridCandidates.length - 2} others` : ''} hold ≥100 shares with no active covered call. Writing calls against these can generate monthly premium income.`,
+      currentAllocation,
+      targetAllocation,
+      riskImpact: 'Covered calls cap upside at the strike but reduce your effective cost basis.',
+      volatilityImpact: 'Premium collected provides a soft downside cushion.',
+      status: 'suggested',
+      metadata: { source: 'hybrid-mode', rule: 'covered_call_opportunity', riskLevel: 'safe', guardrail: 'Review only.' }
+    });
+  }
+
+  return extra;
+}
+
 export async function getRebalanceSuggestions(userId: string) {
   const rows = await prisma.$queryRaw<RebalanceSuggestionRow[]>`
     SELECT
@@ -273,6 +440,21 @@ export async function getRebalanceSuggestions(userId: string) {
     seen.add(row.title);
     return true;
   }).map(mapSuggestionRow);
+}
+
+export async function saveRebalanceSuggestions(userId: string, suggestions: RebalanceSuggestion[]): Promise<void> {
+  await prisma.$executeRaw`DELETE FROM rebalance_suggestions WHERE user_id = ${userId}`;
+  for (const s of suggestions) {
+    await prisma.$executeRaw`
+      INSERT INTO rebalance_suggestions
+        (id, user_id, snapshot_id, title, summary, current_allocation_json, target_allocation_json, risk_impact, volatility_impact, status, metadata, created_at, updated_at)
+      VALUES
+        (${randomUUID()}, ${userId}, ${null}, ${s.title}, ${s.summary},
+         ${JSON.stringify(s.currentAllocation)}, ${JSON.stringify(s.targetAllocation)},
+         ${s.riskImpact}, ${s.volatilityImpact}, 'suggested',
+         ${JSON.stringify(s.metadata ?? {})}, NOW(), NOW())
+    `;
+  }
 }
 
 export async function getOptimizationConstraints(userId: string): Promise<OptimizationConstraintSet> {

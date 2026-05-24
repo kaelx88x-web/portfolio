@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { env } from '$env/dynamic/private';
 import { prisma } from '$lib/server/db';
 import {
   buildAiPortfolioContext,
@@ -440,10 +441,125 @@ function promptTypeFromQuestion(question: string): PromptType {
 }
 
 function createLlmProvider(): LlmProvider {
-  const provider = (process.env.AI_PROVIDER ?? 'local').toLowerCase();
-  if (provider === 'claude' && process.env.ANTHROPIC_API_KEY) return new ClaudeWithFallbackProvider();
-  if (provider === 'openai' && process.env.OPENAI_API_KEY) return new OpenAiProvider();
+  if (env.GEMINI_API_KEY && env.AI_PROVIDER_GEMINI_ENABLED === 'true') return new GeminiProvider();
+  if (env.ANTHROPIC_API_KEY && env.AI_PROVIDER_CLAUDE_ENABLED === 'true') return new ClaudeWithFallbackProvider();
+  if (env.OPENAI_API_KEY && env.AI_PROVIDER_OPENAI_ENABLED !== 'false') return new OpenAiProvider();
+  if (env.AI_PROVIDER_OLLAMA_ENABLED === 'true') return new OllamaProvider();
   return new LocalPortfolioProvider();
+}
+
+class GeminiProvider {
+  async chat(messages: ChatMessage[], options: Record<string, unknown> = {}): Promise<LlmResponse> {
+    try {
+      return await this.callGemini(messages);
+    } catch (err) {
+      console.warn('[AI] GeminiProvider failed, trying Ollama:', String(err));
+      try {
+        if (env.AI_PROVIDER_OLLAMA_ENABLED === 'true') {
+          return await new OllamaProvider().callOllama(messages);
+        }
+      } catch (ollamaErr) {
+        console.warn('[AI] OllamaProvider fallback failed:', String(ollamaErr));
+      }
+      return new LocalPortfolioProvider().chat(messages, options);
+    }
+  }
+
+  private async callGemini(messages: ChatMessage[]): Promise<LlmResponse> {
+    const model = env.AI_GEMINI_MODEL ?? 'gemini-2.0-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+
+    const systemMsg = messages.find((m) => m.role === 'system');
+    const userMessages = messages.filter((m) => m.role !== 'system');
+
+    const body: Record<string, unknown> = {
+      contents: userMessages.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      })),
+      generationConfig: {
+        temperature: 1,
+        maxOutputTokens: Number(env.AI_MAX_TOKENS ?? 2048),
+        thinkingConfig: { thinkingBudget: 0 }
+      }
+    };
+
+    if (systemMsg) {
+      body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini provider failed with ${response.status}.`);
+    }
+
+    const payload = await response.json();
+    const content = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No AI response returned.';
+    const promptTokens = payload.usageMetadata?.promptTokenCount ?? 0;
+    const completionTokens = payload.usageMetadata?.candidatesTokenCount ?? 0;
+
+    return {
+      provider: 'gemini',
+      model,
+      content,
+      usage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens
+      }
+    };
+  }
+}
+
+class OllamaProvider {
+  async chat(messages: ChatMessage[], options: Record<string, unknown> = {}): Promise<LlmResponse> {
+    try {
+      return await this.callOllama(messages);
+    } catch (err) {
+      console.warn('[AI] OllamaProvider fallback to local:', String(err));
+      return new LocalPortfolioProvider().chat(messages, options);
+    }
+  }
+
+  async callOllama(messages: ChatMessage[]): Promise<LlmResponse> {
+    const model = env.AI_OLLAMA_MODEL ?? 'llama3.2:3b';
+    const url = `${env.AI_OLLAMA_URL ?? 'http://localhost:11434'}/api/chat`;
+
+    const body = {
+      model,
+      messages: messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : m.role, content: m.content })),
+      stream: false,
+      options: { temperature: Number(env.AI_TEMPERATURE ?? 0.2), num_predict: Number(env.AI_MAX_TOKENS ?? 1200) }
+    };
+
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 25_000);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: abort.signal
+    });
+    clearTimeout(timer);
+
+    if (!response.ok) throw new Error(`Ollama failed with ${response.status}`);
+
+    const payload = await response.json();
+    const content = payload.message?.content ?? 'No AI response returned.';
+
+    return {
+      provider: 'ollama',
+      model,
+      content,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: payload.eval_count ?? 0 }
+    };
+  }
 }
 
 class LocalPortfolioProvider {

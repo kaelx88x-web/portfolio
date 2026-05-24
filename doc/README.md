@@ -619,6 +619,18 @@ Optimization engine:
 
 - Riskfolio integration
 - AI rebalance suggestions
+- 6A Portfolio Mode Engine
+- 6B Guardrail Engine
+- 6C Options Discovery Engine
+- 6D AI Suggestion Engine
+- 6E Trade Layer
+- 6F Moomoo Execution Layer
+- 6G Order Tracking System
+
+Execution note:
+
+- Phase 6A-6D are advisory intelligence.
+- Phase 6E-6G are execution-gated and require explicit user approval.
 
 ---
 

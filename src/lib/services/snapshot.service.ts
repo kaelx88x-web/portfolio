@@ -4,12 +4,14 @@ import type { BrokerHolding, Holding, SnapshotHolding } from '$lib/types/portfol
 export async function takeSnapshot(
   userId: string,
   holdings: BrokerHolding[],
-  cashBalance: number
+  cashBalance: number,
+  totalValueOverride?: number
 ): Promise<void> {
   const snapshotDate = new Date();
   snapshotDate.setUTCHours(0, 0, 0, 0);
 
-  const totalValue = holdings.reduce((sum, h) => sum + h.market_value, 0) + cashBalance;
+  const holdingsSum = holdings.reduce((sum, h) => sum + h.market_value, 0);
+  const totalValue = totalValueOverride ?? (holdingsSum + cashBalance);
 
   const holdingRows: SnapshotHolding[] = holdings.map((h) => ({
     accountName: 'Moomoo',

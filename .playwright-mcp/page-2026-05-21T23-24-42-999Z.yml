@@ -1,0 +1,182 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "◈ PortfolioAI" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: ◈
+        - generic [ref=e8]: PortfolioAI
+      - generic [ref=e9]:
+        - link "Features" [ref=e10] [cursor=pointer]:
+          - /url: "#features"
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: "#how"
+        - link "Demo" [ref=e12] [cursor=pointer]:
+          - /url: /dashboard
+      - link "Launch App" [ref=e13] [cursor=pointer]:
+        - /url: /dashboard
+        - text: Launch App
+        - img [ref=e14]
+  - generic [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - img [ref=e21]
+        - text: AI-native investing workspace
+      - heading "Your portfolio. Smarter decisions." [level=1] [ref=e23]:
+        - text: Your portfolio.
+        - text: Smarter decisions.
+      - paragraph [ref=e24]: Real-time market intelligence, insider transaction alerts, AI portfolio analysis, and broker sync — in one clean dashboard.
+      - generic [ref=e25]:
+        - link "Open Dashboard" [ref=e26] [cursor=pointer]:
+          - /url: /dashboard
+          - text: Open Dashboard
+          - img [ref=e27]
+        - link "See features" [ref=e29] [cursor=pointer]:
+          - /url: "#features"
+      - generic [ref=e30]:
+        - generic [ref=e31]: Powered by
+        - generic [ref=e32]: Moomoo OpenD
+        - generic [ref=e33]: ·
+        - generic [ref=e34]: Finnhub
+        - generic [ref=e35]: ·
+        - generic [ref=e36]: Claude AI
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]: Global Markets
+          - generic [ref=e41]: Live
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - generic [ref=e45]: 🇺🇸
+            - generic [ref=e46]:
+              - generic [ref=e47]: United States
+              - text: NYSE / NASDAQ
+            - generic [ref=e50]: 10:32 AM
+          - generic [ref=e51]:
+            - generic [ref=e52]: 🇭🇰
+            - generic [ref=e53]:
+              - generic [ref=e54]: Hong Kong
+              - text: HKEX
+            - generic [ref=e57]: 11:45 PM
+          - generic [ref=e58]:
+            - generic [ref=e59]: 🇨🇳
+            - generic [ref=e60]:
+              - generic [ref=e61]: Shanghai
+              - text: SSE
+            - generic [ref=e64]: 11:45 PM
+          - generic [ref=e65]:
+            - generic [ref=e66]: 🇨🇳
+            - generic [ref=e67]:
+              - generic [ref=e68]: Shenzhen
+              - text: SZSE
+            - generic [ref=e71]: 11:45 PM
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: Insider Transactions
+          - generic [ref=e75]: SEC Form 4
+        - generic [ref=e76]:
+          - generic [ref=e77]:
+            - generic [ref=e78]:
+              - generic [ref=e79]: Jensen Huang
+              - generic [ref=e80]: NVDA
+            - generic [ref=e81]:
+              - generic [ref=e82]: Purchase
+              - generic [ref=e83]: $42.1M
+              - generic [ref=e84]: May 12
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - generic [ref=e87]: Tim Cook
+              - generic [ref=e88]: AAPL
+            - generic [ref=e89]:
+              - generic [ref=e90]: Sale
+              - generic [ref=e91]: $89.4M
+              - generic [ref=e92]: May 10
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - generic [ref=e95]: Satya Nadella
+              - generic [ref=e96]: MSFT
+            - generic [ref=e97]:
+              - generic [ref=e98]: Purchase
+              - generic [ref=e99]: $18.2M
+              - generic [ref=e100]: May 08
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: Portfolio Value
+          - generic [ref=e104]: $128,420
+          - generic [ref=e105]: +12.8% YTD
+        - generic [ref=e106]:
+          - generic [ref=e107]: AI Risk Score
+          - generic [ref=e108]: 64 / 100
+          - generic [ref=e109]: Moderate
+        - generic [ref=e110]:
+          - generic [ref=e111]: Div Income
+          - generic [ref=e112]: $842/mo
+          - generic [ref=e113]: +8.4% YoY
+  - generic [ref=e115]:
+    - generic [ref=e116]:
+      - heading "Everything you need to invest with clarity" [level=2] [ref=e117]
+      - paragraph [ref=e118]: From live market data to AI-powered analysis — all in one workspace.
+    - generic [ref=e119]:
+      - generic [ref=e120]:
+        - img [ref=e122]
+        - heading "AI Portfolio Copilot" [level=3] [ref=e125]
+        - paragraph [ref=e126]: Ask plain-language questions about your holdings, risk, and P&L. Powered by Claude & GPT.
+      - generic [ref=e127]:
+        - img [ref=e129]
+        - heading "Global Market Status" [level=3] [ref=e132]
+        - paragraph [ref=e133]: Live open/closed status for US, HK, Shanghai, and Shenzhen markets with major index prices.
+      - generic [ref=e134]:
+        - img [ref=e136]
+        - heading "Insider Transactions" [level=3] [ref=e141]
+        - paragraph [ref=e142]: Track SEC Form 4 filings — see when executives buy or sell their own company shares.
+      - generic [ref=e143]:
+        - img [ref=e145]
+        - heading "Peer Research" [level=3] [ref=e148]
+        - paragraph [ref=e149]: Discover comparable companies in the same industry with market cap and profile data.
+      - generic [ref=e150]:
+        - img [ref=e152]
+        - heading "Capital Flow Analysis" [level=3] [ref=e154]
+        - paragraph [ref=e155]: Monitor super, big, mid, and small money flow in real time via Moomoo OpenD bridge.
+      - generic [ref=e156]:
+        - img [ref=e158]
+        - heading "Sector Analytics" [level=3] [ref=e160]
+        - paragraph [ref=e161]: Visualize exposure across sectors, screen stocks by plate, and spot concentration risk.
+      - generic [ref=e162]:
+        - img [ref=e164]
+        - heading "Portfolio Tracking" [level=3] [ref=e167]
+        - paragraph [ref=e168]: Track holdings, unrealized P&L, allocation drift, and snapshots over time.
+      - generic [ref=e169]:
+        - img [ref=e171]
+        - heading "Broker Sync" [level=3] [ref=e174]
+        - paragraph [ref=e175]: Import positions and transactions directly from Moomoo via the OpenD bridge service.
+  - generic [ref=e177]:
+    - generic [ref=e178]:
+      - heading "Simple setup. Powerful results." [level=2] [ref=e179]
+      - paragraph [ref=e180]: Get from zero to full portfolio intelligence in minutes.
+    - generic [ref=e181]:
+      - generic [ref=e182]:
+        - generic [ref=e183]: "01"
+        - heading "Connect your broker" [level=3] [ref=e184]
+        - paragraph [ref=e185]: Run the Moomoo OpenD bridge. PortfolioAI pulls your live positions, cash flow, and order history automatically.
+      - generic [ref=e186]:
+        - generic [ref=e187]: "02"
+        - heading "Explore the markets" [level=3] [ref=e188]
+        - paragraph [ref=e189]: Check global market status, insider activity, and peer companies. All powered by free data sources.
+      - generic [ref=e190]:
+        - generic [ref=e191]: "03"
+        - heading "Let AI do the analysis" [level=3] [ref=e192]
+        - paragraph [ref=e193]: Ask the AI Copilot anything about your portfolio. Get risk summaries, trim candidates, and plain-language insights.
+  - generic [ref=e196]:
+    - img [ref=e198]
+    - heading "Ready to see your portfolio differently?" [level=2] [ref=e200]
+    - paragraph [ref=e201]: Open the dashboard and start exploring your data with AI.
+    - link "Open Dashboard" [ref=e202] [cursor=pointer]:
+      - /url: /dashboard
+      - text: Open Dashboard
+      - img [ref=e203]
+  - contentinfo [ref=e205]:
+    - generic [ref=e206]:
+      - generic [ref=e207]:
+        - generic [ref=e208]: ◈
+        - generic [ref=e209]: PortfolioAI
+      - paragraph [ref=e210]: AI-assisted investing workspace for research and portfolio planning.
+      - paragraph [ref=e211]: © 2026 PortfolioAI. Data provided for informational purposes only. Not financial advice.

@@ -675,13 +675,28 @@ export async function syncMoomoo(preferReal = true): Promise<MoomooSyncResult> {
 }
 
 async function syncMoomooBridge(preferReal: boolean): Promise<MoomooSyncResult> {
-  const res = await fetch(`${bridgeBase()}/sync?prefer_real=${preferReal ? 'true' : 'false'}`, {
-    method: 'POST'
-  });
-  if (!res.ok) {
-    throw new Error(`${res.status} ${await readError(res, 'Bridge sync failed')}`);
+  const [syncRes, balanceRes] = await Promise.all([
+    fetch(`${bridgeBase()}/sync?prefer_real=${preferReal ? 'true' : 'false'}`, { method: 'POST' }),
+    fetch(`${bridgeBase()}/fund-balance`).catch(() => null)
+  ]);
+  if (!syncRes.ok) {
+    throw new Error(`${syncRes.status} ${await readError(syncRes, 'Bridge sync failed')}`);
   }
-  return res.json();
+  const data = await syncRes.json();
+  const normalized = normalizeSyncResult(data);
+
+  // Inject USD cash from fund-balance when sync response doesn't include account_info
+  if (normalized.account_info.cash === 0 && balanceRes?.ok) {
+    const balanceData = await balanceRes.json().catch(() => null);
+    const usdBal = (balanceData?.balances ?? []).find((b: { currency: string }) => b.currency === 'USD');
+    if (usdBal) {
+      normalized.account_info.cash = Number(usdBal.cash ?? 0);
+      normalized.account_info.total_assets = Number(usdBal.total_assets ?? 0);
+      normalized.account_info.market_val = Number(usdBal.market_val ?? 0);
+    }
+  }
+
+  return normalized;
 }
 
 function normalizeSyncResult(data: any): MoomooSyncResult {

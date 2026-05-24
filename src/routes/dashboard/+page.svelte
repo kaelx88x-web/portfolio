@@ -74,7 +74,7 @@
 
 {#if form?.refreshed}
   <div class="refresh-toast success">
-    ✓ Synced {form.count} holding{form.count !== 1 ? 's' : ''} · {new Date(form.updatedAt).toLocaleTimeString()}
+    ✓ Synced {form.count} holding{form.count !== 1 ? 's' : ''} · {form.updatedAt ? new Date(form.updatedAt).toLocaleTimeString() : 'just now'}
   </div>
 {:else if form?.error}
   <div class="refresh-toast error">⚠ {form.error}</div>

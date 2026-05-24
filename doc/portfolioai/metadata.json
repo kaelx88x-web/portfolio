@@ -1,6 +1,0 @@
-{
-  "name": "PortfolioAI",
-  "description": "AI-powered stock portfolio management platform featuring automated broker sync, deep risk analysis, and intelligent dividend planning.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["AI Analysis", "Financial Tracking", "Portfolio Optimization"]
-}

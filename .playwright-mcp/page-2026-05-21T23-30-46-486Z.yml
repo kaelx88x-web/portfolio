@@ -1,0 +1,366 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "◈" [ref=e7] [cursor=pointer]
+          - generic [ref=e9]:
+            - generic [ref=e10]: Total Portfolio
+            - generic [ref=e11]:
+              - generic [ref=e12]: $1,257.64
+              - generic [ref=e13]: +$0.00 (+0.00%)
+          - button "Moomoo Live (1017296631818262) LIVE" [ref=e16] [cursor=pointer]:
+            - generic [ref=e18]: Moomoo Live (1017296631818262)
+            - generic [ref=e19]: LIVE
+            - img [ref=e20]
+        - generic [ref=e22]:
+          - button "Ask AI" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+            - text: Ask AI
+          - button "Notifications" [ref=e26] [cursor=pointer]:
+            - img [ref=e27]
+          - button "PA" [ref=e31] [cursor=pointer]
+          - button "Toggle sidebar" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+          - button "Toggle AI panel" [ref=e39] [cursor=pointer]:
+            - img [ref=e40]
+          - button "Dark mode" [ref=e43] [cursor=pointer]:
+            - img [ref=e44]
+    - generic [ref=e46]:
+      - complementary [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e50]:
+            - generic [ref=e51]: ◈
+            - generic [ref=e52]:
+              - generic [ref=e53]: PortfolioAI
+              - generic [ref=e54]: AI Portfolio OS
+          - link "Dashboard" [ref=e56] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e57]
+            - generic [ref=e62]: Dashboard
+          - navigation [ref=e64]:
+            - link "My Portfolio Your stocks & investments" [ref=e65] [cursor=pointer]:
+              - /url: /holdings
+              - img [ref=e66]
+              - generic [ref=e69]:
+                - generic [ref=e70]: My Portfolio
+                - generic [ref=e71]: Your stocks & investments
+            - link "Add Data Import from Moomoo or CSV" [ref=e72] [cursor=pointer]:
+              - /url: /import
+              - img [ref=e73]
+              - generic [ref=e76]:
+                - generic [ref=e77]: Add Data
+                - generic [ref=e78]: Import from Moomoo or CSV
+            - link "My Returns Your investment returns" [ref=e79] [cursor=pointer]:
+              - /url: /snapshots
+              - img [ref=e80]
+              - generic [ref=e83]:
+                - generic [ref=e84]: My Returns
+                - generic [ref=e85]: Your investment returns
+            - link "Watchlist Stocks you're watching" [ref=e86] [cursor=pointer]:
+              - /url: /watchlist
+              - img [ref=e87]
+              - generic [ref=e90]:
+                - generic [ref=e91]: Watchlist
+                - generic [ref=e92]: Stocks you're watching
+            - link "Rebalance AI portfolio rebalancing" [ref=e93] [cursor=pointer]:
+              - /url: /optimization/rebalance
+              - img [ref=e94]
+              - generic [ref=e96]:
+                - generic [ref=e97]: Rebalance
+                - generic [ref=e98]: AI portfolio rebalancing
+          - generic [ref=e99]:
+            - button "BEGINNER MODE Switch to Advanced →" [ref=e100] [cursor=pointer]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: BEGINNER MODE
+                - generic [ref=e103]: Switch to Advanced →
+            - button "Collapse" [ref=e106] [cursor=pointer]:
+              - img [ref=e107]
+              - generic [ref=e109]: Collapse
+            - link "Settings" [ref=e110] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e111]
+              - generic [ref=e114]: Settings
+      - main [ref=e115]:
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - navigation [ref=e118]:
+              - link "AI" [ref=e119] [cursor=pointer]:
+                - /url: /ai
+              - generic [ref=e120]: /
+              - generic [ref=e121]: Chat
+            - heading "Copilot Chat" [level=1] [ref=e122]
+            - paragraph [ref=e123]: Ask about health, risk, allocation, benchmark, and performance.
+          - link "History" [ref=e124] [cursor=pointer]:
+            - /url: /ai/conversations
+            - img [ref=e125]
+            - text: History
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - generic [ref=e133]:
+                - img [ref=e135]
+                - generic [ref=e137]:
+                  - generic [ref=e138]: AI Copilot
+                  - generic [ref=e139]: "Context: MAX · Benchmark: SPY"
+              - generic [ref=e140]:
+                - generic [ref=e141]:
+                  - paragraph [ref=e143]: "\"What is my portfolio allocation?\""
+                  - img [ref=e145]
+                - generic [ref=e148]:
+                  - img [ref=e150]
+                  - generic [ref=e153]:
+                    - generic [ref=e154]:
+                      - generic [ref=e155]:
+                        - img [ref=e157]
+                        - paragraph [ref=e159]: The allocation question route found 3 risk flag(s), 3 tool call(s), and 1 missing-data warning(s).
+                      - generic [ref=e160]:
+                        - generic [ref=e161]: What the data shows
+                        - list [ref=e162]:
+                          - listitem [ref=e163]: Cash ratio is 46.79%; top allocation slices were checked by AllocationTool.
+                          - listitem [ref=e164]: Portfolio value is 1298.71 with 8 holdings.
+                          - listitem [ref=e165]: US.NIO is the largest visible holding at 70.42% allocation.
+                          - listitem [ref=e166]: Selected-period return is 27.98% versus SPY alpha of 26.78%.
+                          - listitem [ref=e167]: Risk health is elevated_risk with score 42/100.
+                      - generic [ref=e168]:
+                        - generic [ref=e169]: Main risks
+                        - list [ref=e170]:
+                          - listitem [ref=e171]: US.NIO is 70.4225% of positive invested holdings.
+                          - listitem [ref=e172]: Portfolio contains option positions that may need separate risk review.
+                          - listitem [ref=e173]: Cash is 46.7926% of portfolio value.
+                      - generic [ref=e174]:
+                        - generic [ref=e175]: Possible actions
+                        - list [ref=e176]:
+                          - listitem [ref=e177]: Review whether the largest exposures still match your intended allocation.
+                          - listitem [ref=e178]: Use the result as a decision checklist, not as an instruction to trade.
+                          - listitem [ref=e179]: No dividend or interest transactions available.
+                          - listitem [ref=e180]: "Context freshness boundary: 2026-05-15T05:59:00.416Z."
+                      - generic [ref=e181]: "Confidence: medium. This is advisory-only and cannot guarantee returns or execute trades."
+                    - generic [ref=e182]:
+                      - button "Article" [ref=e183] [cursor=pointer]:
+                        - img [ref=e184]
+                        - text: Article
+                      - button "Raw" [ref=e187] [cursor=pointer]:
+                        - img [ref=e188]
+                        - text: Raw
+                - generic [ref=e192]:
+                  - paragraph [ref=e194]: Why is my portfolio risky?
+                  - img [ref=e196]
+                - generic [ref=e199]:
+                  - img [ref=e201]
+                  - generic [ref=e204]:
+                    - generic [ref=e205]:
+                      - generic [ref=e206]:
+                        - img [ref=e208]
+                        - paragraph [ref=e210]: Your portfolio looks elevated based on a 42/100 health score, 8 holdings, and 47.11% cash.
+                      - generic [ref=e211]:
+                        - generic [ref=e212]: What the data shows
+                        - list [ref=e213]:
+                          - listitem [ref=e214]: Concentration risk is 70.36%; largest holding is US.NIO.
+                          - listitem [ref=e215]: "Benchmark comparison versus SPY: portfolio 27.04%, benchmark 1.20%."
+                          - listitem [ref=e216]: US.RUM260529P7000 is the largest visible holding at -3.78% of allocation.
+                          - listitem [ref=e217]: Selected-period return is 27.04%, with 25.84% alpha versus SPY.
+                      - generic [ref=e218]:
+                        - generic [ref=e219]: Main risks
+                        - list [ref=e220]:
+                          - listitem [ref=e221]: US.NIO is 70.3601% of positive invested holdings.
+                          - listitem [ref=e222]: Portfolio contains option positions that may need separate risk review.
+                          - listitem [ref=e223]: Cash is 47.1118% of portfolio value.
+                      - generic [ref=e224]:
+                        - generic [ref=e225]: Possible actions
+                        - list [ref=e226]:
+                          - listitem [ref=e227]: Review whether the largest exposures still match your target allocation.
+                          - listitem [ref=e228]: Compare risk flags against your time horizon and cash needs.
+                          - listitem [ref=e229]: Use this as a review checklist, not as an instruction to trade.
+                      - generic [ref=e230]: No dividend or interest transactions available.
+                    - generic [ref=e231]:
+                      - button "Article" [ref=e232] [cursor=pointer]:
+                        - img [ref=e233]
+                        - text: Article
+                      - button "Raw" [ref=e236] [cursor=pointer]:
+                        - img [ref=e237]
+                        - text: Raw
+                - generic [ref=e241]:
+                  - paragraph [ref=e243]: How does my portfolio compare to SPY?
+                  - img [ref=e245]
+                - generic [ref=e248]:
+                  - img [ref=e250]
+                  - generic [ref=e253]:
+                    - generic [ref=e254]:
+                      - generic [ref=e255]:
+                        - img [ref=e257]
+                        - paragraph [ref=e259]: Your portfolio looks elevated based on a 42/100 health score, 8 holdings, and 47.11% cash.
+                      - generic [ref=e260]:
+                        - generic [ref=e261]: What the data shows
+                        - list [ref=e262]:
+                          - listitem [ref=e263]: "Benchmark comparison versus SPY: portfolio 27.04%, benchmark 1.20%."
+                          - listitem [ref=e264]: US.RUM260529P7000 is the largest visible holding at -3.78% of allocation.
+                          - listitem [ref=e265]: Selected-period return is 27.04%, with 25.84% alpha versus SPY.
+                          - listitem [ref=e266]: Market data status is ready.
+                      - generic [ref=e267]:
+                        - generic [ref=e268]: Main risks
+                        - list [ref=e269]:
+                          - listitem [ref=e270]: US.NIO is 70.3601% of positive invested holdings.
+                          - listitem [ref=e271]: Portfolio contains option positions that may need separate risk review.
+                          - listitem [ref=e272]: Cash is 47.1118% of portfolio value.
+                      - generic [ref=e273]:
+                        - generic [ref=e274]: Possible actions
+                        - list [ref=e275]:
+                          - listitem [ref=e276]: Review whether the largest exposures still match your target allocation.
+                          - listitem [ref=e277]: Compare risk flags against your time horizon and cash needs.
+                          - listitem [ref=e278]: Use this as a review checklist, not as an instruction to trade.
+                      - generic [ref=e279]: No dividend or interest transactions available.
+                    - generic [ref=e280]:
+                      - button "Article" [ref=e281] [cursor=pointer]:
+                        - img [ref=e282]
+                        - text: Article
+                      - button "Raw" [ref=e285] [cursor=pointer]:
+                        - img [ref=e286]
+                        - text: Raw
+                - generic [ref=e290]:
+                  - paragraph [ref=e292]: What AI provider are you? Summarize my portfolio health in 2 sentences.
+                  - img [ref=e294]
+                - generic [ref=e297]:
+                  - img [ref=e299]
+                  - generic [ref=e302]:
+                    - generic [ref=e303]:
+                      - generic [ref=e304]:
+                        - img [ref=e306]
+                        - paragraph [ref=e308]: Your portfolio looks elevated based on a 42/100 health score, 6 holdings, and 42.54% cash.
+                      - generic [ref=e309]:
+                        - generic [ref=e310]: What the data shows
+                        - list [ref=e311]:
+                          - listitem [ref=e312]: Concentration risk is 70.13%; largest holding is US.NIO.
+                          - listitem [ref=e313]: "Benchmark comparison versus SPY: portfolio 23.93%, benchmark -0.02%."
+                          - listitem [ref=e314]: US.RUM260529P7000 is the largest visible holding at -5.71% of allocation.
+                          - listitem [ref=e315]: Selected-period return is 23.93%, with 23.95% alpha versus SPY.
+                      - generic [ref=e316]:
+                        - generic [ref=e317]: Main risks
+                        - list [ref=e318]:
+                          - listitem [ref=e319]: US.NIO is 70.1303% of positive invested holdings.
+                          - listitem [ref=e320]: Portfolio contains option positions that may need separate risk review.
+                          - listitem [ref=e321]: Cash is 42.5448% of portfolio value.
+                      - generic [ref=e322]:
+                        - generic [ref=e323]: Possible actions
+                        - list [ref=e324]:
+                          - listitem [ref=e325]: Review whether the largest exposures still match your target allocation.
+                          - listitem [ref=e326]: Compare risk flags against your time horizon and cash needs.
+                          - listitem [ref=e327]: Use this as a review checklist, not as an instruction to trade.
+                      - generic [ref=e328]: No dividend or interest transactions available.
+                    - generic [ref=e329]:
+                      - button "Article" [ref=e330] [cursor=pointer]:
+                        - img [ref=e331]
+                        - text: Article
+                      - button "Raw" [ref=e334] [cursor=pointer]:
+                        - img [ref=e335]
+                        - text: Raw
+                - generic [ref=e339]:
+                  - paragraph [ref=e341]: Summarize my portfolio in 2 sentences.
+                  - img [ref=e343]
+                - generic [ref=e346]:
+                  - img [ref=e348]
+                  - generic [ref=e351]:
+                    - generic [ref=e352]:
+                      - generic [ref=e353]:
+                        - img [ref=e355]
+                        - paragraph [ref=e357]: Your portfolio looks elevated based on a 42/100 health score, 6 holdings, and 42.54% cash.
+                      - generic [ref=e358]:
+                        - generic [ref=e359]: What the data shows
+                        - list [ref=e360]:
+                          - listitem [ref=e361]: Concentration risk is 70.13%; largest holding is US.NIO.
+                          - listitem [ref=e362]: "Benchmark comparison versus SPY: portfolio 23.93%, benchmark -0.02%."
+                          - listitem [ref=e363]: US.RUM260529P7000 is the largest visible holding at -5.71% of allocation.
+                          - listitem [ref=e364]: Selected-period return is 23.93%, with 23.95% alpha versus SPY.
+                      - generic [ref=e365]:
+                        - generic [ref=e366]: Main risks
+                        - list [ref=e367]:
+                          - listitem [ref=e368]: US.NIO is 70.1303% of positive invested holdings.
+                          - listitem [ref=e369]: Portfolio contains option positions that may need separate risk review.
+                          - listitem [ref=e370]: Cash is 42.5448% of portfolio value.
+                      - generic [ref=e371]:
+                        - generic [ref=e372]: Possible actions
+                        - list [ref=e373]:
+                          - listitem [ref=e374]: Review whether the largest exposures still match your target allocation.
+                          - listitem [ref=e375]: Compare risk flags against your time horizon and cash needs.
+                          - listitem [ref=e376]: Use this as a review checklist, not as an instruction to trade.
+                      - generic [ref=e377]: No dividend or interest transactions available.
+                    - generic [ref=e378]:
+                      - button "Article" [ref=e379] [cursor=pointer]:
+                        - img [ref=e380]
+                        - text: Article
+                      - button "Raw" [ref=e383] [cursor=pointer]:
+                        - img [ref=e384]
+                        - text: Raw
+              - generic [ref=e388]:
+                - textbox "Ask about risk, allocation, performance… (Enter to send, Shift+Enter for newline)" [ref=e389]:
+                  - /placeholder: Ask about risk, allocation, performance…  (Enter to send, Shift+Enter for newline)
+                - button "Send" [disabled] [ref=e390]:
+                  - img [ref=e391]
+            - generic [ref=e393]:
+              - generic [ref=e394]: Quick Questions
+              - generic [ref=e395]:
+                - button "Why is my portfolio risky?" [ref=e396] [cursor=pointer]
+                - button "What is my biggest exposure in US.NIO?" [ref=e397] [cursor=pointer]
+                - button "How can I reduce concentration risk?" [ref=e398] [cursor=pointer]
+                - button "Which holdings affect my performance most?" [ref=e399] [cursor=pointer]
+                - button "How does my portfolio compare to SPY?" [ref=e400] [cursor=pointer]
+                - button "Explain my portfolio in simple words." [ref=e401] [cursor=pointer]
+          - complementary [ref=e402]:
+            - generic [ref=e403]:
+              - generic [ref=e404]:
+                - generic [ref=e405]:
+                  - generic [ref=e406]: Portfolio Context
+                  - generic [ref=e407]: f52191d7a7abb242
+                - generic [ref=e408]: elevated risk
+              - generic [ref=e409]:
+                - generic [ref=e410]:
+                  - generic [ref=e411]:
+                    - img [ref=e412]
+                    - text: Value
+                  - generic [ref=e414]: $1,257.64
+                - generic [ref=e415]:
+                  - generic [ref=e416]:
+                    - img [ref=e417]
+                    - text: Cash
+                  - generic [ref=e420]: 42.54%
+                - generic [ref=e421]:
+                  - generic [ref=e422]:
+                    - img [ref=e423]
+                    - text: Snapshots
+                  - generic [ref=e427]: "5"
+            - generic [ref=e428]:
+              - generic [ref=e429]:
+                - img [ref=e430]
+                - text: Advisory only
+              - paragraph [ref=e432]: Copilot explains portfolio data and uncertainty. It does not place trades, guarantee returns, or replace licensed financial advice.
+            - generic [ref=e433]:
+              - generic [ref=e434]: Recent Insights
+              - generic [ref=e435]:
+                - article [ref=e436]:
+                  - generic [ref=e437]:
+                    - generic [ref=e438]:
+                      - generic [ref=e439]: portfolio health
+                      - heading "Portfolio Health" [level=3] [ref=e440]
+                    - generic [ref=e441]: high
+                  - paragraph [ref=e442]: Your portfolio looks elevated based on a 42/100 health score, 6 holdings, and 22.89% cash.
+                  - generic [ref=e443]:
+                    - generic [ref=e444]: US.NIO260605P6000 is the largest visible holding at -2.69% of allocation.
+                    - generic [ref=e445]: Selected-period return is 46.72%, with 46.31% alpha versus SPY.
+                    - generic [ref=e446]: Market data status is ready.
+                  - generic [ref=e447]: May 14, 2026
+                - article [ref=e448]:
+                  - generic [ref=e449]:
+                    - generic [ref=e450]:
+                      - generic [ref=e451]: allocation review
+                      - heading "Allocation Review" [level=3] [ref=e452]
+                    - generic [ref=e453]: high
+                  - paragraph [ref=e454]: Your portfolio looks elevated based on a 24/100 health score, 7 holdings, and 37.70% cash.
+                  - generic [ref=e455]:
+                    - generic [ref=e456]: US.NIO260529P6000 is the largest visible holding at -4.52% of allocation.
+                    - generic [ref=e457]: Selected-period return is 0.00%, with 0.00% alpha versus SPY.
+                    - generic [ref=e458]: Market data status is unavailable.
+                  - generic [ref=e459]: May 11, 2026
+  - complementary [ref=e461]:
+    - generic [ref=e462]:
+      - generic [ref=e463]: ✦ AI PANEL
+      - generic [ref=e464]: Navigate to a page to see AI context here.

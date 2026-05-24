@@ -28,3 +28,22 @@ function createTheme() {
 }
 
 export const theme = createTheme();
+
+function createBeginnerMode() {
+  const initial = browser
+    ? localStorage.getItem('portfolioai_mode') !== 'advanced'
+    : true;
+  const { subscribe, update } = writable(initial);
+  return {
+    subscribe,
+    toggle() {
+      update(current => {
+        const next = !current;
+        if (browser) localStorage.setItem('portfolioai_mode', next ? 'beginner' : 'advanced');
+        return next;
+      });
+    },
+  };
+}
+
+export const beginnerMode = createBeginnerMode();

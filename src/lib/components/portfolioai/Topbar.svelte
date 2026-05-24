@@ -160,7 +160,7 @@
     background: transparent;
   }
 
-  .tb-left  { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .tb-left  { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
   .tb-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
   .tb-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
@@ -269,5 +269,23 @@
     font-size: 0.6rem; font-weight: 700; color: #fff;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; border: none;
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 767px) {
+    .tb { padding: 0 12px; gap: 8px; }
+
+    /* Hide verbose desktop elements */
+    .tb-value-hero  { display: none; }
+    .tb-account-wrap { display: none; }
+    .tb-ai-btn      { display: none; }
+
+    /* Hide some icon buttons to save space */
+    .tb-sep         { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    /* Extra small — hide notifications too */
+    .tb-icon-btn:not(:last-of-type) { display: none; }
   }
 </style>

@@ -8,6 +8,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -20,6 +21,7 @@ OPEND_HOST = os.getenv("MOOMOO_OPEND_HOST", "127.0.0.1")
 OPEND_PORT = int(os.getenv("MOOMOO_OPEND_PORT", "11111"))
 MOOMOO_ENV = os.getenv("MOOMOO_ENV", "paper")
 MOOMOO_READ_ONLY = os.getenv("MOOMOO_READ_ONLY", "true").lower() != "false"
+MOOMOO_TRADE_UNLOCK_PWD = os.getenv("MOOMOO_TRADE_UNLOCK_PWD", "")
 
 app = FastAPI(title="Portfolio Moomoo Service", version="1.0.0")
 
@@ -29,6 +31,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class ExecutionOrderRequest(BaseModel):
+    symbol: str
+    side: str
+    order_type: str = "limit"
+    quantity: float
+    price: float | None = None
+    trade_env: str = "SIMULATE"
+    mode: str = "paper"
+    acc_id: int | None = None
+    client_order_id: str | None = None
+    source_ticket_id: str | None = None
+
+
+class CancelOrderRequest(BaseModel):
+    mode: str = "paper"
 
 
 @app.get("/")
@@ -700,6 +719,354 @@ def quote_market_state(codes: str):
             ctx.close()
 
 
+@app.get("/options/expiry")
+def options_expiry(symbol: str):
+    """Return available option expiry dates for an underlying symbol (e.g. US.AAPL)."""
+    try:
+        from moomoo import OpenQuoteContext, RET_OK
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    code = symbol if "." in symbol else f"US.{symbol}"
+    ctx = None
+    try:
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+        ret, data = ctx.get_option_expiration_date(code)
+        if ret != RET_OK:
+            raise HTTPException(status_code=400, detail=str(data))
+        rows = _records(data)
+        dates = sorted({r.get("strike_time") or r.get("date") or "" for r in rows if r.get("strike_time") or r.get("date")})
+        return {"symbol": code, "expiry_dates": dates, "count": len(dates)}
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+
+@app.get("/options/chain")
+def options_chain(symbol: str, expiry: str, option_type: str = "all"):
+    """Return option chain for a symbol and expiry date.
+
+    Args:
+        symbol: Underlying code, e.g. AAPL or US.AAPL
+        expiry: Expiry date string YYYY-MM-DD
+        option_type: 'call', 'put', or 'all'
+    """
+    try:
+        from moomoo import OpenQuoteContext, RET_OK
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    code = symbol if "." in symbol else f"US.{symbol}"
+    ctx = None
+    try:
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+        ret, data = ctx.get_option_chain(code, expiry, expiry)
+        if ret != RET_OK:
+            raise HTTPException(status_code=400, detail=str(data))
+        rows = _records(data)
+
+        # Filter by option_type if requested
+        if option_type in ("call", "put"):
+            rows = [r for r in rows if str(r.get("option_type", "")).lower().startswith(option_type[0])]
+
+        # Normalise fields
+        result = []
+        for r in rows:
+            result.append({
+                "code": r.get("code"),
+                "symbol": code,
+                "expiry": expiry,
+                "option_type": str(r.get("option_type", "")).lower(),
+                "strike": _f(r.get("strike_price")),
+                "last_price": _f(r.get("last_price")),
+                "bid": _f(r.get("bid_price")),
+                "ask": _f(r.get("ask_price")),
+                "volume": r.get("volume"),
+                "open_interest": r.get("open_interest"),
+                "implied_volatility": _f(r.get("implied_volatility")),
+                "delta": _f(r.get("delta")),
+                "gamma": _f(r.get("gamma")),
+                "theta": _f(r.get("theta")),
+                "vega": _f(r.get("vega")),
+                "mid_price": round((_f(r.get("bid_price")) or 0 + _f(r.get("ask_price")) or 0) / 2, 4)
+                    if r.get("bid_price") and r.get("ask_price") else None,
+            })
+
+        return {
+            "symbol": code,
+            "expiry": expiry,
+            "option_type": option_type,
+            "count": len(result),
+            "chain": result,
+        }
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+
+@app.get("/options/candidates")
+def options_candidates(symbols: str, mode: str = "both"):
+    """Discover covered call (CC) and cash-secured put (CSP) candidates for given underlyings.
+
+    Args:
+        symbols: Comma-separated list of underlying codes, e.g. AAPL,MSFT or US.AAPL,US.MSFT
+        mode: 'cc' (covered calls only), 'csp' (puts only), or 'both'
+    """
+    try:
+        from moomoo import OpenQuoteContext, RET_OK
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    codes = [s.strip() for s in symbols.split(",") if s.strip()]
+    codes = [c if "." in c else f"US.{c}" for c in codes]
+    if not codes:
+        raise HTTPException(status_code=400, detail="At least one symbol is required.")
+
+    ctx = None
+    try:
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+
+        candidates = []
+        for code in codes:
+            # Get nearest 2 expiry dates
+            ret_e, data_e = ctx.get_option_expiration_date(code)
+            if ret_e != RET_OK:
+                continue
+            expiry_rows = _records(data_e)
+            expiry_dates = sorted({r.get("strike_time") or r.get("date") or "" for r in expiry_rows if r.get("strike_time") or r.get("date")})
+            nearest_expiries = [d for d in expiry_dates if d][:2]
+
+            # Get underlying snapshot for current price
+            ret_s, snap_data = ctx.get_market_snapshot([code])
+            underlying_price = None
+            if ret_s == RET_OK:
+                snaps = _records(snap_data)
+                if snaps:
+                    underlying_price = _f(snaps[0].get("last_price"))
+
+            for expiry in nearest_expiries:
+                ret_c, chain_data = ctx.get_option_chain(code, expiry, expiry)
+                if ret_c != RET_OK:
+                    continue
+                chain_rows = _records(chain_data)
+
+                for r in chain_rows:
+                    opt_type = str(r.get("option_type", "")).lower()
+                    strike = _f(r.get("strike_price"))
+                    bid = _f(r.get("bid_price"))
+                    ask = _f(r.get("ask_price"))
+                    iv = _f(r.get("implied_volatility"))
+                    delta = _f(r.get("delta"))
+                    theta = _f(r.get("theta"))
+                    oi = r.get("open_interest") or 0
+
+                    if not strike or not bid:
+                        continue
+
+                    mid = round((bid + (ask or bid)) / 2, 4)
+                    collateral = round(strike * 100, 2)
+                    premium_yield = round(mid / strike * 100, 4) if strike else None
+
+                    is_cc = mode in ("cc", "both") and opt_type.startswith("c") and delta and 0.2 <= abs(delta) <= 0.45
+                    is_csp = mode in ("csp", "both") and opt_type.startswith("p") and delta and 0.2 <= abs(delta) <= 0.45
+
+                    if not (is_cc or is_csp):
+                        continue
+
+                    candidates.append({
+                        "underlying": code,
+                        "underlying_price": underlying_price,
+                        "strategy": "covered_call" if is_cc else "cash_secured_put",
+                        "option_type": "call" if is_cc else "put",
+                        "expiry": expiry,
+                        "strike": strike,
+                        "bid": bid,
+                        "ask": ask,
+                        "mid": mid,
+                        "collateral_per_contract": collateral,
+                        "premium_yield_pct": premium_yield,
+                        "implied_volatility": iv,
+                        "delta": delta,
+                        "theta": theta,
+                        "open_interest": oi,
+                        "option_code": r.get("code"),
+                    })
+
+        # Sort: highest premium yield first
+        candidates.sort(key=lambda x: x.get("premium_yield_pct") or 0, reverse=True)
+
+        return {
+            "symbols": codes,
+            "mode": mode,
+            "count": len(candidates),
+            "candidates": candidates,
+        }
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+
+@app.get("/fund-balance")
+def fund_balance(prefer_real: bool = True):
+    """Return account balances in USD, MYR, HKD, and SGD for fund-enabled accounts."""
+    try:
+        from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm, TrdEnv
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    firms = [SecurityFirm.FUTUMY, SecurityFirm.FUTUSG, SecurityFirm.FUTUINC,
+             SecurityFirm.FUTUSECURITIES, SecurityFirm.FUTUAU, SecurityFirm.FUTUCA, SecurityFirm.FUTUJP]
+    currencies = ["USD", "MYR", "HKD", "SGD", "JPY"]
+
+    for firm in firms:
+        ctx = None
+        try:
+            ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+            ret, accounts = ctx.get_acc_list()
+            if ret != RET_OK or accounts is None or accounts.empty:
+                continue
+            account = _select_account(accounts, prefer_real)
+            if account is None:
+                continue
+            if prefer_real and str(account.get("trd_env")) != "REAL":
+                continue
+
+            trd_env = TrdEnv.REAL if str(account.get("trd_env")) == "REAL" else TrdEnv.SIMULATE
+            acc_id = int(account.get("acc_id"))
+            trdmarket_auth = account.get("trdmarket_auth") or []
+            markets = [str(m) for m in trdmarket_auth] if isinstance(trdmarket_auth, list) else []
+
+            balances = []
+            for currency in currencies:
+                try:
+                    ret2, info = ctx.accinfo_query(
+                        trd_env=trd_env, acc_id=acc_id, refresh_cache=True, currency=currency
+                    )
+                    if ret2 == RET_OK and info is not None and len(info) > 0:
+                        row = info.iloc[0].to_dict()
+                        cash_key = f"{currency}_cash"
+                        cash = _f(row.get(cash_key)) or _f(row.get("cash"))
+                        total = _f(row.get("total_assets"))
+                        if total > 0 or cash > 0:
+                            balances.append({
+                                "currency": currency,
+                                "total_assets": total or None,
+                                "securities_assets": _f(row.get("securities_assets")) or None,
+                                "cash": cash or None,
+                                "market_val": _f(row.get("market_val")) or None,
+                                "unrealized_pl": _f(row.get("unrealized_pl")) or None,
+                                "realized_pl": _f(row.get("realized_pl")) or None,
+                                "buying_power": _f(row.get("power")) or None,
+                                "avl_withdrawal": _f(row.get("avl_withdrawal_cash")) or None,
+                            })
+                except Exception:
+                    continue
+
+            return {
+                "account_number": str(account.get("uni_card_num") or account.get("card_num") or ""),
+                "trade_environment": "REAL" if str(account.get("trd_env")) == "REAL" else "SIMULATE",
+                "trdmarket_auth": markets,
+                "has_myfund": "MYFUND" in markets,
+                "has_usfund": "USFUND" in markets,
+                "has_hkfund": "HKFUND" in markets,
+                "has_sgfund": "SGFUND" in markets,
+                "has_jpfund": "JPFUND" in markets,
+                "balances": balances,
+            }
+        except Exception:
+            continue
+        finally:
+            if ctx is not None:
+                ctx.close()
+
+    raise HTTPException(status_code=400, detail="No active account found.")
+
+
+@app.get("/fund-positions")
+def fund_positions(prefer_real: bool = True):
+    """Return fund (MYFUND / USFUND) holdings separately from stock positions."""
+    try:
+        from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm, TrdEnv, TrdMarket
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    firms = [SecurityFirm.FUTUMY, SecurityFirm.FUTUSG, SecurityFirm.FUTUINC,
+             SecurityFirm.FUTUSECURITIES, SecurityFirm.FUTUAU, SecurityFirm.FUTUCA, SecurityFirm.FUTUJP]
+
+    fund_markets = []
+    for name, attr in [
+        ("MYFUND", "MYFUND"),
+        ("USFUND", "USFUND"),
+        ("HKFUND", "HKFUND"),
+        ("SGFUND", "SGFUND"),
+        ("JPFUND", "JPFUND"),
+    ]:
+        try:
+            fund_markets.append((name, getattr(TrdMarket, attr)))
+        except AttributeError:
+            pass
+
+    for firm in firms:
+        ctx = None
+        try:
+            ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+            ret, accounts = ctx.get_acc_list()
+            if ret != RET_OK or accounts is None or accounts.empty:
+                continue
+            account = _select_account(accounts, prefer_real)
+            if account is None:
+                continue
+            if prefer_real and str(account.get("trd_env")) != "REAL":
+                continue
+
+            trd_env = TrdEnv.REAL if str(account.get("trd_env")) == "REAL" else TrdEnv.SIMULATE
+            acc_id = int(account.get("acc_id"))
+            trdmarket_auth = account.get("trdmarket_auth") or []
+            markets = [str(m) for m in trdmarket_auth] if isinstance(trdmarket_auth, list) else []
+
+            all_positions: list[dict[str, Any]] = []
+            for market_name, trd_market in fund_markets:
+                if market_name not in markets:
+                    continue
+                try:
+                    ret2, pos_data = ctx.position_list_query(
+                        trd_env=trd_env, acc_id=acc_id, trd_market=trd_market, refresh_cache=True
+                    )
+                    if ret2 == RET_OK and pos_data is not None and not pos_data.empty:
+                        for row in pos_data.to_dict("records"):
+                            qty = _f(row.get("qty"))
+                            if qty == 0:
+                                continue
+                            all_positions.append({
+                                "fund_market": market_name,
+                                "symbol": str(row.get("code") or "").upper(),
+                                "name": str(row.get("stock_name") or ""),
+                                "quantity": qty,
+                                "average_cost": _f(row.get("cost_price") or row.get("average_cost")),
+                                "market_price": _f(row.get("nominal_price")),
+                                "market_value": _f(row.get("market_val")),
+                                "unrealized_pl": _f(row.get("pl_val") or row.get("unrealized_pl")),
+                                "unrealized_pl_pct": _f(row.get("pl_ratio")),
+                                "currency": str(row.get("currency") or ""),
+                            })
+                except Exception:
+                    continue
+
+            return {
+                "account_number": str(account.get("uni_card_num") or account.get("card_num") or ""),
+                "trdmarket_auth": markets,
+                "count": len(all_positions),
+                "positions": all_positions,
+            }
+        except Exception:
+            continue
+        finally:
+            if ctx is not None:
+                ctx.close()
+
+    raise HTTPException(status_code=400, detail="No active account found.")
+
+
 @app.get("/cashflow")
 def cashflow(days: int = 30, prefer_real: bool = True):
     """Return account cash flow for the last N calendar days, queried by clearing_date."""
@@ -828,6 +1195,150 @@ def deals(prefer_real: bool = True, history: bool = True):
         "count": len(bundle["deals"]),
         "deals": bundle["deals"],
     }
+
+
+@app.post("/execution/orders")
+def execution_order(req: ExecutionOrderRequest):
+    """Submit an order to Moomoo only when bridge read-only mode is explicitly disabled."""
+    if MOOMOO_READ_ONLY:
+        raise HTTPException(status_code=403, detail="Moomoo bridge is in read-only mode. Set MOOMOO_READ_ONLY=false to allow order submission.")
+    if req.mode == "live" and os.getenv("MOOMOO_LIVE_EXECUTION_ENABLED", "false").lower() != "true":
+        raise HTTPException(status_code=403, detail="Live execution is disabled by MOOMOO_LIVE_EXECUTION_ENABLED=false.")
+    if req.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero.")
+    if req.order_type.lower() == "limit" and (req.price is None or req.price <= 0):
+        raise HTTPException(status_code=400, detail="Limit orders require a positive price.")
+
+    try:
+        from moomoo import OpenSecTradeContext, OrderType, RET_OK, TrdEnv, TrdMarket, TrdSide
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    prefer_real = req.mode == "live" or req.trade_env.upper() == "REAL"
+
+    # Infer market from symbol prefix (US., HK., SH., SZ.)
+    symbol_upper = req.symbol.upper()
+    if symbol_upper.startswith("HK.") or symbol_upper.startswith("SH.") or symbol_upper.startswith("SZ."):
+        trd_market = TrdMarket.HK if symbol_upper.startswith("HK.") else TrdMarket.CN
+    else:
+        trd_market = TrdMarket.US
+
+    ctx = None
+    try:
+        ctx = OpenSecTradeContext(filter_trdmarket=trd_market, host=OPEND_HOST, port=OPEND_PORT)
+        ret, accounts = ctx.get_acc_list()
+        if ret != RET_OK:
+            raise HTTPException(status_code=400, detail=f"Failed to get account list: {accounts}")
+
+        # Use explicit acc_id if provided, otherwise auto-select
+        if req.acc_id:
+            matches = accounts[accounts["acc_id"] == req.acc_id]
+            account = matches.iloc[0].to_dict() if not matches.empty else None
+        else:
+            account = _select_account(accounts, prefer_real)
+
+        if account is None:
+            raise HTTPException(status_code=400, detail="No matching Moomoo account found.")
+
+        is_real = str(account.get("trd_env")) == "REAL"
+        if prefer_real and not is_real:
+            raise HTTPException(status_code=400, detail="Live mode requested but no real account found.")
+        trd_env = TrdEnv.REAL if is_real else TrdEnv.SIMULATE
+        acc_id = int(account.get("acc_id"))
+
+        side = TrdSide.BUY if req.side.lower() in ("buy", "open") else TrdSide.SELL
+        order_type = getattr(OrderType, "MARKET", OrderType.NORMAL) if req.order_type.lower() == "market" else OrderType.NORMAL
+        price = float(req.price or 0)
+        ret, data = ctx.place_order(
+            price=price,
+            qty=float(req.quantity),
+            code=req.symbol,
+            trd_side=side,
+            order_type=order_type,
+            trd_env=trd_env,
+            acc_id=acc_id,
+        )
+        if ret != RET_OK:
+            raise HTTPException(status_code=400, detail=str(data))
+        rows = _records(data)
+        first = rows[0] if rows else {}
+        order_id = str(first.get("order_id") or first.get("orderID") or "")
+        return {
+            "status": "submitted",
+            "broker_order_id": order_id,
+            "account_id": str(acc_id),
+            "trade_env": "REAL" if is_real else "SIMULATE",
+            "market": str(trd_market),
+            "client_order_id": req.client_order_id,
+            "source_ticket_id": req.source_ticket_id,
+            "raw": rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+
+@app.post("/execution/orders/{order_id}/cancel")
+def execution_cancel_order(order_id: str, req: CancelOrderRequest):
+    """Cancel a Moomoo order only when bridge read-only mode is explicitly disabled."""
+    if MOOMOO_READ_ONLY:
+        raise HTTPException(status_code=403, detail="Moomoo bridge is in read-only mode. Set MOOMOO_READ_ONLY=false to allow order cancellation.")
+
+    try:
+        from moomoo import ModifyOrderOp, OpenSecTradeContext, RET_OK, SecurityFirm, TrdEnv
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    prefer_real = req.mode == "live"
+    firms = [
+        SecurityFirm.FUTUINC,
+        SecurityFirm.FUTUMY,
+        SecurityFirm.FUTUSG,
+        SecurityFirm.FUTUSECURITIES,
+        SecurityFirm.FUTUAU,
+        SecurityFirm.FUTUCA,
+        SecurityFirm.FUTUJP,
+    ]
+
+    for firm in firms:
+        ctx = None
+        try:
+            ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+            ret, accounts = ctx.get_acc_list()
+            if ret != RET_OK:
+                continue
+            account = _select_account(accounts, prefer_real)
+            if account is None:
+                continue
+            trd_env = TrdEnv.REAL if str(account.get("trd_env")) == "REAL" else TrdEnv.SIMULATE
+            ret, data = ctx.modify_order(
+                modify_order_op=ModifyOrderOp.CANCEL,
+                order_id=order_id,
+                qty=0,
+                price=0,
+                trd_env=trd_env,
+                acc_id=int(account.get("acc_id")),
+            )
+            if ret != RET_OK:
+                continue
+            return {
+                "status": "cancelled",
+                "broker_order_id": order_id,
+                "account_id": str(account.get("acc_id")),
+                "trade_env": "REAL" if trd_env == TrdEnv.REAL else "SIMULATE",
+                "raw": _records(data),
+            }
+        except Exception:
+            continue
+        finally:
+            if ctx is not None:
+                ctx.close()
+
+    raise HTTPException(status_code=400, detail="Unable to cancel order through active Moomoo account.")
 
 
 @app.post("/sync")

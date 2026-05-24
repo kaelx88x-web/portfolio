@@ -6,10 +6,11 @@
   import AiInsightHistory from '$lib/components/ai/AiInsightHistory.svelte';
   import AiPortfolioSummaryCard from '$lib/components/ai/AiPortfolioSummaryCard.svelte';
   import AiSuggestionChips from '$lib/components/ai/AiSuggestionChips.svelte';
-  import type { ActionData, PageData } from './$types';
+  import type { PageData } from './$types';
 
   export let data: PageData;
-  export let form: ActionData;
+
+  let chatRef: AiCopilotChat;
 </script>
 
 <div class="page-top">
@@ -21,17 +22,13 @@
   <a class="button-secondary" href="/ai/conversations"><History size={15} /> History</a>
 </div>
 
-{#if form?.message}
-  <div class="error-banner">{form.message}</div>
-{/if}
-
 <div class="chat-layout">
   <!-- Main chat -->
   <div class="chat-main">
-    <AiCopilotChat conversation={data.activeConversation} period={data.period} benchmark={data.benchmark} />
+    <AiCopilotChat bind:this={chatRef} conversation={data.activeConversation} period={data.period} benchmark={data.benchmark} />
     <div class="card chips-card">
       <div class="chips-title">Quick Questions</div>
-      <AiSuggestionChips suggestions={data.suggestions} conversationId={data.activeConversation?.id ?? null} />
+      <AiSuggestionChips suggestions={data.suggestions} on:select={(e) => chatRef?.sendQuestion(e.detail)} />
     </div>
   </div>
 
@@ -49,10 +46,7 @@
 <style>
   .page-top    { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 
-  .error-banner { background: rgba(var(--danger-rgb),0.08); border: 1px solid rgba(var(--danger-rgb),0.3);
-                  border-radius: 8px; padding: 10px 14px; color: var(--danger); font-size: 0.8rem; margin-bottom: 16px; }
-
-  .chat-layout { display: grid; grid-template-columns: 1fr 22rem; gap: 16px; }
+.chat-layout { display: grid; grid-template-columns: 1fr 22rem; gap: 16px; }
   @media (max-width: 1100px) { .chat-layout { grid-template-columns: 1fr; } }
 
   .chat-main   { display: flex; flex-direction: column; gap: 12px; }

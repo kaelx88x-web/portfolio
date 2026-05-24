@@ -28,6 +28,29 @@
     return block.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
   }
 
+  function toStringList(val: unknown): string[] {
+    if (!Array.isArray(val)) return [];
+    return val.filter((v): v is string => typeof v === 'string');
+  }
+
+  function parseJson(text: string): Parsed | null {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      const obj = JSON.parse(trimmed.split('\n\nUncertainty note')[0]);
+      if (typeof obj?.summary !== 'string') return null;
+      return {
+        summary:        obj.summary,
+        dataShows:      toStringList(obj.key_observations ?? obj.dataShows ?? []),
+        risks:          toStringList(obj.risk_flags ?? obj.risks ?? []),
+        considerations: toStringList(obj.considerations ?? []),
+        uncertainty:    typeof obj.confidence === 'string'
+                          ? `Confidence: ${obj.confidence}. This is advisory-only and cannot guarantee returns or execute trades.`
+                          : '',
+      };
+    } catch { return null; }
+  }
+
   function parseArticle(text: string): Parsed | null {
     if (!/short summary/i.test(text)) return null;
     return {
@@ -39,7 +62,7 @@
     };
   }
 
-  $: parsed   = isUser ? null : parseArticle(content);
+  $: parsed   = isUser ? null : (parseJson(content) ?? parseArticle(content));
   $: fallback = isUser ? '' : (marked.parse(content, { async: false }) as string);
 </script>
 
@@ -135,7 +158,7 @@
 
 <style>
   /* Layout */
-  .row       { display: flex; gap: 10px; align-items: flex-start; }
+  .row       { display: flex; gap: 10px; align-items: flex-start; min-width: 0; overflow: hidden; }
   .row-user  { justify-content: flex-end; }
 
   .avatar    { flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
@@ -143,7 +166,7 @@
   .avatar-ai   { background: rgba(var(--primary-rgb), 0.15); color: var(--primary); }
   .avatar-human{ background: var(--border); color: var(--muted); }
 
-  .bubble    { max-width: 48rem; border-radius: 12px; border: 1px solid; overflow: hidden; }
+  .bubble    { max-width: 48rem; min-width: 0; border-radius: 12px; border: 1px solid; overflow: hidden; word-break: break-word; }
   .bubble-ai   { background: var(--card); border-color: var(--border); }
   .bubble-human{ padding: 10px 14px; background: rgba(var(--primary-rgb), 0.08);
                  border-color: rgba(var(--primary-rgb), 0.25); }
