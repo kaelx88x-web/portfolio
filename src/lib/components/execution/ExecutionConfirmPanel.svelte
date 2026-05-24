@@ -25,7 +25,7 @@
   }>();
 
   $: totalEst = tickets.reduce((s, t) => s + t.estimatedValue, 0);
-  $: allBlocked = tickets.length > 0 && tickets.every((t) => (t.status as string) === 'blocked');
+  $: allBlocked = tickets.length > 0 && tickets.every((t) => t.guardrail.passed === false);
   $: confirmedCount = results?.filter((r) => r.status === 'submitted' || r.status === 'dry_run').length ?? 0;
   $: failedCount = results?.filter((r) => r.status !== 'submitted' && r.status !== 'dry_run').length ?? 0;
 
@@ -50,62 +50,70 @@
   {#if results}
     <!-- ── Result state ── -->
     <div class="results">
-      {#each results as r}
-        <div class="result-row" class:result-ok={r.status === 'submitted' || r.status === 'dry_run'} class:result-fail={r.status !== 'submitted' && r.status !== 'dry_run'}>
-          {#if r.status === 'submitted' || r.status === 'dry_run'}
-            <CheckCircle2 size={13} />
-          {:else}
-            <XCircle size={13} />
-          {/if}
-          <span class="result-msg">{r.message}</span>
-          {#if r.brokerOrderId}<span class="order-id">{r.brokerOrderId}</span>{/if}
+      {#if results.length > 0}
+        {#each results as r}
+          <div class="result-row" class:result-ok={r.status === 'submitted' || r.status === 'dry_run'} class:result-fail={r.status !== 'submitted' && r.status !== 'dry_run'}>
+            {#if r.status === 'submitted' || r.status === 'dry_run'}
+              <CheckCircle2 size={13} />
+            {:else}
+              <XCircle size={13} />
+            {/if}
+            <span class="result-msg">{r.message}</span>
+            {#if r.brokerOrderId}<span class="order-id">{r.brokerOrderId}</span>{/if}
+          </div>
+        {/each}
+        <div class="result-footer">
+          <span>{confirmedCount} submitted · {failedCount} failed</span>
+          <a class="view-link" href="/trades"><ExternalLink size={11} /> View in Trades</a>
         </div>
-      {/each}
-      <div class="result-footer">
-        <span>{confirmedCount} submitted · {failedCount} failed</span>
-        <a class="view-link" href="/trades"><ExternalLink size={11} /> View in Trades</a>
-      </div>
+      {:else}
+        <div class="empty-results">No results returned.</div>
+      {/if}
     </div>
 
   {:else}
     <!-- ── Pre-confirm state ── -->
     <div class="trade-rows">
-      {#each tickets as ticket}
-        <div class="trade-row">
-          <div class="trade-info">
-            <span
-              class="side-badge"
-              class:side-buy={ticket.side === 'buy'}
-              class:side-sell={ticket.side === 'sell'}
-              class:side-open={ticket.side === 'open'}
-            >
-              {ticket.side === 'buy' ? 'BUY' : ticket.side === 'sell' ? 'SELL' : 'OPEN'}
-            </span>
-            <span class="symbol">{ticket.symbol}</span>
-            <span class="detail">
-              {ticket.quantity} ·
-              {ticket.orderType === 'limit' && ticket.limitPrice != null
-                ? `limit $${ticket.limitPrice.toFixed(2)}`
-                : 'market'}
-            </span>
+      {#if tickets.length === 0}
+        <div class="empty-state">No tradeable positions to execute.</div>
+      {:else}
+        {#each tickets as ticket}
+          <div class="trade-row">
+            <div class="trade-info">
+              <span
+                class="side-badge"
+                class:side-buy={ticket.side === 'buy'}
+                class:side-sell={ticket.side === 'sell'}
+                class:side-open={ticket.side === 'open'}
+              >
+                {ticket.side === 'buy' ? 'BUY' : ticket.side === 'sell' ? 'SELL' : 'OPEN'}
+              </span>
+              <span class="symbol">{ticket.symbol}</span>
+              <span class="detail">
+                {ticket.quantity} ·
+                {ticket.orderType === 'limit' && ticket.limitPrice != null
+                  ? `limit $${ticket.limitPrice.toFixed(2)}`
+                  : 'market'}
+              </span>
+            </div>
+            <div class="trade-right">
+              <span class="est-val">{fmt(ticket.estimatedValue)}</span>
+              <span class="safety" class:ok={ticket.guardrail.passed} class:blocked={!ticket.guardrail.passed}>
+                {ticket.guardrail.passed ? '✓ queued' : '✗ blocked'}
+              </span>
+            </div>
           </div>
-          <div class="trade-right">
-            <span class="est-val">{fmt(ticket.estimatedValue)}</span>
-            <span class="safety" class:ok={(ticket.status as string) !== 'blocked'} class:blocked={(ticket.status as string) === 'blocked'}>
-              {(ticket.status as string) === 'blocked' ? '✗ blocked' : '✓ pass'}
-            </span>
-          </div>
-        </div>
-      {/each}
+        {/each}
 
-      {#if skipped.length > 0}
-        <details class="skipped">
-          <summary><AlertTriangle size={11} /> {skipped.length} skipped (price unavailable)</summary>
-          <div class="skipped-list">
-            {#each skipped as s}<div class="skipped-item">{s.label} — {s.reason}</div>{/each}
-            <button type="button" class="retry-btn" on:click={() => dispatch('retry')}>Retry skipped</button>
-          </div>
-        </details>
+        {#if skipped.length > 0}
+          <details class="skipped">
+            <summary><AlertTriangle size={11} /> {skipped.length} skipped (price unavailable)</summary>
+            <div class="skipped-list">
+              {#each skipped as s}<div class="skipped-item">{s.label} — {s.reason}</div>{/each}
+              <button type="button" class="retry-btn" on:click={() => dispatch('retry')}>Retry skipped</button>
+            </div>
+          </details>
+        {/if}
       {/if}
     </div>
 
@@ -136,7 +144,7 @@
       <button
         class="btn-confirm"
         type="button"
-        disabled={loading || allBlocked}
+        disabled={loading || allBlocked || tickets.length === 0}
         on:click={() => dispatch('confirm')}
       >
         {#if loading}<span class="spin"></span>{:else}<Zap size={13} />{/if}
@@ -199,6 +207,9 @@
   .order-id { font-size: 0.62rem; opacity: 0.65; }
   .result-footer { border-top: 1px solid var(--border); padding-top: 8px; font-size: 0.7rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
   .view-link { display: flex; align-items: center; gap: 4px; color: var(--primary); text-decoration: none; font-size: 0.68rem; }
+
+  .empty-state { font-size: 0.72rem; color: var(--muted); padding: 12px 0; text-align: center; }
+  .empty-results { font-size: 0.72rem; color: var(--muted); padding: 10px 0; text-align: center; }
 
   .spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
