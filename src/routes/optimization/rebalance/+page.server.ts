@@ -15,6 +15,10 @@ import {
   parseSimulationPortfolioMode,
   simulateRebalance
 } from '$lib/services/scenario-simulation.service';
+import { getHoldings } from '$lib/services/portfolio.service';
+import { rebalanceSuggestionsToTickets } from '$lib/services/execution-bridge.service';
+import { approveTradeTicket, getTradeTicket } from '$lib/services/trade-layer.service';
+import { previewMoomooExecution, submitMoomooExecution, type ExecutionSafetyCheck } from '$lib/services/moomoo-execution.service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -79,5 +83,76 @@ export const actions: Actions = {
     } catch (error) {
       return fail(400, { message: error instanceof Error ? error.message : 'AI suggestion failed.' });
     }
+  },
+
+  queueRebalance: async ({ request }) => {
+    const user = await getDemoUser();
+    const form = await request.formData();
+    const portfolioMode = parseSimulationPortfolioMode(form.get('portfolioMode'));
+    try {
+      const [suggestions, holdings] = await Promise.all([
+        getRebalanceSuggestionsByMode(user.id, portfolioMode),
+        getHoldings(user.id)
+      ]);
+      const totalValue = holdings
+        .filter((h) => h.quantity > 0)
+        .reduce((sum, h) => sum + h.marketValue, 0);
+      const { tickets, skipped } = await rebalanceSuggestionsToTickets(user.id, suggestions, totalValue);
+      return {
+        status: 'queued',
+        ticketIds: tickets.map((t) => t.id).join(','),
+        tickets,
+        skipped
+      };
+    } catch (error) {
+      return fail(400, { message: error instanceof Error ? error.message : 'Failed to queue rebalance.' });
+    }
+  },
+
+  executeAll: async ({ request }) => {
+    const user = await getDemoUser();
+    const form = await request.formData();
+    const ticketIds = String(form.get('ticketIds') ?? '').split(',').filter(Boolean);
+    const results: Array<{ ticketId: string; status: string; message: string; brokerOrderId?: string | null }> = [];
+
+    for (const ticketId of ticketIds) {
+      try {
+        const ticket = await getTradeTicket(user.id, ticketId);
+        if (!ticket) {
+          results.push({ ticketId, status: 'failed', message: 'Ticket not found.' });
+          continue;
+        }
+
+        // Assert paper mode — fail fast if violated
+        const meta = ticket.metadata as Record<string, unknown>;
+        if (meta?.mode !== 'paper') {
+          results.push({ ticketId, status: 'failed', message: 'Only paper mode tickets allowed here.' });
+          continue;
+        }
+
+        await approveTradeTicket(user.id, ticketId, 'Approved via rebalance execute-all');
+        const preview = await previewMoomooExecution(user.id, { tradeTicketId: ticketId, mode: 'paper' });
+
+        if (preview.status === 'blocked') {
+          const blocked = (preview.safetyChecks as ExecutionSafetyCheck[] | undefined)
+            ?.find((c) => c.checkStatus === 'block');
+          results.push({ ticketId, status: 'blocked', message: blocked?.message ?? 'Safety check blocked.' });
+          continue;
+        }
+
+        const submitted = await submitMoomooExecution(user.id, preview.id, { confirm: true });
+        const sub = (submitted.submissions as Array<{ brokerOrderId?: string }> | undefined)?.[0];
+        results.push({
+          ticketId,
+          status: submitted.status,
+          message: `${ticket.symbol} submitted to paper.`,
+          brokerOrderId: sub?.brokerOrderId ?? null
+        });
+      } catch (err) {
+        results.push({ ticketId, status: 'failed', message: err instanceof Error ? err.message : 'Execution failed.' });
+      }
+    }
+
+    return { status: 'execution_done', results };
   }
 };

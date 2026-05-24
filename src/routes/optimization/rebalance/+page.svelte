@@ -8,6 +8,8 @@
   import RebalanceSuggestionCard from '$lib/components/optimization/RebalanceSuggestionCard.svelte';
   import RebalanceProjectionCard from '$lib/components/simulation/RebalanceProjectionCard.svelte';
   import BehavioralInfluenceCard from '$lib/components/optimization/BehavioralInfluenceCard.svelte';
+  import ExecutionConfirmPanel from '$lib/components/execution/ExecutionConfirmPanel.svelte';
+  import type { TradeTicket } from '$lib/services/trade-layer.service';
   import type { ActionData, PageData } from './$types';
 
   export let data: PageData;
@@ -15,6 +17,50 @@
 
   let simulating = false;
   let aiLoading  = false;
+
+  // Execution state
+  let queueing = false;
+  let panelTickets: TradeTicket[] | null = null;
+  let panelSkipped: Array<{ label: string; reason: string }> = [];
+  let panelTicketIds = '';
+  let executionLoading = false;
+  let executionResults: Array<{ ticketId: string; status: string; message: string; brokerOrderId?: string | null }> | null = null;
+
+  // Watch form for queueRebalance result
+  $: if (form?.status === 'queued' && form?.tickets) {
+    panelTickets = form.tickets as TradeTicket[];
+    panelSkipped = (form.skipped as Array<{ label: string; reason: string }>) ?? [];
+    panelTicketIds = (form.ticketIds as string) ?? '';
+    executionResults = null;
+    queueing = false;
+  }
+
+  // Watch form for executeAll result
+  $: if (form?.status === 'execution_done') {
+    executionResults = form.results as Array<{ ticketId: string; status: string; message: string; brokerOrderId?: string | null }>;
+    executionLoading = false;
+  }
+
+  function queueEnhance() {
+    return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
+      await update({ reset: false });
+      queueing = false;
+    };
+  }
+
+  function executeEnhance() {
+    return async ({ update }: { update: (opts?: { reset: boolean }) => Promise<void> }) => {
+      await update({ reset: false });
+      executionLoading = false;
+    };
+  }
+
+  function cancelPanel() {
+    panelTickets = null;
+    panelSkipped = [];
+    panelTicketIds = '';
+    executionResults = null;
+  }
 
   $: aiSuggestions    = (form?.status === 'ai_completed' && form?.suggestions) ? form.suggestions : null;
   $: displaySuggestions = aiSuggestions ?? data.rebalance;
@@ -37,7 +83,11 @@
   }
 
   onMount(() => {
-    animate(
+    (animate as unknown as (
+      selector: string,
+      keyframes: Record<string, unknown>,
+      options: Record<string, unknown>
+    ) => void)(
       '.suggestion-anim',
       { opacity: [0, 1], y: [14, 0] },
       { delay: stagger(0.07), duration: 0.32, easing: 'ease-out' }
@@ -92,6 +142,14 @@
         {aiLoading ? 'Asking AI…' : 'AI Suggest'}
       </button>
     </form>
+
+    <form method="POST" action="?/queueRebalance" use:enhance={queueEnhance} on:submit={() => (queueing = true)}>
+      <input type="hidden" name="portfolioMode" value={data.portfolioMode} />
+      <button class="btn-execute" type="submit" disabled={queueing || !displaySuggestions?.length}>
+        {#if queueing}<span class="spin spin-exec"></span>{:else}⚡{/if}
+        {queueing ? 'Queuing…' : 'Execute All'}
+      </button>
+    </form>
   </div>
 </div>
 
@@ -100,6 +158,29 @@
     {#if aiUsed}<Sparkles size={13} />{/if}
     {form.message}
   </div>
+{/if}
+
+{#if panelTickets !== null}
+  <form id="execute-all-form" method="POST" action="?/executeAll" use:enhance={executeEnhance} on:submit={() => (executionLoading = true)}>
+    <input type="hidden" name="ticketIds" value={panelTicketIds} />
+  </form>
+
+  <ExecutionConfirmPanel
+    tickets={panelTickets}
+    skipped={panelSkipped}
+    mode="rebalance"
+    loading={executionLoading}
+    results={executionResults}
+    on:confirm={() => {
+      executionLoading = true;
+      (document.getElementById('execute-all-form') as HTMLFormElement)?.requestSubmit();
+    }}
+    on:cancel={cancelPanel}
+    on:retry={() => {
+      queueing = true;
+      (document.querySelector('form[action="?/queueRebalance"]') as HTMLFormElement)?.requestSubmit();
+    }}
+  />
 {/if}
 
 {#if data.behavioralProfile}
@@ -241,7 +322,13 @@
   /* ── Spinner ──────────────────────────────────────────────────────── */
   .spin { display:inline-block; width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; animation:spin .7s linear infinite; }
   .spin-ai { border-color:rgba(var(--primary-rgb),.3); border-top-color:var(--primary); }
+  .spin-exec { border-color:rgba(var(--primary-rgb),.3); border-top-color:var(--primary); }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Execute All button ───────────────────────────────────────────── */
+  .btn-execute { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; background: rgba(var(--primary-rgb), 0.1); color: var(--primary); border: 1px solid rgba(var(--primary-rgb), 0.35); cursor: pointer; transition: all 0.12s; }
+  .btn-execute:hover:not(:disabled) { background: rgba(var(--primary-rgb), 0.18); }
+  .btn-execute:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── Responsive ───────────────────────────────────────────────────── */
   @media (max-width: 1050px) { .layout { grid-template-columns: 1fr; } }
