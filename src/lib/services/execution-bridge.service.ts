@@ -74,7 +74,7 @@ export async function rebalanceSuggestionsToTickets(
   // Flatten allocations with meaningful delta (>= 0.5%) and skip cash
   const tradeable = suggestions.flatMap((s) =>
     s.targetAllocation
-      .filter((a) => Math.abs(a.deltaPct) >= 0.5 && a.role !== 'cash')
+      .filter((a) => Math.abs(a.deltaPct) >= 0.5 && a.role === 'holding')
       .map((a) => ({ allocation: a }))
   );
 
@@ -177,6 +177,9 @@ export async function cspToTicket(
   row: PutExposureRow,
   dte: DTE
 ): Promise<TradeTicket> {
+  if (row.contracts <= 0) {
+    throw new Error(`No contracts to open for ${extractUnderlying(row.symbol)}`);
+  }
   const underlying = extractUnderlying(row.symbol);
   const expiry = nearestMonthlyExpiry(dte);
   const contractSymbol = toContractSymbol(underlying, expiry, 'P', row.strike);

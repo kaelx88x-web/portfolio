@@ -56,8 +56,9 @@
   }
 
   function openPanel(symbol: string, optionType: 'call' | 'put') {
-    // Carry forward any existing ticket ID so the server can cancel it
-    const prevId = panelTicket?.id ?? null;
+    // Only carry forward prevTicketId if the ticket is still pending (not yet executed).
+    // If executionResult is set the ticket is terminal — cancelling it would fail.
+    const prevId = (panelTicket && !executionResult) ? panelTicket.id : null;
     activePanel = { symbol, optionType, prevTicketId: prevId, selectedDte: 30 };
     panelTicket = null;
     executionResult = null;
