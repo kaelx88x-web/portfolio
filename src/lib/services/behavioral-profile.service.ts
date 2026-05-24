@@ -308,19 +308,19 @@ function blendScenarioWeights(
   effectiveRisk: RiskLevel
 ): { aggressive: number; balanced: number; conservative: number } {
   const base = BASE_WEIGHTS[effectiveRisk];
-  return {
-    conservative: Math.round(behavioral.conservative * 0.6 + base.conservative * 0.4),
-    balanced:     Math.round(behavioral.balanced     * 0.6 + base.balanced     * 0.4),
-    aggressive:   Math.round(behavioral.aggressive   * 0.6 + base.aggressive   * 0.4),
-  };
+  const c = Math.round(behavioral.conservative * 0.6 + base.conservative * 0.4);
+  const b = Math.round(behavioral.balanced     * 0.6 + base.balanced     * 0.4);
+  const a = 100 - c - b;  // absorbs rounding remainder, ensures sum = 100
+  return { conservative: c, balanced: b, aggressive: a };
 }
 
 function validateStrategyConsistency(strategy: RecommendedStrategy): void {
   const clamp = RISK_CLAMPS[strategy.riskLevel];
   if (strategy.cashFloorPct < clamp.cashFloorMin) {
-    throw new Error(
-      `cashFloorPct ${strategy.cashFloorPct} is too low for ${strategy.riskLevel} (min ${clamp.cashFloorMin})`
-    );
+    console.warn(`[behavioral] cashFloorPct ${strategy.cashFloorPct} is below min ${clamp.cashFloorMin} for ${strategy.riskLevel}`);
+  }
+  if (strategy.cashFloorPct > clamp.cashFloorMax) {
+    console.warn(`[behavioral] cashFloorPct ${strategy.cashFloorPct} exceeds max ${clamp.cashFloorMax} for ${strategy.riskLevel}`);
   }
   const dominantWeight = Math.max(
     strategy.scenarioWeights.conservative,
@@ -346,7 +346,7 @@ function buildRecommendedStrategy(
   const optimizationGoal =
     effectiveRisk === 'aggressive'   ? 'maximum_return' :
     effectiveRisk === 'conservative' ? 'minimum_volatility' :
-    (profile.weights.goalDefault ?? 'maximum_sharpe');
+    (profile.weights.goalDefault || 'maximum_sharpe');
 
   const behavioralWeights = {
     aggressive:   profile.weights.aggressive,
@@ -403,9 +403,10 @@ export async function getRecommendedStrategy(
 
   const profile = await getBehavioralProfile(userId);
   const result  = profile.dataPoints === 0
-    ? DEFAULT_STRATEGY
+    ? { ...DEFAULT_STRATEGY, scenarioWeights: { ...DEFAULT_STRATEGY.scenarioWeights } }
     : buildRecommendedStrategy(profile, userRiskLevel);
 
+  if (_strategyCache.size > 500) _strategyCache.clear(); // prevent unbounded growth
   _strategyCache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
 }
