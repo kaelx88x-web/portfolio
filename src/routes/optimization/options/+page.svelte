@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { tick } from 'svelte';
   import { Coins, RefreshCw, ShieldAlert, Table2 } from 'lucide-svelte';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import AssignmentRiskCard from '$lib/components/options/AssignmentRiskCard.svelte';
@@ -13,7 +14,7 @@
   import WheelStrategyCard from '$lib/components/options/WheelStrategyCard.svelte';
   import type { ActionData, PageData } from './$types';
   import type { TradeTicket } from '$lib/services/trade-layer.service';
-  import type { CoveredCallCandidate, PutExposureRow } from '$lib/services/options-intelligence.service';
+  import type { CoveredCallCandidate } from '$lib/services/options-intelligence.service';
   import type { DTE } from '$lib/services/execution-bridge.service';
 
   export let data: PageData;
@@ -55,7 +56,9 @@
   }
 
   function openPanel(symbol: string, optionType: 'call' | 'put') {
-    activePanel = { symbol, optionType, prevTicketId: null, selectedDte: 30 };
+    // Carry forward any existing ticket ID so the server can cancel it
+    const prevId = panelTicket?.id ?? null;
+    activePanel = { symbol, optionType, prevTicketId: prevId, selectedDte: 30 };
     panelTicket = null;
     executionResult = null;
   }
@@ -165,12 +168,11 @@
             (document.getElementById('execute-option-form') as HTMLFormElement)?.requestSubmit();
           }}
           on:cancel={closePanel}
-          on:dteChange={(e) => {
+          on:dteChange={async (e) => {
             if (activePanel) {
               activePanel = { ...activePanel, selectedDte: e.detail, prevTicketId: panelTicket?.id ?? null };
-              setTimeout(() => {
-                (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
-              }, 0);
+              await tick();
+              (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
             }
           }}
         />
@@ -202,12 +204,11 @@
           (document.getElementById('execute-option-form') as HTMLFormElement)?.requestSubmit();
         }}
         on:cancel={closePanel}
-        on:dteChange={(e) => {
+        on:dteChange={async (e) => {
           if (activePanel) {
             activePanel = { ...activePanel, selectedDte: e.detail, prevTicketId: panelTicket?.id ?? null };
-            setTimeout(() => {
-              (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
-            }, 0);
+            await tick();
+            (document.getElementById('queue-option-form') as HTMLFormElement)?.requestSubmit();
           }
         }}
       />
