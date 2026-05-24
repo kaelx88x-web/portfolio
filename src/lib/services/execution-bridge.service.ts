@@ -1,7 +1,6 @@
 // src/lib/services/execution-bridge.service.ts
 import { createTradeTicket, cancelTradeTicket } from '$lib/services/trade-layer.service';
 import { fetchYahooPrices } from '$lib/services/market-price.service';
-import { getHoldings } from '$lib/services/portfolio.service';
 import type { RebalanceSuggestion } from '$lib/services/optimization-engine.service';
 import type { CoveredCallCandidate, PutExposureRow } from '$lib/services/options-intelligence.service';
 import type { TradeTicket } from '$lib/services/trade-layer.service';
@@ -41,9 +40,8 @@ function thirdFridayOfMonth(year: number, month: number): Date {
   const first = new Date(year, month, 1);
   const dayOfWeek = first.getDay(); // 0=Sun … 6=Sat, 5=Fri
   const firstFriday = 1 + ((5 - dayOfWeek + 7) % 7);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const thirdFridayDay = firstFriday + 14;
-  return new Date(year, month, thirdFridayDay > daysInMonth ? thirdFridayDay - 7 : thirdFridayDay);
+  return new Date(year, month, thirdFridayDay);
 }
 
 function toYYMMDD(date: Date): string {
@@ -82,10 +80,28 @@ export async function rebalanceSuggestionsToTickets(
 
   if (tradeable.length === 0) return { tickets: [], skipped: [] };
 
-  const symbols = [...new Set(tradeable.map((t) => t.allocation.label))];
+  // Deduplicate by symbol — sum deltaPct for duplicate entries (e.g. hybrid/options mode)
+  const bySymbol = new Map<string, { allocation: typeof tradeable[0]['allocation'] }>();
+  for (const item of tradeable) {
+    const existing = bySymbol.get(item.allocation.label);
+    if (existing) {
+      existing.allocation = {
+        ...existing.allocation,
+        deltaPct: existing.allocation.deltaPct + item.allocation.deltaPct
+      };
+    } else {
+      bySymbol.set(item.allocation.label, { allocation: { ...item.allocation } });
+    }
+  }
+  // Re-filter after aggregation (aggregated delta may fall below threshold)
+  const deduped = [...bySymbol.values()].filter((t) => Math.abs(t.allocation.deltaPct) >= 0.5);
+
+  if (deduped.length === 0) return { tickets: [], skipped: [] };
+
+  const symbols = deduped.map((t) => t.allocation.label);
   const prices = await fetchYahooPrices(symbols);
 
-  for (const { allocation } of tradeable) {
+  for (const { allocation } of deduped) {
     const symbol = allocation.label;
     const price = prices[symbol];
 
@@ -98,20 +114,23 @@ export async function rebalanceSuggestionsToTickets(
     const dollarAmount = (Math.abs(allocation.deltaPct) / 100) * totalPortfolioValue;
     const quantity = Math.max(1, Math.round(dollarAmount / price));
 
-    const ticket = await createTradeTicket(userId, {
-      sourceType: 'rebalance_bridge',
-      sourceId: null,
-      ticketType: side === 'buy' ? 'buy' : 'sell',
-      symbol,
-      side,
-      quantity,
-      orderType: 'market',
-      limitPrice: null,
-      thesis: `Rebalance: ${allocation.deltaPct > 0 ? '+' : ''}${allocation.deltaPct.toFixed(1)}% target adjustment`,
-      metadata: { source: 'execution-bridge', mode: 'paper', deltaPct: allocation.deltaPct }
-    });
-
-    tickets.push(ticket);
+    try {
+      const ticket = await createTradeTicket(userId, {
+        sourceType: 'rebalance_bridge',
+        sourceId: null,
+        ticketType: side === 'buy' ? 'buy' : 'sell',
+        symbol,
+        side,
+        quantity,
+        orderType: 'market',
+        limitPrice: null,
+        thesis: `Rebalance: ${allocation.deltaPct > 0 ? '+' : ''}${allocation.deltaPct.toFixed(1)}% target adjustment`,
+        metadata: { source: 'execution-bridge', mode: 'paper', deltaPct: allocation.deltaPct }
+      });
+      tickets.push(ticket);
+    } catch (err) {
+      skipped.push({ label: symbol, reason: err instanceof Error ? err.message : 'ticket creation failed' });
+    }
   }
 
   return { tickets, skipped };
@@ -124,6 +143,9 @@ export async function coveredCallToTicket(
   candidate: CoveredCallCandidate,
   dte: DTE
 ): Promise<TradeTicket> {
+  if (candidate.possible_contracts <= 0) {
+    throw new Error(`No available contracts for ${candidate.symbol}`);
+  }
   const expiry = nearestMonthlyExpiry(dte);
   const contractSymbol = toContractSymbol(candidate.symbol, expiry, 'C', candidate.suggested_strike);
   // limitPrice = per-share premium (estimated_premium already in dollars for all contracts)
@@ -187,5 +209,3 @@ export async function cancelBridgeTicket(userId: string, ticketId: string): Prom
   await cancelTradeTicket(userId, ticketId, 'Replaced — DTE or params changed');
 }
 
-// getHoldings is imported for use by callers that need holdings context alongside bridge ops.
-export { getHoldings };
