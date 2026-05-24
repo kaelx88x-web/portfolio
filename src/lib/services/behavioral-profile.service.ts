@@ -261,3 +261,151 @@ function tally(values: string[]): Record<string, number> {
 function topEntry(counts: Record<string, number>): [string, number] {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0] ?? ['unknown', 0];
 }
+
+// ─── Recommended Strategy ────────────────────────────────────────────────────
+
+export type RiskLevel = 'conservative' | 'moderate' | 'aggressive';
+
+export type RecommendedStrategy = {
+  riskLevel: RiskLevel;
+  portfolioMode: 'stock' | 'hybrid' | 'options';
+  riskProfile: 'conservative' | 'balanced' | 'aggressive';
+  optimizationGoal: string;
+  cashFloorPct: number;
+  rebalanceTrigger: string;
+  scenarioWeights: { aggressive: number; balanced: number; conservative: number };
+  confidence: number;
+  actualProfile: string;
+  conflictDetected: boolean;
+  aiRecommendedLevel: RiskLevel;
+};
+
+// ─── Risk clamps: cashFloorPct must stay within these bounds per risk level ──
+
+const RISK_CLAMPS = {
+  conservative: { cashFloorMin: 8,  cashFloorMax: 20 },
+  moderate:     { cashFloorMin: 4,  cashFloorMax: 12 },
+  aggressive:   { cashFloorMin: 1,  cashFloorMax: 6  },
+} as const;
+
+// Base scenario weights (percentages) per risk level — used for blending
+const BASE_WEIGHTS: Record<RiskLevel, { conservative: number; balanced: number; aggressive: number }> = {
+  conservative: { conservative: 70, balanced: 25, aggressive:  5 },
+  moderate:     { conservative: 25, balanced: 50, aggressive: 25 },
+  aggressive:   { conservative:  5, balanced: 30, aggressive: 65 },
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function mapActualToRiskLevel(actualProfile: string): RiskLevel {
+  if (actualProfile === 'aggressive')   return 'aggressive';
+  if (actualProfile === 'conservative') return 'conservative';
+  return 'moderate';
+}
+
+function blendScenarioWeights(
+  behavioral: { aggressive: number; balanced: number; conservative: number },
+  effectiveRisk: RiskLevel
+): { aggressive: number; balanced: number; conservative: number } {
+  const base = BASE_WEIGHTS[effectiveRisk];
+  return {
+    conservative: Math.round(behavioral.conservative * 0.6 + base.conservative * 0.4),
+    balanced:     Math.round(behavioral.balanced     * 0.6 + base.balanced     * 0.4),
+    aggressive:   Math.round(behavioral.aggressive   * 0.6 + base.aggressive   * 0.4),
+  };
+}
+
+function validateStrategyConsistency(strategy: RecommendedStrategy): void {
+  const clamp = RISK_CLAMPS[strategy.riskLevel];
+  if (strategy.cashFloorPct < clamp.cashFloorMin) {
+    throw new Error(
+      `cashFloorPct ${strategy.cashFloorPct} is too low for ${strategy.riskLevel} (min ${clamp.cashFloorMin})`
+    );
+  }
+  const dominantWeight = Math.max(
+    strategy.scenarioWeights.conservative,
+    strategy.scenarioWeights.balanced,
+    strategy.scenarioWeights.aggressive
+  );
+  if (dominantWeight > 85) {
+    console.warn('[behavioral] Scenario weights are heavily skewed — check behavioral data quality');
+  }
+}
+
+function buildRecommendedStrategy(
+  profile: BehavioralProfile,
+  userRiskLevel?: RiskLevel
+): RecommendedStrategy {
+  const aiRiskLevel    = mapActualToRiskLevel(profile.actualProfile);
+  const effectiveRisk  = userRiskLevel ?? aiRiskLevel;
+  const clamp          = RISK_CLAMPS[effectiveRisk];
+
+  const rawCashFloor     = profile.weights.cashFloorPct;
+  const clampedCashFloor = Math.min(Math.max(rawCashFloor, clamp.cashFloorMin), clamp.cashFloorMax);
+
+  const optimizationGoal =
+    effectiveRisk === 'aggressive'   ? 'maximum_return' :
+    effectiveRisk === 'conservative' ? 'minimum_volatility' :
+    (profile.weights.goalDefault ?? 'maximum_sharpe');
+
+  const behavioralWeights = {
+    aggressive:   profile.weights.aggressive,
+    balanced:     profile.weights.balanced,
+    conservative: profile.weights.conservative,
+  };
+
+  const strategy: RecommendedStrategy = {
+    riskLevel:       effectiveRisk,
+    portfolioMode:   effectiveRisk === 'aggressive' ? 'options' : effectiveRisk === 'conservative' ? 'stock' : 'hybrid',
+    riskProfile:     effectiveRisk === 'aggressive' ? 'aggressive' : effectiveRisk === 'conservative' ? 'conservative' : 'balanced',
+    optimizationGoal,
+    cashFloorPct:    clampedCashFloor,
+    rebalanceTrigger: profile.weights.rebalanceTrigger,
+    scenarioWeights: blendScenarioWeights(behavioralWeights, effectiveRisk),
+    confidence:      profile.confidencePct,
+    actualProfile:   profile.actualProfile,
+    conflictDetected:   !!userRiskLevel && userRiskLevel !== aiRiskLevel,
+    aiRecommendedLevel: aiRiskLevel,
+  };
+
+  validateStrategyConsistency(strategy);
+  return strategy;
+}
+
+// ─── Default (no behavioral data yet) ────────────────────────────────────────
+
+const DEFAULT_STRATEGY: RecommendedStrategy = {
+  riskLevel:        'moderate',
+  portfolioMode:    'hybrid',
+  riskProfile:      'balanced',
+  optimizationGoal: 'maximum_sharpe',
+  cashFloorPct:     5,
+  rebalanceTrigger: 'Threshold rebalance',
+  scenarioWeights:  { aggressive: 25, balanced: 50, conservative: 25 },
+  confidence:       0,
+  actualProfile:    'balanced',
+  conflictDetected: false,
+  aiRecommendedLevel: 'moderate',
+};
+
+// ─── In-memory cache (5-min TTL) ─────────────────────────────────────────────
+
+const _strategyCache = new Map<string, { data: RecommendedStrategy; ts: number }>();
+const STRATEGY_CACHE_TTL = 5 * 60 * 1000;
+
+export async function getRecommendedStrategy(
+  userId: string,
+  userRiskLevel?: RiskLevel
+): Promise<RecommendedStrategy> {
+  const cacheKey = `${userId}:${userRiskLevel ?? 'ai'}`;
+  const cached   = _strategyCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < STRATEGY_CACHE_TTL) return cached.data;
+
+  const profile = await getBehavioralProfile(userId);
+  const result  = profile.dataPoints === 0
+    ? DEFAULT_STRATEGY
+    : buildRecommendedStrategy(profile, userRiskLevel);
+
+  _strategyCache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
