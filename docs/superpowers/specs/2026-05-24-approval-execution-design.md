@@ -19,6 +19,8 @@ Two new artefacts bridge the gap between the optimization domain and the existin
 
 All actual order submission goes through the existing `trade-layer.service.ts` → `moomoo-execution.service.ts` pipeline unchanged.
 
+> **Pending ticket cleanup:** Tickets created by `queueRebalance` or `queueOption` that are never confirmed (user closes tab, navigates away, or cancels) should be treated as abandoned. A cleanup job or TTL of **30 minutes** should auto-cancel any ticket still in `pending` status after that window. This prevents stale tickets accumulating in the trade queue.
+
 ---
 
 ## Data Flow
@@ -47,7 +49,7 @@ Options page (covered call / CSP candidate)
   → execution-bridge: derive expiry (nearest monthly Friday ≥ selected DTE) → createTradeTicket()
   → returns { ticket }
   → ExecutionConfirmPanel renders 1 ticket with DTE picker (21/30/45/60, default 30)
-  → user adjusts DTE if needed (re-POSTs ?/queueOption with new DTE; old pending ticket is cancelled via cancelTradeTicket before creating new one)
+  → user adjusts DTE if needed (re-POSTs ?/queueOption with new DTE; old pending ticket is cancelled via cancelTradeTicket **before** creating new one — if cancel fails, abort and surface error; do not create new ticket)
   → user clicks "Confirm & Submit to Paper"
   → POST ?/executeOption { ticketId }
   → approveTradeTicket → previewMoomooExecution(mode='paper') → submitMoomooExecution(confirm:true)
@@ -59,6 +61,8 @@ Options page (covered call / CSP candidate)
 ## New Service: `execution-bridge.service.ts`
 
 **Location:** `src/lib/services/execution-bridge.service.ts`
+
+> **Invariant:** All tickets created by this service must include `mode: 'paper'` explicitly. Server actions `executeAll` and `executeOption` must assert `mode === 'paper'` before calling `previewMoomooExecution` — fail fast if assertion is violated rather than silently falling through to live execution.
 
 ### Rebalance quantity calculation
 
@@ -131,7 +135,8 @@ export let result: ExecutionResult | null = null
 ### Render logic
 
 - **Trade rows:** symbol, SELL/BUY badge (red/green), quantity, order type, estimated value, safety status (✓ pass / ⚠ warning / ✗ blocked)
-- **DTE picker:** shown only when `mode === 'option'` — 4 pill buttons (21/30/45/60), selected highlighted blue, computed expiry date shown below
+- **Skipped row:** if `skipped[]` is non-empty, render a collapsed list below trade rows — "N suggestion(s) skipped (price unavailable)" with a "Retry" button that re-POSTs `?/queueRebalance` for skipped symbols only
+- **DTE picker:** shown only when `mode === 'option'` — 4 pill buttons (21/30/45/60), selected highlighted blue, computed expiry date shown below; buttons are keyboard-navigable (`role="group"`, arrow key support)
 - **Summary bar:** total trades count, estimated total value, PAPER badge
 - **Action buttons:** "Confirm & Submit to Paper" (primary) + "Cancel" (secondary)
 - **Result state:** after confirm, show per-ticket status. "View in Trades →" link to `/trades`
@@ -148,6 +153,8 @@ export let result: ExecutionResult | null = null
 // 2. Call execution-bridge: rebalanceSuggestionsToTickets(userId, suggestions)
 // 3. Returns { tickets, skipped[] }
 // Skipped = suggestions where price was unavailable
+// Guard: set isQueuing = true on the button before POST; reset on response.
+// Prevents duplicate ticket creation from double-click.
 ```
 
 **`executeAll`**
@@ -204,12 +211,14 @@ export let result: ExecutionResult | null = null
 
 | Scenario | Behaviour |
 |---|---|
-| Market price unavailable for rebalance symbol | Skip that suggestion; list in `skipped[]`; panel shows "TQQQ — price unavailable, skipped" |
+| Market price unavailable for rebalance symbol | Skip that suggestion; list in `skipped[]`; panel shows "TQQQ — price unavailable, skipped" with Retry button |
 | Guardrail blocks one trade in batch | That row shows red "✗ blocked: [reason]"; other trades proceed |
 | All trades blocked | Panel shows error state; no submit |
 | Moomoo paper account unreachable | Panel shows "⚠ Moomoo paper account unreachable. Check OpenD." |
 | Options expiry no standard Friday found | Fallback to `today + dte` exact date; show actual date in panel |
 | submitMoomooExecution throws | Catch per-ticket; show error inline; partial success returned |
+| cancelTradeTicket fails on DTE change | Abort re-queue; show "⚠ Could not update DTE — previous ticket still active. Cancel and retry." |
+| Double-click Execute / double-submit | Button disabled (`isQueuing = true`) from first click until server responds; subsequent clicks ignored |
 
 ---
 
@@ -234,3 +243,13 @@ export let result: ExecutionResult | null = null
 - Bulk options execution (one candidate at a time)
 - Editing quantities manually (auto-calculated only)
 - Push notifications when paper order fills
+
+---
+
+## Known Gaps / Follow-up
+
+| Item | Notes |
+|---|---|
+| Pending ticket TTL enforcement | Cleanup job not yet designed — 30-min TTL agreed in principle; implementation deferred |
+| Skipped symbol retry (rebalance) | Retry re-queues skipped symbols only; full retry (all suggestions) is out of scope |
+| Accessibility audit | DTE pill buttons spec'd for keyboard nav; full a11y audit deferred post-launch |
