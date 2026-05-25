@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy this file to config.json and fill in your values.",
+  "server_url": "https://your-portfolioai-server.com",
+  "api_key": "agent_YOUR_KEY_HERE",
+  "moomoo_service_url": "http://localhost:8001",
+  "push_interval_seconds": 300,
+  "retry_interval_seconds": 30,
+  "log_level": "INFO"
+}
