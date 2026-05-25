@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { page } from '$app/stores';
@@ -39,6 +39,10 @@
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') dispatch('close');
   }
+
+  onDestroy(() => {
+    flyoutActive.set(false);
+  });
 </script>
 
 <nav

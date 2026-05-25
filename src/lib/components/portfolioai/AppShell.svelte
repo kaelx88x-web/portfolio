@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { navigating } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Topbar  from './Topbar.svelte';
   import NavFlyout from '$lib/components/nav/NavFlyout.svelte';
@@ -24,6 +24,11 @@
       const path = $page.url.pathname;
       aiPanelOpen = AI_PANEL_ROUTES.some(r => path === r || path.startsWith(r + '/'));
     }
+    window.addEventListener('keydown', handleWindowKeydown);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleWindowKeydown);
   });
 
   // Which section's fly-out to show (pinned takes precedence over hovered)
@@ -38,6 +43,13 @@
     pinnedSection.set(null);
     hoveredSection.set(null);
     flyoutActive.set(false);
+  }
+
+  // Window-level Escape handler: closes fly-out even when focus is not inside it
+  function handleWindowKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && showFlyout) {
+      closeFlyout();
+    }
   }
 
   function toggleAiPanel() {
@@ -69,7 +81,7 @@
   <!-- Topbar -->
   <header class="shell-topbar">
     <Topbar
-      sidebarCollapsed={false}
+      sidebarCollapsed={$pinnedSection === null}
       {aiPanelOpen}
       on:toggleSidebar={toggleSidebar}
       on:toggleAiPanel={toggleAiPanel}
