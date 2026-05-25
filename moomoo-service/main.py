@@ -41,7 +41,7 @@ class ExecutionOrderRequest(BaseModel):
     price: float | None = None
     trade_env: str = "SIMULATE"
     mode: str = "paper"
-    acc_id: int | None = None
+    acc_id: str | int | None = None
     client_order_id: str | None = None
     source_ticket_id: str | None = None
 
@@ -1232,7 +1232,7 @@ def execution_order(req: ExecutionOrderRequest):
 
         # Use explicit acc_id if provided, otherwise auto-select
         if req.acc_id:
-            matches = accounts[accounts["acc_id"] == req.acc_id]
+            matches = accounts[accounts["acc_id"] == str(req.acc_id)]
             account = matches.iloc[0].to_dict() if not matches.empty else None
         else:
             account = _select_account(accounts, prefer_real)
@@ -1339,6 +1339,20 @@ def execution_cancel_order(order_id: str, req: CancelOrderRequest):
                 ctx.close()
 
     raise HTTPException(status_code=400, detail="Unable to cancel order through active Moomoo account.")
+
+
+@app.get("/paper/dashboard")
+def paper_dashboard():
+    """Return balance, positions, orders and deals for the simulate (paper) account."""
+    bundle = _fetch_account_bundle(prefer_real=False)
+    return {
+        "account": bundle["account"],
+        "account_info": bundle["account_info"],
+        "positions": bundle["positions"],
+        "orders": bundle["orders"],
+        "deals": bundle["deals"],
+        "synced_at": bundle["synced_at"],
+    }
 
 
 @app.post("/sync")

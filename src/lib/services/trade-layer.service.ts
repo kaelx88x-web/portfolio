@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+﻿import { randomUUID } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 import { validatePortfolioGuardrails, type GuardrailReport, type GuardrailViolation } from '$lib/services/guardrail.service';
 import { getUserPortfolioMode } from '$lib/services/optimization-engine.service';
@@ -247,7 +246,7 @@ export async function getTradeTicket(userId: string, id: string) {
 }
 
 export async function createTradeTicket(userId: string, input: TradeTicketInput) {
-  if (env.TRADE_LAYER_ENABLED === 'false') {
+  if (process.env.TRADE_LAYER_ENABLED === 'false') {
     throw new Error('Trade layer is disabled by TRADE_LAYER_ENABLED=false.');
   }
   await enforceDailyTicketLimit(userId);
@@ -576,7 +575,7 @@ async function addApproval(
 }
 
 async function enforceDailyTicketLimit(userId: string) {
-  const maxTickets = Number(env.MAX_TRADE_TICKETS_PER_DAY ?? 20);
+  const maxTickets = Number(process.env.MAX_TRADE_TICKETS_PER_DAY ?? 20);
   if (!Number.isFinite(maxTickets) || maxTickets <= 0) return;
   const [row] = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT COUNT(*) AS count

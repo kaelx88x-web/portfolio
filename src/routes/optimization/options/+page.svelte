@@ -15,7 +15,7 @@
   import type { ActionData, PageData } from './$types';
   import type { TradeTicket } from '$lib/services/trade-layer.service';
   import type { CoveredCallCandidate } from '$lib/services/options-intelligence.service';
-  import type { DTE } from '$lib/services/execution-bridge.service';
+  import type { DTE } from '$lib/constants/dte';
 
   export let data: PageData;
   export let form: ActionData;

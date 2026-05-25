@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+﻿import { randomUUID } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 import { getMarketStates, getMoomooStatus, syncMoomoo } from '$lib/services/broker.service';
 import {
@@ -137,7 +136,7 @@ type SafetyCheckRow = {
 };
 
 function bridgeBase(): string {
-  return env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
+  return process.env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
 }
 
 export async function getMoomooExecutionDashboard(userId: string) {
@@ -149,15 +148,15 @@ export async function getMoomooExecutionDashboard(userId: string) {
   const submitted = requests.filter((item) => item.status === 'submitted').length;
   return {
     version: MOOMOO_EXECUTION_VERSION,
-    executionEnabled: env.TRADE_EXECUTION_ENABLED === 'true',
-    liveExecutionEnabled: env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true',
-    dryRunEnabled: env.MOOMOO_DRY_RUN_EXECUTION !== 'false',
+    executionEnabled: process.env.TRADE_EXECUTION_ENABLED === 'true',
+    liveExecutionEnabled: process.env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true',
+    dryRunEnabled: process.env.MOOMOO_DRY_RUN_EXECUTION !== 'false',
     safetyMessage: 'Phase 6F submits only explicitly confirmed, approved tickets. Dry-run is the default path.',
     widgets: [
       { label: 'Execution Requests', value: String(requests.length), status: requests.length ? 'medium' : 'low' },
       { label: 'Submitted', value: String(submitted), status: submitted ? 'medium' : 'low' },
       { label: 'Blocked', value: String(blocked), status: blocked ? 'high' : 'low' },
-      { label: 'Live Mode', value: env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true' ? 'Enabled' : 'Disabled', status: env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true' ? 'high' : 'low' }
+      { label: 'Live Mode', value: process.env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true' ? 'Enabled' : 'Disabled', status: process.env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true' ? 'high' : 'low' }
     ],
     requests,
     submissions
@@ -215,7 +214,7 @@ export async function submitMoomooExecution(userId: string, executionRequestId: 
     throw new Error(safety.summary);
   }
 
-  const dryRun = request.executionMode === 'dry_run' || env.MOOMOO_DRY_RUN_EXECUTION !== 'false';
+  const dryRun = request.executionMode === 'dry_run' || process.env.MOOMOO_DRY_RUN_EXECUTION !== 'false';
   const submissionId = randomUUID();
   const submittedAt = new Date();
 
@@ -456,9 +455,9 @@ async function buildSafetyChecks(
 ): Promise<ExecutionSafetyCheck[]> {
   const checks: ExecutionSafetyCheck[] = [];
   checks.push(check('ticket_status', ticket.status === 'approved' ? 'pass' : 'block', `Ticket status is ${ticket.status}.`, { required: 'approved' }));
-  checks.push(check('trade_execution_flag', env.TRADE_EXECUTION_ENABLED === 'true' || mode === 'dry_run' ? 'pass' : 'block', env.TRADE_EXECUTION_ENABLED === 'true' ? 'Trade execution flag is enabled.' : 'TRADE_EXECUTION_ENABLED is false. Only dry-run previews are allowed.', { TRADE_EXECUTION_ENABLED: env.TRADE_EXECUTION_ENABLED ?? 'false' }));
-  checks.push(check('live_execution_flag', mode !== 'live' || env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true' ? 'pass' : 'block', mode === 'live' ? 'Live mode requires MOOMOO_LIVE_EXECUTION_ENABLED=true.' : 'Live mode is not requested.', { MOOMOO_LIVE_EXECUTION_ENABLED: env.MOOMOO_LIVE_EXECUTION_ENABLED ?? 'false' }));
-  checks.push(check('dry_run_default', env.MOOMOO_DRY_RUN_EXECUTION === 'false' ? 'warning' : 'pass', env.MOOMOO_DRY_RUN_EXECUTION === 'false' ? 'Dry-run default is disabled.' : 'Dry-run protection is enabled.', { MOOMOO_DRY_RUN_EXECUTION: env.MOOMOO_DRY_RUN_EXECUTION ?? 'true' }));
+  checks.push(check('trade_execution_flag', process.env.TRADE_EXECUTION_ENABLED === 'true' || mode === 'dry_run' ? 'pass' : 'block', process.env.TRADE_EXECUTION_ENABLED === 'true' ? 'Trade execution flag is enabled.' : 'TRADE_EXECUTION_ENABLED is false. Only dry-run previews are allowed.', { TRADE_EXECUTION_ENABLED: process.env.TRADE_EXECUTION_ENABLED ?? 'false' }));
+  checks.push(check('live_execution_flag', mode !== 'live' || process.env.MOOMOO_LIVE_EXECUTION_ENABLED === 'true' ? 'pass' : 'block', mode === 'live' ? 'Live mode requires MOOMOO_LIVE_EXECUTION_ENABLED=true.' : 'Live mode is not requested.', { MOOMOO_LIVE_EXECUTION_ENABLED: process.env.MOOMOO_LIVE_EXECUTION_ENABLED ?? 'false' }));
+  checks.push(check('dry_run_default', process.env.MOOMOO_DRY_RUN_EXECUTION === 'false' ? 'warning' : 'pass', process.env.MOOMOO_DRY_RUN_EXECUTION === 'false' ? 'Dry-run default is disabled.' : 'Dry-run protection is enabled.', { MOOMOO_DRY_RUN_EXECUTION: process.env.MOOMOO_DRY_RUN_EXECUTION ?? 'true' }));
 
   const validation: TradeTicketValidation = await validateTradeTicket(userId, ticket);
   checks.push(check('guardrail_validation', validation.passed || options.overrideGuardrails ? (validation.passed ? 'pass' : 'warning') : 'block', validation.summary, { overrideGuardrails: options.overrideGuardrails, violations: validation.violations }));
@@ -521,7 +520,7 @@ function ticketToMoomooOrder(ticket: TradeTicket, mode: ExecutionMode) {
     quantity: ticket.quantity,
     price: ticket.limitPrice,
     trade_env: mode === 'live' ? 'REAL' : 'SIMULATE',
-    // US paper trading requires acc_id 4652657 (STOCK_AND_OPTION SIMULATE)
+    // US paper trading — acc_id 4652657 (auto-selected by OpenD for US SIMULATE, not in accounts list)
     ...(isUS && mode !== 'live' ? { acc_id: 4652657 } : {}),
     source_ticket_id: ticket.id,
     client_order_id: `PF6F-${ticket.id.slice(0, 8)}-${Date.now()}`,

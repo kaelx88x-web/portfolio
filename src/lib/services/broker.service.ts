@@ -1,5 +1,4 @@
-import type { BrokerHolding, MoomooStatus, MoomooSyncResult } from '$lib/types/portfolio';
-import { env } from '$env/dynamic/private';
+﻿import type { BrokerHolding, MoomooStatus, MoomooSyncResult } from '$lib/types/portfolio';
 import { execFile, spawn } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access } from 'node:fs/promises';
@@ -9,15 +8,15 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 function base(): string {
-  return env.LARAVEL_API_URL ?? 'http://127.0.0.1:8000/api';
+  return process.env.LARAVEL_API_URL ?? 'http://127.0.0.1:8000/api';
 }
 
 function bridgeBase(): string {
-  return env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
+  return process.env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
 }
 
 function authHeaders(): HeadersInit {
-  return env.LARAVEL_API_TOKEN ? { Authorization: `Bearer ${env.LARAVEL_API_TOKEN}` } : {};
+  return process.env.LARAVEL_API_TOKEN ? { Authorization: `Bearer ${process.env.LARAVEL_API_TOKEN}` } : {};
 }
 
 async function readError(res: Response, fallback: string) {
@@ -234,13 +233,13 @@ async function findMoomooOpenDExecutable() {
 }
 
 function moomooOpenDPathCandidates() {
-  const candidates = [env.MOOMOO_OPEND_PATH?.trim()].filter(Boolean) as string[];
+  const candidates = [process.env.MOOMOO_OPEND_PATH?.trim()].filter(Boolean) as string[];
 
   if (process.platform === 'win32') {
     const roots = [
-      process.env.ProgramFiles,
+      process.process.env.ProgramFiles,
       process.env['ProgramFiles(x86)'],
-      process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs') : null
+      process.process.env.LOCALAPPDATA ? join(process.process.env.LOCALAPPDATA, 'Programs') : null
     ].filter(Boolean) as string[];
 
     for (const root of roots) {

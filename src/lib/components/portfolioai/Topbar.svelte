@@ -16,8 +16,8 @@
   $: portfolioValue  = paperSummary ? paperSummary.totalValue   : $portfolioSummary.totalValue;
   $: dayChange       = paperSummary ? 0                         : $portfolioSummary.dayChange;
   $: dayChangePct    = paperSummary ? 0                         : $portfolioSummary.dayChangePct;
-  $: accountName     = isPaperRoute ? 'Paper Trading'           : $portfolioSummary.accountName;
-  $: accountMode     = isPaperRoute ? 'SANDBOX'                 : 'LIVE';
+  $: accountMode     = isPaperRoute ? 'SANDBOX'                 : $portfolioSummary.accountMode;
+  $: accountName     = isPaperRoute ? 'Paper Trading'           : accountMode === 'SANDBOX' ? 'Moomoo Simulate' : $portfolioSummary.accountName;
 
   const dispatch = createEventDispatcher();
 
@@ -69,7 +69,7 @@
         <span class="tb-acc-dot" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}></span>
         <span class="tb-acc-name">{accountName}</span>
         <span class="tb-acc-badge" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}>
-          {accountMode === 'LIVE' ? 'LIVE' : 'SANDBOX'}
+          {accountMode === 'LIVE' ? 'LIVE' : 'SIMULATE'}
         </span>
         <ChevronDown size={13} />
       </button>

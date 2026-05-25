@@ -5,8 +5,8 @@ import type { RebalanceSuggestion } from '$lib/services/optimization-engine.serv
 import type { CoveredCallCandidate, PutExposureRow } from '$lib/services/options-intelligence.service';
 import type { TradeTicket } from '$lib/services/trade-layer.service';
 
-export type DTE = 21 | 30 | 45 | 60;
-export const DTE_OPTIONS: DTE[] = [21, 30, 45, 60];
+export type { DTE } from '$lib/constants/dte';
+export { DTE_OPTIONS } from '$lib/constants/dte';
 
 export type RebalanceQueueResult = {
   tickets: TradeTicket[];

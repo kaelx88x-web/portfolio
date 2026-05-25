@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+﻿import { randomUUID } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 import {
   BENCHMARKS,
@@ -234,7 +233,7 @@ export async function runScenarioSimulation(
     benchmark?: AnalyticsBenchmark;
   } = {}
 ) {
-  if (env.SCENARIO_SIMULATION_ENABLED === 'false') {
+  if (process.env.SCENARIO_SIMULATION_ENABLED === 'false') {
     throw new Error('Scenario simulation is disabled by SCENARIO_SIMULATION_ENABLED=false.');
   }
 
@@ -570,7 +569,7 @@ export function parseSimulationPortfolioMode(value: FormDataEntryValue | string 
 }
 
 async function enforceDailyRunLimit(userId: string) {
-  const maxRuns = Number(env.MAX_SIMULATION_RUNS_PER_DAY ?? 20);
+  const maxRuns = Number(process.env.MAX_SIMULATION_RUNS_PER_DAY ?? 20);
   if (!Number.isFinite(maxRuns) || maxRuns <= 0) return;
   const [row] = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT COUNT(*) AS count

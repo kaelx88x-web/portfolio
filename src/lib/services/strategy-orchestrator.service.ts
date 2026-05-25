@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+﻿import { randomUUID } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 import {
   BENCHMARKS,
@@ -273,7 +272,7 @@ export async function refreshStrategyOrchestrator(
     profileOverride?: PortfolioStrategyProfile | null;
   } = {}
 ) {
-  if (env.STRATEGY_ORCHESTRATOR_ENABLED === 'false') {
+  if (process.env.STRATEGY_ORCHESTRATOR_ENABLED === 'false') {
     throw new Error('Strategy orchestrator is disabled by STRATEGY_ORCHESTRATOR_ENABLED=false.');
   }
   await enforceDailyRefreshLimit(userId);
@@ -310,7 +309,7 @@ export async function refreshStrategyOrchestrator(
 }
 
 export async function applyDynamicPortfolioMode(userId: string, strategyMode: StrategyMode) {
-  if (env.PORTFOLIO_MODE_DYNAMIC === 'false') {
+  if (process.env.PORTFOLIO_MODE_DYNAMIC === 'false') {
     return { status: 'disabled', message: 'Dynamic portfolio mode is disabled.' };
   }
   const mode = strategyMode === 'aggressive_options' ? 'options' : strategyMode === 'hybrid' || strategyMode.includes('income') ? 'hybrid' : 'stock';
@@ -700,7 +699,7 @@ async function getStoredConflicts(userId: string, limit: number) {
 }
 
 async function enforceDailyRefreshLimit(userId: string) {
-  const maxRuns = Number(env.MAX_STRATEGY_REFRESH_PER_DAY ?? 20);
+  const maxRuns = Number(process.env.MAX_STRATEGY_REFRESH_PER_DAY ?? 20);
   if (!Number.isFinite(maxRuns) || maxRuns <= 0) return;
   const [row] = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT COUNT(*) AS count

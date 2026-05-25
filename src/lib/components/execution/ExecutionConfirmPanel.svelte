@@ -3,7 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import { Zap, X, ExternalLink, AlertTriangle, CheckCircle2, XCircle } from 'lucide-svelte';
   import type { TradeTicket } from '$lib/services/trade-layer.service';
-  import { DTE_OPTIONS, type DTE } from '$lib/services/execution-bridge.service';
+  import { DTE_OPTIONS, type DTE } from '$lib/constants/dte';
 
   export let tickets: TradeTicket[] = [];
   export let skipped: Array<{ label: string; reason: string }> = [];
