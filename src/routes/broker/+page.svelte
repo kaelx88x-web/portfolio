@@ -16,9 +16,6 @@
   let reconnecting = false;
   let justReconnected = false;
 
-  // Live status — starts from SSR data, updated by polling
-  $: liveStatus = status;
-
   async function pollStatus() {
     try {
       const res = await fetch('/api/broker/status');
