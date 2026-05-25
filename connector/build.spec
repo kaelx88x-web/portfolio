@@ -16,10 +16,10 @@ ASSETS_DIR = Path(SPECPATH) / "assets"
 
 a = Analysis(
     [str(Path(SPECPATH) / "main.py")],
-    pathex=[str(ROOT)],
+    pathex=[str(ROOT), str(MOOMOO_SERVICE_DIR)],  # include moomoo-service for dep analysis
     binaries=[],
     datas=[
-        # Bundle entire moomoo-service directory as a data directory
+        # Bundle entire moomoo-service directory (main.py loaded at runtime via importlib)
         (str(MOOMOO_SERVICE_DIR), "moomoo-service"),
         # Bundle icon assets
         (str(ASSETS_DIR / "icon_green.png"),  "connector/assets"),
@@ -32,10 +32,20 @@ a = Analysis(
         "PIL._tkinter_finder",
         "tkinter",
         "tkinter.ttk",
+        # uvicorn — runs moomoo-service in-process
         "uvicorn",
         "uvicorn.lifespan.on",
         "uvicorn.loops.auto",
         "uvicorn.protocols.http.auto",
+        "uvicorn.protocols.websockets.auto",
+        # FastAPI / moomoo-service dependencies
+        "fastapi",
+        "fastapi.middleware.cors",
+        "pydantic",
+        "pydantic.deprecated.class_validators",
+        "dotenv",
+        # moomoo SDK — imported lazily in moomoo-service route handlers
+        "moomoo",
     ],
     hookspath=[],
     hooksconfig={},

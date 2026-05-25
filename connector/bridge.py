@@ -1,10 +1,11 @@
 # connector/bridge.py
 """
-Manages the moomoo-service subprocess.
+Manages the moomoo-service by running it in-process via uvicorn.Server in a daemon thread.
 Uses sys._MEIPASS to locate the bundled service directory when running as a PyInstaller .exe.
 """
-import subprocess
+import importlib.util
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -25,39 +26,65 @@ def _bundled_service_dir() -> Path:
     return Path(__file__).parent.parent / "moomoo-service"
 
 
+def _import_app(service_dir: Path):
+    """Import and return the FastAPI app from moomoo-service/main.py."""
+    main_py = service_dir / "main.py"
+    # Add service dir to sys.path so moomoo-service can import its own modules
+    service_str = str(service_dir)
+    if service_str not in sys.path:
+        sys.path.insert(0, service_str)
+    spec = importlib.util.spec_from_file_location("moomoo_service_main", str(main_py))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.app
+
+
 class Bridge:
     def __init__(self, service_dir: Path | None = None):
         self._service_dir = service_dir or _bundled_service_dir()
-        self._process: subprocess.Popen | None = None
+        self._server = None
+        self._thread: threading.Thread | None = None
         self._log = get_logger()
 
     def start(self) -> None:
-        """Start moomoo-service as a hidden subprocess."""
-        if self._process and self._process.poll() is None:
+        """Start moomoo-service in-process via uvicorn.Server in a daemon thread."""
+        if self._thread and self._thread.is_alive():
             return  # already running
 
         main_py = self._service_dir / "main.py"
         if not main_py.exists():
             self._log.error("moomoo-service not found at %s", self._service_dir)
-            return
+            raise FileNotFoundError(
+                f"moomoo-service/main.py not found at {self._service_dir}"
+            )
 
         self._log.info("Starting moomoo-service from %s", self._service_dir)
-        self._process = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "main:app",
-             "--host", "127.0.0.1", "--port", str(MOOMOO_SERVICE_PORT),
-             "--no-access-log"],
-            cwd=str(self._service_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+
+        import uvicorn
+
+        app = _import_app(self._service_dir)
+        config = uvicorn.Config(
+            app,
+            host="127.0.0.1",
+            port=MOOMOO_SERVICE_PORT,
+            log_level="warning",
         )
-        # Give it a moment to bind
+        self._server = uvicorn.Server(config)
+        self._thread = threading.Thread(
+            target=self._server.run,
+            daemon=True,
+            name="moomoo-service",
+        )
+        self._thread.start()
+        # Give uvicorn a moment to bind
         time.sleep(2)
-        self._log.info("moomoo-service PID=%s", self._process.pid)
+        self._log.info(
+            "moomoo-service started in-process on port %s", MOOMOO_SERVICE_PORT
+        )
 
     def is_healthy(self) -> bool:
-        """True if moomoo-service is running and /status returns 200."""
-        if self._process is None:
+        """True if moomoo-service thread is alive and /status returns 200."""
+        if self._thread is None or not self._thread.is_alive():
             return False
         try:
             r = httpx.get(HEALTH_URL, timeout=3)
@@ -66,12 +93,11 @@ class Bridge:
             return False
 
     def stop(self) -> None:
-        """Terminate moomoo-service subprocess."""
-        if self._process:
-            self._log.info("Stopping moomoo-service (PID=%s)", self._process.pid)
-            self._process.terminate()
-            try:
-                self._process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-            self._process = None
+        """Stop the in-process uvicorn server."""
+        if self._server:
+            self._log.info("Stopping moomoo-service")
+            self._server.should_exit = True
+            if self._thread:
+                self._thread.join(timeout=5)
+        self._server = None
+        self._thread = None
