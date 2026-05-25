@@ -21,7 +21,7 @@ def test_enable_autostart_writes_registry():
     winreg_mock.SetValueEx.assert_called_once()
     args = winreg_mock.SetValueEx.call_args[0]
     assert args[1] == APP_NAME
-    assert "PortfolioConnector.exe" in args[4]
+    assert args[4] == '"C:\\test\\PortfolioConnector.exe"'
 
 
 def test_disable_autostart_deletes_registry():
@@ -39,3 +39,18 @@ def test_disable_autostart_ignores_missing_key():
     winreg_mock.DeleteValue.side_effect = FileNotFoundError
     # Should not raise
     disable_autostart()
+
+
+def test_is_autostart_enabled_returns_true_when_key_exists():
+    winreg_mock.reset_mock()
+    winreg_mock.OpenKey.return_value.__enter__ = lambda s: MagicMock()
+    winreg_mock.OpenKey.return_value.__exit__ = MagicMock(return_value=False)
+    winreg_mock.QueryValueEx.return_value = ('"C:\\test\\app.exe"', 1)
+    winreg_mock.QueryValueEx.side_effect = None
+    assert is_autostart_enabled() is True
+
+
+def test_is_autostart_enabled_returns_false_when_key_missing():
+    winreg_mock.reset_mock()
+    winreg_mock.OpenKey.side_effect = FileNotFoundError
+    assert is_autostart_enabled() is False

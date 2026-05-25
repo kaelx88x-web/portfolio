@@ -9,7 +9,10 @@ _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 def _exe_path() -> str:
     """Return path to the running executable."""
-    return sys.executable if not getattr(sys, "frozen", False) else sys.executable
+    if getattr(sys, "frozen", False):
+        # Running as PyInstaller bundle — sys.argv[0] is the .exe path
+        return sys.argv[0]
+    return sys.executable
 
 
 def enable_autostart(exe_path: str | None = None) -> None:
