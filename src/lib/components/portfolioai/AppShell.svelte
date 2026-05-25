@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { navigating } from '$app/stores';
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
   import Sidebar from './Sidebar.svelte';
   import Topbar  from './Topbar.svelte';
   import NavFlyout from '$lib/components/nav/NavFlyout.svelte';
@@ -28,7 +29,7 @@
   });
 
   onDestroy(() => {
-    window.removeEventListener('keydown', handleWindowKeydown);
+    if (browser) window.removeEventListener('keydown', handleWindowKeydown);
   });
 
   // Which section's fly-out to show (pinned takes precedence over hovered)
