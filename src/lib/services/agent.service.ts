@@ -15,13 +15,10 @@ export function generateAgentKey(): string {
  * Returns the existing one if already registered.
  */
 export async function getOrCreateAgentRegistration(userId: string) {
-  const existing = await prisma.agentRegistration.findUnique({
+  return prisma.agentRegistration.upsert({
     where: { userId },
-  });
-  if (existing) return existing;
-
-  return prisma.agentRegistration.create({
-    data: {
+    update: {},
+    create: {
       userId,
       apiKey: generateAgentKey(),
       label: 'My PC',
@@ -32,6 +29,7 @@ export async function getOrCreateAgentRegistration(userId: string) {
 
 /**
  * Rotate the agent API key for a user.
+ * Creates a new registration if one doesn't exist yet.
  * Invalidates the old key immediately.
  */
 export async function rotateAgentKey(userId: string) {
@@ -50,6 +48,7 @@ export async function rotateAgentKey(userId: string) {
 /**
  * Verify an API key from the Authorization header.
  * Returns the AgentRegistration or null if invalid.
+ * NOTE: Callers should implement rate limiting to prevent brute-force attacks.
  */
 export async function verifyAgentKey(
   authHeader: string | null
