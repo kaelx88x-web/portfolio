@@ -1,4 +1,5 @@
 import { getMoomooStatus, syncMoomoo } from '$lib/services/broker.service';
+import { getAgentStatus } from '$lib/services/agent.service';
 import { takeSnapshot, writeSyncLog } from '$lib/services/snapshot.service';
 import { getDemoUser } from '$lib/server/demo-user';
 import { getOptionScanQueue } from '$lib/server/queues';
@@ -8,15 +9,16 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
   const user = await getDemoUser();
-  const [status, syncLogs] = await Promise.all([
+  const [status, syncLogs, agentStatus] = await Promise.all([
     getMoomooStatus().catch(() => null),
     prisma.brokerSyncLog.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 10,
     }).catch(() => []),
+    getAgentStatus(user.id).catch(() => null),
   ]);
-  return { status, syncLogs };
+  return { status, syncLogs, agentStatus };
 };
 
 export const actions: Actions = {
