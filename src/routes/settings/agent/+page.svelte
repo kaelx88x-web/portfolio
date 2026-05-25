@@ -29,8 +29,8 @@
     return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  const AGENT_VERSION = '1.0.0';
-  $: serverUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  // serverOrigin is passed from the server load to avoid SSR empty-string flash
+  $: serverUrl = data.serverOrigin ?? '';
 </script>
 
 <PageHeader
@@ -65,6 +65,8 @@
 
   {#if form?.rotated}
     <div class="rotate-notice">✓ New key generated — update your agent config and restart the agent.</div>
+  {:else if form?.error}
+    <div class="rotate-error">{form.error}</div>
   {/if}
 
   <form method="POST" action="?/rotate" use:enhance={() => {
@@ -156,9 +158,8 @@ python agent.py</pre>
   }
   .btn-icon:hover { color: var(--primary); border-color: var(--primary); }
 
-  .rotate-notice {
-    font-size: 0.72rem; color: var(--success); margin-bottom: 10px;
-  }
+  .rotate-notice { font-size: 0.72rem; color: var(--success); margin-bottom: 10px; }
+  .rotate-error  { font-size: 0.72rem; color: var(--danger);  margin-bottom: 10px; }
   .btn-rotate {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 6px 14px; border-radius: 7px;
