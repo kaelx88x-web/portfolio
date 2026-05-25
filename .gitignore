@@ -14,6 +14,14 @@ moomoo-service/.runtime/
 moomoo-service/__pycache__/
 moomoo-service/*.log
 
+# connector - Python artifacts
+connector/__pycache__/
+connector/tests/__pycache__/
+*.pyc
+*.pyo
+connector/dist/
+connector/build/
+
 # Logs & temp files
 *.log
 vite-*.mjs

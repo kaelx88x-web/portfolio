@@ -28,7 +28,8 @@ def load_config() -> dict:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return {**_DEFAULTS, **data}
-    except Exception:
+    except Exception as exc:
+        print(f"[connector/config] Warning: could not read config ({exc}), using defaults", flush=True)
         return dict(_DEFAULTS)
 
 
@@ -36,11 +37,15 @@ def save_config(data: dict) -> None:
     """Write config dict to disk, creating directory if needed."""
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as exc:
+        print(f"[connector/config] Error: could not save config to {path}: {exc}", flush=True)
+        raise
 
 
 def is_configured() -> bool:
     """True if a non-empty api_key exists in config."""
     cfg = load_config()
-    return bool(cfg.get("api_key", "").startswith("agent_"))
+    return cfg.get("api_key", "").startswith("agent_")
