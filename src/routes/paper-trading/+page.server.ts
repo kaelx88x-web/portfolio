@@ -1,63 +1,68 @@
-import { fail } from '@sveltejs/kit';
+// src/routes/paper-trading/+page.server.ts
+import { getMoomooPaperDashboard } from '$lib/services/moomoo-paper.service';
+import { getLatestAgentPush } from '$lib/services/agent.service';
 import { getDemoUser } from '$lib/server/demo-user';
-import { numberFromForm, requiredString } from '$lib/server/form';
-import {
-  getPaperDashboard,
-  submitPaperOrder,
-  switchPaperAccount
-} from '$lib/services/paper-trading.service';
-import type { Actions, PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
-const ACTIVE_ACCOUNT_COOKIE = 'portfolio_ai_active_account';
+const IS_SAAS = process.env.PUBLIC_APP_MODE === 'saas';
 
-export const load: PageServerLoad = async ({ cookies }) => {
-  const user = await getDemoUser();
-  return getPaperDashboard(user.id, cookies.get(ACTIVE_ACCOUNT_COOKIE));
-};
-
-export const actions: Actions = {
-  switch: async ({ request, cookies }) => {
-    const user = await getDemoUser();
-    const formData = await request.formData();
-
+export const load: PageServerLoad = async () => {
+  // In SaaS mode, read from the latest agent push stored in DB.
+  // The customer's local agent is responsible for keeping it fresh.
+  if (IS_SAAS) {
     try {
-      const account = await switchPaperAccount(user.id, requiredString(formData, 'accountId'));
-      cookies.set(ACTIVE_ACCOUNT_COOKIE, account.id, {
-        path: '/',
-        sameSite: 'lax',
-        httpOnly: true,
-        maxAge: 60 * 60 * 24 * 90
-      });
-      return { message: `Active account switched to ${account.name}.` };
-    } catch (error) {
-      return fail(400, { message: error instanceof Error ? error.message : 'Unable to switch account' });
+      const user = await getDemoUser();
+      const push = await getLatestAgentPush(user.id);
+
+      if (push) {
+        return {
+          paper: {
+            account:         push.account      ?? { account_label: 'Moomoo Simulate', broker_account_id: '', trade_environment: 'SIMULATE', trdmarket_auth: [] },
+            account_info:    push.account_info ?? { total_assets: 0, securities_assets: 0, cash: 0, market_val: 0, unrealized_pl: 0, realized_pl: 0, power: 0, avl_withdrawal_cash: 0 },
+            positions:       push.positions    ?? [],
+            orders:          push.orders       ?? [],
+            deals:           push.deals        ?? [],
+            synced_at:       push.synced_at    ?? push.pushedAt.toISOString(),
+            error:           null,
+            from_agent:      true,
+            agent_pushed_at: push.pushedAt.toISOString(),
+          },
+        };
+      }
+
+      // No agent data yet — show clear message directing user to set up agent
+      return {
+        paper: {
+          account:         { account_label: 'Moomoo Simulate', broker_account_id: '', trade_environment: 'SIMULATE', trdmarket_auth: [] },
+          account_info:    { total_assets: 0, securities_assets: 0, cash: 0, market_val: 0, unrealized_pl: 0, realized_pl: 0, power: 0, avl_withdrawal_cash: 0 },
+          positions:       [],
+          orders:          [],
+          deals:           [],
+          synced_at:       new Date().toISOString(),
+          error:           'No agent data yet. Set up the local agent on your PC — see Settings > Agent.',
+          from_agent:      false,
+          agent_pushed_at: null,
+        },
+      };
+    } catch (err) {
+      console.error('[paper-trading] SaaS load failed', err);
+      return {
+        paper: {
+          account:         { account_label: 'Moomoo Simulate', broker_account_id: '', trade_environment: 'SIMULATE', trdmarket_auth: [] },
+          account_info:    { total_assets: 0, securities_assets: 0, cash: 0, market_val: 0, unrealized_pl: 0, realized_pl: 0, power: 0, avl_withdrawal_cash: 0 },
+          positions:       [],
+          orders:          [],
+          deals:           [],
+          synced_at:       new Date().toISOString(),
+          error:           'Failed to load agent data. Please try again.',
+          from_agent:      false,
+          agent_pushed_at: null,
+        },
+      };
     }
-  },
-  buy: async ({ request, cookies }) => {
-    return submit(request, cookies.get(ACTIVE_ACCOUNT_COOKIE), 'buy');
-  },
-  sell: async ({ request, cookies }) => {
-    return submit(request, cookies.get(ACTIVE_ACCOUNT_COOKIE), 'sell');
   }
+
+  // Self-hosted mode: call moomoo-service directly as before
+  const data = await getMoomooPaperDashboard();
+  return { paper: { ...data, from_agent: false, agent_pushed_at: null } };
 };
-
-async function submit(request: Request, activeAccountId: string | undefined, side: 'buy' | 'sell') {
-  const user = await getDemoUser();
-  const dashboard = await getPaperDashboard(user.id, activeAccountId);
-  const formData = await request.formData();
-
-  try {
-    await submitPaperOrder({
-      userId: user.id,
-      accountId: dashboard.activeAccount.id,
-      side,
-      symbol: requiredString(formData, 'symbol'),
-      quantity: numberFromForm(formData, 'quantity'),
-      price: numberFromForm(formData, 'price'),
-      fee: numberFromForm(formData, 'fee')
-    });
-    return { message: `Paper ${side} order filled.` };
-  } catch (error) {
-    return fail(400, { message: error instanceof Error ? error.message : `Unable to submit paper ${side}` });
-  }
-}
