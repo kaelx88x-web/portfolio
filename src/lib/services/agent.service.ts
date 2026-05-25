@@ -124,6 +124,7 @@ export async function getLatestAgentPush(
   const log = await prisma.agentPushLog.findFirst({
     where: { userId },
     orderBy: { createdAt: 'desc' },
+    select: { id: true, dataJson: true, createdAt: true },
   });
   if (!log) return null;
 
