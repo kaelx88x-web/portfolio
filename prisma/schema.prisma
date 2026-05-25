@@ -61,6 +61,8 @@ model User {
   optionAlerts      OptionAlert[]
   optionsExposureReports OptionsExposureReport[]
   wheelStrategyReports WheelStrategyReport[]
+  agentRegistration    AgentRegistration?
+  agentPushLogs        AgentPushLog[]     @relation("agent_push_logs_user")
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 }
@@ -1319,4 +1321,37 @@ model OptionAlert {
 
   @@index([userId, detectedAt])
   @@index([userId, acknowledged])
+}
+
+model AgentRegistration {
+  id         String         @id @default(cuid())
+  userId     String         @unique @map("user_id")
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey     String         @unique @map("api_key") @db.VarChar(64)
+  label      String         @default("My PC") @db.VarChar(100)
+  lastSeenAt DateTime?      @map("last_seen_at")
+  lastPushAt DateTime?      @map("last_push_at")
+  status     String         @default("pending") @db.VarChar(30)
+  pushLogs   AgentPushLog[]
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  @@map("agent_registrations")
+}
+
+model AgentPushLog {
+  id           String            @id @default(cuid())
+  agentId      String            @map("agent_id")
+  agent        AgentRegistration @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId       String            @map("user_id")
+  user         User              @relation("agent_push_logs_user", fields: [userId], references: [id], onDelete: Cascade)
+  pushType     String            @default("full") @map("push_type") @db.VarChar(40)
+  dataJson     String            @map("data_json") @db.LongText
+  recordCount  Int               @default(0) @map("record_count")
+  agentVersion String            @default("1.0.0") @map("agent_version") @db.VarChar(20)
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  @@index([agentId, createdAt])
+  @@index([userId, createdAt])
+  @@map("agent_push_logs")
 }
