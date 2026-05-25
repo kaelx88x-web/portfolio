@@ -47,6 +47,15 @@ def main() -> None:
         bridge.start()
     except Exception as exc:
         log.error("Failed to start moomoo-service: %s", exc)
+        import tkinter
+        import tkinter.messagebox
+        _root = tkinter.Tk()
+        _root.withdraw()
+        tkinter.messagebox.showerror(
+            "Portfolio Connector",
+            f"Failed to start moomoo-service:\n\n{exc}\n\nPlease ensure moomoo-service dependencies are installed.",
+        )
+        _root.destroy()
         sys.exit(1)
 
     # ── Pusher ───────────────────────────────────────────────────────────────

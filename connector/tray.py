@@ -31,6 +31,7 @@ class ConnectorTray:
         self._on_exit = on_exit
         self._log = get_logger()
         self._icon: pystray.Icon | None = None
+        self._stop_event = threading.Event()
 
     def _build_menu(self) -> Menu:
         s = self._state
@@ -51,7 +52,7 @@ class ConnectorTray:
         """Poll state every 5s and update icon + menu."""
         import time
         last_colour = None
-        while self._icon and self._icon.visible:
+        while not self._stop_event.is_set():
             colour = self._state.icon_colour()
             if colour != last_colour:
                 try:
@@ -77,5 +78,6 @@ class ConnectorTray:
         self._icon.run()
 
     def stop(self) -> None:
+        self._stop_event.set()
         if self._icon:
             self._icon.stop()

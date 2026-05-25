@@ -87,6 +87,4 @@ def show(on_complete) -> None:
         ttk.Button(root, text="Connect →", command=on_connect).pack(pady=(6, 0))
         root.mainloop()
 
-    t = threading.Thread(target=_run, daemon=True, name="setup-window")
-    t.start()
-    t.join()  # Block until setup window closes
+    _run()
