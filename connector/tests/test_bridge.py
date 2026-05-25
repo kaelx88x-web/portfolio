@@ -12,23 +12,23 @@ def test_is_healthy_returns_false_when_not_started():
     assert b.is_healthy() is False
 
 
-def test_is_healthy_returns_true_on_200(monkeypatch):
+def test_is_healthy_returns_true_on_200():
     b = Bridge(service_dir=Path("."))
     b._process = MagicMock()  # simulate started
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
 
-    with patch("httpx.get", return_value=mock_resp):
+    with patch("connector.bridge.httpx.get", return_value=mock_resp):
         assert b.is_healthy() is True
 
 
-def test_is_healthy_returns_false_on_connection_error(monkeypatch):
+def test_is_healthy_returns_false_on_connection_error():
     import httpx
     b = Bridge(service_dir=Path("."))
     b._process = MagicMock()
 
-    with patch("httpx.get", side_effect=httpx.ConnectError("refused")):
+    with patch("connector.bridge.httpx.get", side_effect=httpx.ConnectError("refused")):
         assert b.is_healthy() is False
 
 

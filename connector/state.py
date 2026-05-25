@@ -16,7 +16,7 @@ class AppState:
     last_push_at: datetime | None = None
     next_push_in: int = 0          # seconds until next push
     opend_ok: bool = False
-    server_ok: bool = True
+    server_ok: bool = False
     last_error: str = ""
 
     def status_line(self) -> str:
