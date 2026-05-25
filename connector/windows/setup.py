@@ -17,7 +17,7 @@ _log = get_logger()
 
 def show(on_complete) -> None:
     """
-    Open the setup dialog in a new thread with its own Tk mainloop.
+    Open the setup dialog on the calling thread (must be main thread).
     Calls on_complete(cfg: dict) when user clicks Connect successfully.
     Blocks until the window is closed.
     """
