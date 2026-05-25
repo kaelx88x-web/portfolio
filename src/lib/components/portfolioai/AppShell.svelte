@@ -1,21 +1,22 @@
 <script lang="ts">
+  import { page } from '$app/stores';
+  import { navigating } from '$app/stores';
   import { onMount } from 'svelte';
-  import { page, navigating } from '$app/stores';
   import Sidebar from './Sidebar.svelte';
   import Topbar  from './Topbar.svelte';
+  import NavFlyout from '$lib/components/nav/NavFlyout.svelte';
+  import NavBottomBar from '$lib/components/nav/NavBottomBar.svelte';
+  import { pinnedSection, hoveredSection, flyoutActive } from '$lib/stores/nav';
+  import { NAV_SECTIONS, getActiveSectionId } from '$lib/config/nav';
 
   export let showAiPanel = false;
 
-  let sidebarCollapsed = false;
-  let mobileMenuOpen   = false;
-  let aiPanelOpen      = showAiPanel;
+  let railEl: HTMLElement | undefined = undefined;
+  let aiPanelOpen = showAiPanel;
 
   const AI_PANEL_ROUTES = ['/dashboard', '/ai'];
 
   onMount(() => {
-    const sc = localStorage.getItem('portfolioai:sidebar-collapsed');
-    if (sc !== null) sidebarCollapsed = sc === 'true';
-
     const stored = localStorage.getItem('portfolioai:ai-panel-open');
     if (stored !== null) {
       aiPanelOpen = stored === 'true';
@@ -25,23 +26,36 @@
     }
   });
 
-  // Close mobile menu on route change
-  $: if ($page.url.pathname) mobileMenuOpen = false;
+  // Which section's fly-out to show (pinned takes precedence over hovered)
+  $: visibleSectionId = $pinnedSection ?? $hoveredSection;
+  $: visibleSection = visibleSectionId
+    ? (NAV_SECTIONS.find(s => s.id === visibleSectionId) ?? null)
+    : null;
+  $: showFlyout = visibleSection !== null && (visibleSection.children?.length ?? 0) > 0;
+  $: isFlyoutPinned = $pinnedSection !== null && $pinnedSection === visibleSectionId;
 
-  function toggleSidebar() {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      mobileMenuOpen = !mobileMenuOpen;
-    } else {
-      sidebarCollapsed = !sidebarCollapsed;
-      localStorage.setItem('portfolioai:sidebar-collapsed', String(sidebarCollapsed));
-    }
+  function closeFlyout() {
+    pinnedSection.set(null);
+    hoveredSection.set(null);
+    flyoutActive.set(false);
   }
-
-  function closeMobileMenu() { mobileMenuOpen = false; }
 
   function toggleAiPanel() {
     aiPanelOpen = !aiPanelOpen;
     localStorage.setItem('portfolioai:ai-panel-open', String(aiPanelOpen));
+  }
+
+  // Topbar logo/grid button: toggle pin for the currently active section
+  function toggleSidebar() {
+    const activeSectionId = getActiveSectionId($page.url.pathname);
+    if (!activeSectionId) return;
+    const section = NAV_SECTIONS.find(s => s.id === activeSectionId);
+    if (!section?.children?.length) return;
+    if ($pinnedSection === activeSectionId) {
+      pinnedSection.set(null);
+    } else {
+      pinnedSection.set(activeSectionId);
+    }
   }
 </script>
 
@@ -55,7 +69,7 @@
   <!-- Topbar -->
   <header class="shell-topbar">
     <Topbar
-      {sidebarCollapsed}
+      sidebarCollapsed={false}
       {aiPanelOpen}
       on:toggleSidebar={toggleSidebar}
       on:toggleAiPanel={toggleAiPanel}
@@ -64,20 +78,22 @@
 
   <div class="shell-body">
 
-    <!-- Mobile sidebar backdrop -->
-    {#if mobileMenuOpen}
-      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-      <div class="mobile-backdrop" on:click={closeMobileMenu}></div>
-    {/if}
-
-    <!-- Sidebar -->
-    <aside
-      class="shell-sidebar"
-      class:collapsed={sidebarCollapsed}
-      class:mobile-open={mobileMenuOpen}
-    >
-      <Sidebar {sidebarCollapsed} on:toggleSidebar={toggleSidebar} />
+    <!-- Icon Rail (always 48px) -->
+    <aside class="shell-sidebar">
+      <Sidebar bind:railEl />
     </aside>
+
+    <!-- Fly-out panel: float (absolute) or pinned (static flex child) -->
+    {#if showFlyout && visibleSection}
+      <div class="flyout-wrapper" class:pinned={isFlyoutPinned}>
+        <NavFlyout
+          section={visibleSection}
+          isPinned={isFlyoutPinned}
+          {railEl}
+          on:close={closeFlyout}
+        />
+      </div>
+    {/if}
 
     <!-- Main content -->
     <main class="shell-main custom-scrollbar">
@@ -102,6 +118,9 @@
     </slot>
   </aside>
 {/if}
+
+<!-- Mobile bottom navigation -->
+<NavBottomBar />
 
 <style>
   .nav-bar {
@@ -131,7 +150,7 @@
     background: var(--bg-glass);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
-    z-index: 40;
+    z-index: 50;
     box-shadow: 0 1px 0 rgba(var(--primary-rgb),0.06), 0 4px 24px rgba(0,0,0,0.2);
   }
 
@@ -139,18 +158,32 @@
     display: flex; flex: 1; overflow: hidden; position: relative;
   }
 
-  /* ── Desktop sidebar ── */
+  /* Icon rail — always 48px */
   .shell-sidebar {
-    width: 240px; flex-shrink: 0;
-    transition: width 0.2s ease;
+    width: 48px; flex-shrink: 0;
     border-right: 1px solid var(--overlay-border);
     background: var(--sidebar-glass);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
-    overflow: hidden;
     box-shadow: 1px 0 0 rgba(var(--primary-rgb),0.05);
+    z-index: 30;
+    overflow: visible;
   }
-  .shell-sidebar.collapsed { width: 48px; }
+
+  /* Fly-out wrapper */
+  .flyout-wrapper {
+    position: absolute;
+    left: 48px;
+    top: 0;
+    bottom: 0;
+    width: 200px;
+    z-index: 40;
+  }
+  .flyout-wrapper.pinned {
+    position: static;
+    flex-shrink: 0;
+    z-index: auto;
+  }
 
   .shell-main {
     flex: 1; overflow-y: auto;
@@ -158,7 +191,7 @@
     min-width: 0;
   }
 
-  /* ── AI panel ── */
+  /* AI panel */
   .shell-ai-panel {
     position: fixed;
     top: 56px; right: 0; bottom: 0;
@@ -180,40 +213,16 @@
 
   .ai-panel-placeholder { padding: 8px; }
 
-  /* ── Mobile ── */
-  @media (max-width: 767px) {
-    /* Sidebar becomes a fixed off-canvas drawer */
-    .shell-sidebar {
-      position: fixed;
-      top: 56px; left: 0; bottom: 0;
-      width: 260px !important;          /* override collapsed width */
-      transform: translateX(-100%);
-      transition: transform 0.25s ease;
-      z-index: 45;
-      border-right: 1px solid var(--overlay-border);
-    }
-    .shell-sidebar.mobile-open {
-      transform: translateX(0);
-      box-shadow: 4px 0 24px rgba(0,0,0,0.35);
-    }
+  /* Mobile */
+  @media (max-width: 768px) {
+    .shell-sidebar  { display: none; }
+    .flyout-wrapper { display: none; }
+    .shell-main     { padding: 16px; padding-bottom: 72px; }
+    .shell-ai-panel { width: 100%; max-width: 320px; }
+  }
 
-    /* Backdrop for mobile drawer */
-    .mobile-backdrop {
-      position: fixed; inset: 56px 0 0 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 44;
-      backdrop-filter: blur(2px);
-    }
-
-    /* Main takes full width */
-    .shell-main {
-      padding: 16px;
-    }
-
-    /* AI panel narrower on mobile */
-    .shell-ai-panel {
-      width: 100%;
-      max-width: 320px;
-    }
+  /* Tablet */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .shell-main { padding: 20px; }
   }
 </style>
