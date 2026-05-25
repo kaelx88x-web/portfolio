@@ -5,6 +5,8 @@
 import { randomBytes } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 
+const DEFAULT_AGENT_LABEL = 'My PC';
+
 /** Generate a cryptographically random agent API key. */
 export function generateAgentKey(): string {
   return 'agent_' + randomBytes(24).toString('hex');
@@ -21,7 +23,7 @@ export async function getOrCreateAgentRegistration(userId: string) {
     create: {
       userId,
       apiKey: generateAgentKey(),
-      label: 'My PC',
+      label: DEFAULT_AGENT_LABEL,
       status: 'pending',
     },
   });
@@ -29,17 +31,18 @@ export async function getOrCreateAgentRegistration(userId: string) {
 
 /**
  * Rotate the agent API key for a user.
- * Creates a new registration if one doesn't exist yet.
- * Invalidates the old key immediately.
+ * Creates a new registration if one does not exist yet.
+ * The old key is immediately invalidated.
  */
 export async function rotateAgentKey(userId: string) {
+  const apiKey = generateAgentKey();
   return prisma.agentRegistration.upsert({
     where: { userId },
-    update: { apiKey: generateAgentKey(), updatedAt: new Date() },
+    update: { apiKey },
     create: {
       userId,
-      apiKey: generateAgentKey(),
-      label: 'My PC',
+      apiKey,
+      label: DEFAULT_AGENT_LABEL,
       status: 'pending',
     },
   });
@@ -126,7 +129,8 @@ export async function getLatestAgentPush(
 
   try {
     return { ...JSON.parse(log.dataJson), pushedAt: log.createdAt };
-  } catch {
+  } catch (err) {
+    console.error('[agent.service] Failed to parse dataJson for push log', log.id, err);
     return null;
   }
 }
