@@ -12,6 +12,8 @@
 
   export let data: PageData;
   export let form: ActionData;
+
+  $: hasData = data.summary !== null && data.narrative !== null;
 </script>
 
 <div class="page-top">
@@ -42,11 +44,21 @@
   </div>
 {/if}
 
+{#if data.loadError}
+  <div class="error-banner">
+    ⚠️ Portfolio Assistant data could not be loaded: {data.loadError}
+  </div>
+{/if}
+
 <div class="layout">
   <main class="main-col">
-    <PortfolioNarrativeCard narrative={data.narrative} confidence={data.summary.confidence} />
+    {#if hasData}
+      <PortfolioNarrativeCard narrative={data.narrative} confidence={data.summary.confidence} />
+    {/if}
     <PortfolioStoryTimeline timeline={data.storyTimeline} />
-    <PortfolioAssistantPanel response={data.summary} type="portfolio" />
+    {#if hasData}
+      <PortfolioAssistantPanel response={data.summary} type="portfolio" />
+    {/if}
     <div class="section-head">
       <Table2 size={16} />
       <h2>Holdings Intelligence</h2>
@@ -55,8 +67,8 @@
   </main>
 
   <aside class="side-col">
-    <AllocationInsightCard response={data.allocation} />
-    <DiversificationInsightCard response={data.diversification} />
+    <AllocationInsightCard response={data.allocation ?? null} />
+    <DiversificationInsightCard response={data.diversification ?? null} />
     <div class="panel">
       <h2>Suggested Questions</h2>
       <div class="chips">

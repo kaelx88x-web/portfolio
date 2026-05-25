@@ -12,17 +12,39 @@ import { BENCHMARKS, ANALYTICS_PERIODS } from '$lib/services/analytics.service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
   const period = parsePortfolioAssistantPeriod(url.searchParams.get('period'));
   const benchmark = parsePortfolioAssistantBenchmark(url.searchParams.get('benchmark'));
 
-  return {
-    period,
-    benchmark,
-    periods: ANALYTICS_PERIODS,
-    benchmarks: BENCHMARKS,
-    ...(await getPortfolioAssistantOverview(user.id, { period, benchmark }))
-  };
+  try {
+    const user = await getDemoUser();
+    return {
+      period,
+      benchmark,
+      periods: ANALYTICS_PERIODS,
+      benchmarks: BENCHMARKS,
+      ...(await getPortfolioAssistantOverview(user.id, { period, benchmark }))
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[portfolio-assistant] load error:', message);
+    return {
+      period,
+      benchmark,
+      periods: ANALYTICS_PERIODS,
+      benchmarks: BENCHMARKS,
+      loadError: message,
+      narrative: null,
+      summary: null,
+      allocation: null,
+      diversification: null,
+      performance: null,
+      holdings: null,
+      holdingsTable: [],
+      storyTimeline: [],
+      suggestedQuestions: [],
+      recentExplanations: []
+    };
+  }
 };
 
 export const actions: Actions = {
