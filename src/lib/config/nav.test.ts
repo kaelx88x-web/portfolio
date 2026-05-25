@@ -59,4 +59,12 @@ describe('getActiveSectionId', () => {
   it('returns null for unknown paths', () => {
     expect(getActiveSectionId('/unknown')).toBeNull();
   });
+
+  it('does NOT activate ai section for /ai-analysis', () => {
+    expect(getActiveSectionId('/ai-analysis')).toBeNull();
+  });
+
+  it('does NOT activate ai section for /ai-context', () => {
+    expect(getActiveSectionId('/ai-context')).toBeNull();
+  });
 });

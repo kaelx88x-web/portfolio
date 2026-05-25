@@ -128,7 +128,9 @@ export const NAV_SECTIONS: NavSection[] = [
 export function getActiveSectionId(pathname: string): string | null {
   for (const section of NAV_SECTIONS) {
     if (section.matchPaths?.includes(pathname)) return section.id;
-    if (section.matchPrefix && pathname.startsWith(section.matchPrefix)) return section.id;
+    if (section.matchPrefix &&
+        (pathname === section.matchPrefix || pathname.startsWith(section.matchPrefix + '/')))
+      return section.id;
     if (section.href && pathname === section.href) return section.id;
   }
   return null;
