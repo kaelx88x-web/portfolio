@@ -4,7 +4,7 @@
   import {
     LayoutDashboard, PieChart, Link2,
     Sliders, Settings, ChevronRight,
-    ClipboardList, ChevronLeft, Download, Eye, MessageCircle, Wallet, TrendingUp
+    ClipboardList, ChevronLeft, Download, Eye, MessageCircle, Wallet, TrendingUp, Radio
   } from 'lucide-svelte';
   import ComingSoonBadge from './badges/ComingSoonBadge.svelte';
   import { beginnerMode } from '$lib/stores/ui';
@@ -61,9 +61,10 @@
     {
       id: 'trades', label: 'Trades', icon: ClipboardList, badge: 'SANDBOX',
       items: [
-        { label: 'Overview', href: '/trades' },
-        { label: 'Tickets',  href: '/trades/tickets' },
-        { label: 'Orders',   href: '/orders' },
+        { label: 'Overview',      href: '/trades' },
+        { label: 'Tickets',       href: '/trades/tickets' },
+        { label: 'Orders',        href: '/orders' },
+        { label: 'Paper Trading', href: '/paper-trading' },
       ],
     },
   ];
@@ -226,6 +227,15 @@
     >
       <svelte:component this={Settings} size={16} class="sb-icon" />
       {#if !sidebarCollapsed}<span class="sb-item-label">Settings</span>{/if}
+    </a>
+    <a
+      href="/settings/agent"
+      class="sb-item"
+      class:active={activePath === '/settings/agent' || activePath.startsWith('/settings/agent/')}
+      title={sidebarCollapsed ? 'Agent' : undefined}
+    >
+      <svelte:component this={Radio} size={16} class="sb-icon" />
+      {#if !sidebarCollapsed}<span class="sb-item-label">Agent</span>{/if}
     </a>
   </div>
 </div>
