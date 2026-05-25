@@ -25,8 +25,9 @@ def main() -> None:
         state.status = "unconfigured"
 
         completed = []
-        def on_setup_complete(cfg):
-            completed.append(cfg)
+        def on_setup_complete(_cfg):
+            # config is written to disk by setup.show(); load_config() re-reads it below
+            completed.append(True)
 
         from connector.windows import setup
         setup.show(on_complete=on_setup_complete)
@@ -35,13 +36,18 @@ def main() -> None:
             log.info("Setup cancelled — exiting")
             sys.exit(0)
 
+    # setup.show() writes config.json to disk; load_config() reads it back here
     cfg = load_config()
-    log.info("Config loaded — server: %s", cfg["server_url"])
+    log.info("Config loaded — server: %s", cfg.get("server_url", "(unknown)"))
 
     # ── Bridge ───────────────────────────────────────────────────────────────
     bridge = Bridge()
     state.status = "starting"
-    bridge.start()
+    try:
+        bridge.start()
+    except Exception as exc:
+        log.error("Failed to start moomoo-service: %s", exc)
+        sys.exit(1)
 
     # ── Pusher ───────────────────────────────────────────────────────────────
     pusher = Pusher(bridge=bridge, state=state, cfg=cfg)
