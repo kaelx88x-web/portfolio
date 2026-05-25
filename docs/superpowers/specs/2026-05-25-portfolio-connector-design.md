@@ -174,6 +174,16 @@ pyinstaller build.spec
 
 User downloads `PortfolioConnector.exe`, double-clicks, pastes API key, done.
 
+## Known Pitfalls (must handle in implementation)
+
+| Problem | Fix |
+|---------|-----|
+| Tray icon disappears on state change | Always call `icon.update_menu()` after rebuilding the menu |
+| tkinter crashes from non-main thread | Run all tkinter windows with `root.after(0, ...)` or a separate `Thread` with its own `mainloop()` — never call tkinter from pusher/bridge threads directly |
+| PyInstaller can't find moomoo-service | Use `sys._MEIPASS` path resolution in `bridge.py` to locate bundled `moomoo-service/` at runtime |
+| SmartScreen blocks .exe on first run | Expected for unsigned code — spec must tell users to click "More info → Run anyway" in the setup guide |
+| pystray hidden import missing | Add `"pystray._win32"` to `hiddenimports` in `build.spec` — PyInstaller misses it |
+
 ## What Is NOT in Scope
 
 - macOS / Linux support (Windows only for MVP)
