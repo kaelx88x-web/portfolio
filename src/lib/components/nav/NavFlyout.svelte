@@ -41,82 +41,46 @@
   }
 </script>
 
-{#if !isPinned}
-  <nav
-    class="flyout"
-    aria-label="{section.label} navigation"
-    transition:fly={{ x: -8, duration: 150, easing: cubicOut }}
-    use:clickOutside={{ exclude: railEl }}
-    on:outclick={handleOutclick}
-    on:mouseenter={onMouseEnter}
-    on:mouseleave={onMouseLeave}
-    on:keydown={onKeydown}
-  >
-    <div class="flyout-header" style="color: {accentColor}">
-      <span class="flyout-icon">{section.icon}</span>
-      <div>
-        <div class="flyout-title">{section.label}</div>
-        {#if section.children}
-          <div class="flyout-subtitle">{section.children.length} pages</div>
-        {/if}
-      </div>
+<nav
+  class="flyout"
+  class:flyout-pinned={isPinned}
+  aria-label="{section.label} navigation"
+  use:clickOutside={{ exclude: railEl }}
+  on:outclick={handleOutclick}
+  on:mouseenter={onMouseEnter}
+  on:mouseleave={onMouseLeave}
+  on:keydown={onKeydown}
+  in:fly={!isPinned ? { x: -8, duration: 150, easing: cubicOut } : { duration: 0 }}
+  out:fly={!isPinned ? { x: -8, duration: 150, easing: cubicOut } : { duration: 0 }}
+>
+  <div class="flyout-header" style="color: {accentColor}">
+    <span class="flyout-icon">{section.icon}</span>
+    <div>
+      <div class="flyout-title">{section.label}</div>
+      {#if section.children}
+        <div class="flyout-subtitle">{section.children.length} pages</div>
+      {/if}
     </div>
-    {#if section.children}
-      {#each section.children as child}
-        {@const isActive = activePath === child.href || activePath.startsWith(child.href + '/')}
-        <a
-          href={child.href}
-          class="flyout-link"
-          class:active={isActive}
-          style={isActive ? `color: ${accentColor}; background: ${accentBg}` : ''}
-          on:click={handleLinkClick}
-        >
-          <span class="flyout-link-icon">{child.icon}</span>
-          <span class="flyout-link-label">{child.label}</span>
-          {#if child.badge}
-            <span class="flyout-badge">{child.badge}</span>
-          {/if}
-        </a>
-      {/each}
-    {/if}
-  </nav>
-{:else}
-  <nav
-    class="flyout flyout-pinned"
-    aria-label="{section.label} navigation"
-    use:clickOutside={{ exclude: railEl }}
-    on:outclick={handleOutclick}
-    on:keydown={onKeydown}
-  >
-    <div class="flyout-header" style="color: {accentColor}">
-      <span class="flyout-icon">{section.icon}</span>
-      <div>
-        <div class="flyout-title">{section.label}</div>
-        {#if section.children}
-          <div class="flyout-subtitle">{section.children.length} pages</div>
+  </div>
+  {#if section.children}
+    {#each section.children as child}
+      {@const isActive = activePath === child.href || activePath.startsWith(child.href + '/')}
+      <a
+        href={child.href}
+        class="flyout-link"
+        class:active={isActive}
+        style={isActive ? `color: ${accentColor}; background: ${accentBg}` : ''}
+        on:click={handleLinkClick}
+      >
+        <span class="flyout-link-icon">{child.icon}</span>
+        <span class="flyout-link-label">{child.label}</span>
+        {#if child.badge}
+          <span class="flyout-badge">{child.badge}</span>
         {/if}
-      </div>
-    </div>
-    {#if section.children}
-      {#each section.children as child}
-        {@const isActive = activePath === child.href || activePath.startsWith(child.href + '/')}
-        <a
-          href={child.href}
-          class="flyout-link"
-          class:active={isActive}
-          style={isActive ? `color: ${accentColor}; background: ${accentBg}` : ''}
-          on:click={handleLinkClick}
-        >
-          <span class="flyout-link-icon">{child.icon}</span>
-          <span class="flyout-link-label">{child.label}</span>
-          {#if child.badge}
-            <span class="flyout-badge">{child.badge}</span>
-          {/if}
-        </a>
-      {/each}
-    {/if}
-  </nav>
-{/if}
+      </a>
+    {/each}
+  {/if}
+</nav>
 
 <style>
   .flyout {
