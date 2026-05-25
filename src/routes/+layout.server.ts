@@ -4,8 +4,7 @@ import { getLatestSnapshot } from '$lib/services/snapshot.service';
 import type { LayoutServerLoad } from './$types';
 import type { SnapshotHolding } from '$lib/types/portfolio';
 
-export const load: LayoutServerLoad = async ({ setHeaders }) => {
-  setHeaders({ 'cache-control': 'private, max-age=60' });
+export const load: LayoutServerLoad = async () => {
   try {
     const user = await getDemoUser();
     const [snapshot, accounts] = await Promise.all([
