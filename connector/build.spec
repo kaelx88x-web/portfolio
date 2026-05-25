@@ -6,6 +6,7 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
@@ -37,7 +38,11 @@ a = Analysis(
         "uvicorn.lifespan.on",
         "uvicorn.loops.auto",
         "uvicorn.protocols.http.auto",
+        "uvicorn.protocols.http.h11_impl",
         "uvicorn.protocols.websockets.auto",
+        "uvicorn.protocols.websockets.wsproto_impl",
+        "h11",
+        "wsproto",
         # FastAPI / moomoo-service dependencies
         "fastapi",
         "fastapi.middleware.cors",
@@ -45,7 +50,7 @@ a = Analysis(
         "pydantic.deprecated.class_validators",
         "dotenv",
         # moomoo SDK — imported lazily in moomoo-service route handlers
-        "moomoo",
+        *collect_submodules("moomoo"),
     ],
     hookspath=[],
     hooksconfig={},
