@@ -4,34 +4,51 @@
     Zap, PieChart, Activity, Search, Sparkles
   } from 'lucide-svelte';
 
+  let activeTab = 'copilot';
+
+  const aiTabs = [
+    {
+      id: 'copilot', label: '💬 Copilot', title: 'AI Portfolio Copilot',
+      desc: 'Ask anything about your portfolio in plain English. Get instant, context-aware answers about risk, performance, allocation, and what to watch.',
+      bullets: ['Knows your actual holdings and weights', 'Understands your benchmark and performance', 'Flags concentration risk and anomalies', 'Suggests follow-up questions automatically']
+    },
+    {
+      id: 'risk', label: '🛡️ Risk Advisor', title: 'AI Risk Advisor',
+      desc: 'Get a complete risk breakdown of your portfolio — volatility exposure, drawdown probability, correlation risks, and stress test scenarios.',
+      bullets: ['Calculates portfolio volatility and beta', 'Runs historical stress test simulations', 'Identifies correlated position risks', 'Provides actionable risk reduction steps']
+    },
+    {
+      id: 'assistant', label: '🧠 Portfolio Asst', title: 'AI Portfolio Assistant',
+      desc: 'Generate a full portfolio narrative — what you own, how it performs, what risks you carry, and what the AI recommends next.',
+      bullets: ['Full narrative summary of your holdings', 'Performance attribution by sector', 'Benchmark comparison with plain-English commentary', 'Monthly report generation']
+    },
+    {
+      id: 'memory', label: '🗂️ Memory', title: 'AI Memory',
+      desc: 'PortfolioAI remembers your goals, risk tolerance, preferred holdings, and past conversations — so every answer is in context.',
+      bullets: ['Stores your investment goals and preferences', 'Recalls past portfolio changes and decisions', 'Personalizes AI responses to your style', 'Persistent across sessions']
+    },
+    {
+      id: 'insights', label: '💡 Insights', title: 'AI Insights',
+      desc: 'Weekly portfolio insights automatically generated — highlights, risks spotted, income changes, and AI observations you may have missed.',
+      bullets: ['Weekly performance highlights', 'Automatic anomaly detection', 'Sector rotation and allocation shift alerts', 'Income and dividend change tracking']
+    },
+  ];
+
   const features = [
-    { icon: Bot,       title: 'AI Portfolio Copilot',    copy: 'Ask plain-language questions about your holdings, risk, and P&L. Powered by Claude & GPT.',                         color: 'purple' },
-    { icon: Globe,     title: 'Global Market Status',    copy: 'Live open/closed status for US, HK, Shanghai, and Shenzhen markets with major index prices.',                       color: 'blue'   },
-    { icon: Users,     title: 'Insider Transactions',    copy: 'Track SEC Form 4 filings — see when executives buy or sell their own company shares.',                             color: 'green'  },
-    { icon: Search,    title: 'Peer Research',           copy: 'Discover comparable companies in the same industry with market cap and profile data.',                             color: 'teal'   },
-    { icon: Activity,  title: 'Capital Flow Analysis',   copy: 'Monitor super, big, mid, and small money flow in real time via Moomoo OpenD bridge.',                             color: 'orange' },
-    { icon: BarChart3, title: 'Sector Analytics',        copy: 'Visualize exposure across sectors, screen stocks by plate, and spot concentration risk.',                         color: 'blue'   },
-    { icon: PieChart,  title: 'Portfolio Tracking',      copy: 'Track holdings, unrealized P&L, allocation drift, and snapshots over time.',                                      color: 'purple' },
-    { icon: Link2,     title: 'Broker Sync',             copy: 'Import positions and transactions directly from Moomoo via the OpenD bridge service.',                            color: 'green'  },
+    { icon: Bot,       title: 'AI Portfolio Copilot',           copy: 'Ask plain-language questions about your holdings, risk, and P&L. Powered by Claude & GPT.',                         color: 'purple' },
+    { icon: Globe,     title: 'Global Market Status',           copy: 'Live open/closed status for US, HK, Shanghai, and Shenzhen markets with major index prices.',                       color: 'blue'   },
+    { icon: Users,     title: 'Insider Transactions',           copy: 'Track SEC Form 4 filings — see when executives buy or sell their own company shares.',                             color: 'green'  },
+    { icon: Search,    title: 'Peer Research',                  copy: 'Discover comparable companies in the same industry with market cap and profile data.',                             color: 'teal'   },
+    { icon: Activity,  title: 'Capital Flow Analysis',          copy: 'Monitor super, big, mid, and small money flow in real time via Moomoo OpenD bridge.',                             color: 'orange' },
+    { icon: BarChart3, title: 'Sector Analytics',               copy: 'Visualize exposure across sectors, screen stocks by plate, and spot concentration risk.',                         color: 'blue'   },
+    { icon: PieChart,  title: 'Portfolio Tracking + Snapshots', copy: 'Track holdings, unrealized P&L, allocation drift, and point-in-time snapshots over time.',                       color: 'purple' },
+    { icon: Link2,     title: 'Broker Sync',                    copy: 'Import positions and transactions directly from Moomoo via the OpenD bridge service.',                            color: 'green'  },
   ];
 
   const steps = [
     { n: '01', title: 'Connect your broker',    body: 'Run the Moomoo OpenD bridge. PortfolioAI pulls your live positions, cash flow, and order history automatically.' },
     { n: '02', title: 'Explore the markets',    body: 'Check global market status, insider activity, and peer companies. All powered by free data sources.' },
     { n: '03', title: 'Let AI do the analysis', body: 'Ask the AI Copilot anything about your portfolio. Get risk summaries, trim candidates, and plain-language insights.' },
-  ];
-
-  const markets = [
-    { flag: '🇺🇸', name: 'United States', short: 'NYSE / NASDAQ', status: 'open',   time: '10:32 AM' },
-    { flag: '🇭🇰', name: 'Hong Kong',     short: 'HKEX',         status: 'closed', time: '11:45 PM' },
-    { flag: '🇨🇳', name: 'Shanghai',      short: 'SSE',          status: 'closed', time: '11:45 PM' },
-    { flag: '🇨🇳', name: 'Shenzhen',      short: 'SZSE',         status: 'closed', time: '11:45 PM' },
-  ];
-
-  const insiders = [
-    { name: 'Jensen Huang',  ticker: 'NVDA', type: 'P', value: '$42.1M', date: 'May 12' },
-    { name: 'Tim Cook',      ticker: 'AAPL', type: 'S', value: '$89.4M', date: 'May 10' },
-    { name: 'Satya Nadella', ticker: 'MSFT', type: 'P', value: '$18.2M', date: 'May 08' },
   ];
 </script>
 
@@ -82,21 +99,19 @@
 
         <!-- copy -->
         <div class="hero-copy">
-          <div class="badge">
-            <Sparkles size={13} />
-            AI-native investing workspace
+          <div class="badge inst-badge">
+            ✦ INSTITUTIONAL-GRADE PORTFOLIO INTELLIGENCE
           </div>
           <h1>
-            Your portfolio.<br />
-            <span class="grad">Smarter decisions.</span>
+            Portfolio Analytics for<br />
+            <span class="grad">Serious Investors</span>
           </h1>
           <p class="hero-sub">
-            Real-time market intelligence, insider transaction alerts, AI portfolio analysis,
-            and broker sync — in one clean dashboard.
+            Alpha, beta, stress testing, AI copilot, live broker sync — tools used by fund managers, now accessible to individual investors. Free to start.
           </p>
           <div class="hero-btns">
-            <a href="/dashboard" class="btn-primary btn-lg">Open Dashboard <ArrowRight size={16} /></a>
-            <a href="#features" class="btn-outline btn-lg">See features</a>
+            <a href="/dashboard" class="btn-primary btn-lg">Open Free Dashboard <ArrowRight size={16} /></a>
+            <a href="#ai" class="btn-outline btn-lg">See AI in action</a>
           </div>
           <div class="powered">
             <span>Powered by</span>
@@ -108,56 +123,22 @@
           </div>
         </div>
 
-        <!-- preview panels -->
+        <!-- AI chat preview panel -->
         <div class="hero-preview">
-
-          <!-- markets panel -->
-          <div class="panel">
+          <div class="panel ai-chat-panel">
             <div class="panel-head">
-              <span class="panel-title">Global Markets</span>
-              <span class="live-pill"><span class="live-dot"></span>Live</span>
+              <span class="panel-title">💬 AI Portfolio Copilot</span>
+              <span class="live-pill"><span class="live-dot"></span>AI</span>
             </div>
-            <div class="mkt-list">
-              {#each markets as m}
-                <div class="mkt-row">
-                  <span class="mkt-flag">{m.flag}</span>
-                  <div class="mkt-info">
-                    <span class="mkt-name">{m.name}</span>
-                    <span class="mkt-short">{m.short}</span>
-                  </div>
-                  <div class="mkt-right">
-                    <span class="sdot sdot-{m.status}"></span>
-                    <span class="mkt-time">{m.time}</span>
-                  </div>
-                </div>
-              {/each}
+            <div class="chat-msgs">
+              <div class="chat-msg user-msg">
+                Am I too concentrated in tech stocks?
+              </div>
+              <div class="chat-msg ai-msg">
+                Your tech exposure is <strong>41%</strong> — above the institutional threshold of 30%. Top 3 positions: NVDA (18%), QQQ (13%), SOXL (10%).<br><br>Consider trimming NVDA by ~5% to bring tech below 38%.
+              </div>
             </div>
           </div>
-
-          <!-- insider panel -->
-          <div class="panel">
-            <div class="panel-head">
-              <span class="panel-title">Insider Transactions</span>
-              <span class="tag-pill">SEC Form 4</span>
-            </div>
-            <div class="tx-list">
-              {#each insiders as tx}
-                <div class="tx-row">
-                  <div class="tx-left">
-                    <span class="tx-name">{tx.name}</span>
-                    <span class="tx-ticker">{tx.ticker}</span>
-                  </div>
-                  <div class="tx-right">
-                    <span class="tx-badge {tx.type === 'P' ? 'buy' : 'sell'}">{tx.type === 'P' ? 'Purchase' : 'Sale'}</span>
-                    <span class="tx-val">{tx.value}</span>
-                    <span class="tx-date">{tx.date}</span>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          </div>
-
-          <!-- stats row -->
           <div class="stats-row">
             <div class="stat-box">
               <span class="stat-lbl">Portfolio Value</span>
@@ -170,13 +151,13 @@
               <span class="stat-chg warn">Moderate</span>
             </div>
             <div class="stat-box">
-              <span class="stat-lbl">Div Income</span>
-              <span class="stat-val">$842/mo</span>
-              <span class="stat-chg up">+8.4% YoY</span>
+              <span class="stat-lbl">Alpha vs SPY</span>
+              <span class="stat-val">+3.2%</span>
+              <span class="stat-chg up">Outperforming</span>
             </div>
           </div>
-
         </div>
+
       </div>
     </div>
   </section>
@@ -371,6 +352,11 @@
     color: var(--primary); font-size: 0.73rem; font-weight: 600;
     margin-bottom: 22px;
   }
+  .inst-badge {
+    border-color: rgba(var(--success-rgb), 0.3);
+    background: rgba(var(--success-rgb), 0.08);
+    color: var(--success); letter-spacing: 0.03em;
+  }
 
   h1 {
     font-size: clamp(2rem, 4vw, 3rem);
@@ -411,6 +397,23 @@
      Hero preview
   ───────────────────────────────────────── */
   .hero-preview { display: flex; flex-direction: column; gap: 10px; }
+
+  /* AI chat in hero */
+  .ai-chat-panel { background: var(--card); border: 1px solid var(--overlay-border); border-radius: 14px; padding: 14px 16px; }
+  .chat-msgs { display: flex; flex-direction: column; gap: 9px; margin-top: 4px; }
+  .chat-msg { max-width: 90%; padding: 9px 12px; border-radius: 10px; font-size: 0.76rem; line-height: 1.55; }
+  .user-msg {
+    align-self: flex-end;
+    background: rgba(var(--primary-rgb), 0.12);
+    color: var(--text); border-radius: 10px 10px 3px 10px;
+  }
+  .ai-msg {
+    align-self: flex-start;
+    background: var(--surface-1);
+    border: 1px solid var(--overlay-border);
+    color: var(--text); border-radius: 10px 10px 10px 3px;
+  }
+  .ai-msg strong { color: var(--success); }
 
   .panel {
     background: var(--card);
