@@ -66,7 +66,7 @@ export function parseOptionsFromSnapshot(
   return snapshotRows
     .map((h) => {
       // Strip market suffix (e.g. "NIO260530C00005500.US" → "NIO260530C00005500")
-      const local = (h.symbol.split('.').at(-1) ?? h.symbol).toUpperCase();
+      const local = (h.symbol.split('.')[0] ?? h.symbol).toUpperCase();
       const match = local.match(/^([A-Z]+)(\d{6})([CP])(\d+)$/);
       if (!match) return null;
       const [, underlying, rawDate, cp, rawStrike] = match;
@@ -153,7 +153,7 @@ export function computeSectorAlert(
 export function computeTopMover(snapshotRows: SnapshotHolding[]): PortfolioMover | null {
   // Filter out option positions (OCC symbol pattern)
   const stockRows = snapshotRows.filter((h) => {
-    const local = (h.symbol.split('.').at(-1) ?? h.symbol).toUpperCase();
+    const local = (h.symbol.split('.')[0] ?? h.symbol).toUpperCase();
     return !local.match(/^[A-Z]+\d{6}[CP]\d+$/);
   });
 
@@ -184,7 +184,7 @@ export function assembleBriefing(params: {
 
   // top5Pct — top 5 non-option holdings as % of total value
   const stockRows = snapshotRows.filter((h) => {
-    const local = (h.symbol.split('.').at(-1) ?? h.symbol).toUpperCase();
+    const local = (h.symbol.split('.')[0] ?? h.symbol).toUpperCase();
     return !local.match(/^[A-Z]+\d{6}[CP]\d+$/);
   });
   const top5Value = [...stockRows]
