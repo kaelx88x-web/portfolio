@@ -6,7 +6,7 @@
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import StatCard from '$lib/components/portfolioai/StatCard.svelte';
-  import AiBanner from '$lib/components/portfolioai/AiBanner.svelte';
+  import DailyBriefingCard from '$lib/components/portfolioai/DailyBriefingCard.svelte';
   import AIInsightCard from '$lib/components/portfolioai/AIInsightCard.svelte';
   import PortfolioGrowthChart from '$lib/components/portfolioai/charts/PortfolioGrowthChart.svelte';
   import AllocationChart from '$lib/components/portfolioai/charts/AllocationChart.svelte';
@@ -92,7 +92,7 @@
 {/if}
 
 <!-- AI Banner -->
-<AiBanner brief={data.aiBrief} />
+<DailyBriefingCard briefing={data.briefing} />
 
 <!-- Stat row -->
 <div class="stat-row">
