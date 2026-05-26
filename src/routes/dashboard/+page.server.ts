@@ -22,7 +22,89 @@ export const actions: Actions = {
     } catch (e) {
       return { refreshed: false, error: e instanceof Error ? e.message : 'Sync failed' };
     }
-  }
+  },
+
+  generateBrief: async () => {
+    const user = await getDemoUser();
+
+    // Re-fetch snapshot for latest data
+    const snapshot = await getLatestSnapshot(user.id).catch(() => null);
+    let snapshotRows: import('$lib/types/portfolio').SnapshotHolding[] = [];
+    let totalValue = 0;
+    if (snapshot) {
+      try { snapshotRows = JSON.parse(snapshot.holdingsJson); } catch { snapshotRows = []; }
+      totalValue = snapshot.totalValue;
+    }
+
+    // Minimal allocation map for headline context
+    const sectorMap = new Map<string, number>();
+    for (const h of snapshotRows) {
+      const sector = (h as { sector?: string | null }).sector ?? 'Other';
+      sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + Math.abs(h.marketValue));
+    }
+    const allocationBase = [...sectorMap.values()].reduce((s, v) => s + v, 0);
+    const allocations = [...sectorMap.entries()]
+      .map(([label, value]) => ({
+        label,
+        value,
+        percentage: allocationBase > 0 ? (value / allocationBase) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // Day P&L from snapshot rows
+    const dayPl = snapshotRows.length > 0
+      ? snapshotRows.reduce((s, h) => s + (h.todayPl ?? 0), 0)
+      : null;
+
+    // Compute total return for health score
+    const unrealisedPnl = snapshotRows.reduce((s, h) => s + h.unrealizedPnl, 0);
+    const costBasisTotal = snapshotRows.reduce((s, h) => s + (h.marketValue - h.unrealizedPnl), 0);
+    const totalReturnPct = costBasisTotal > 0 ? (unrealisedPnl / costBasisTotal) * 100 : 0;
+
+    const briefing = assembleBriefing({
+      snapshotRows,
+      totalValue,
+      totalReturnPct,
+      dayPl,
+      allocations,
+      aiHeadline: null,         // not needed — we're generating it
+      headlineGeneratedAt: null,
+    });
+
+    const headline = await generateBriefHeadline(
+      {
+        totalValue,
+        healthScore: briefing.healthScore,
+        healthLabel: briefing.healthLabel,
+        dayPl: briefing.dayPl,
+        topSectorLabel: allocations[0]?.label ?? 'Portfolio',
+        topSectorPct: allocations[0]?.percentage ?? 0,
+        alerts: briefing.alerts,
+      },
+      env.ANTHROPIC_API_KEY,
+      env.AI_PROVIDER_CLAUDE_ENABLED === 'true',
+    );
+
+    // Save to ai_insights table (upsert-style: insert fresh row)
+    const id = randomUUID();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60_000); // 24 hours
+
+    await prisma.$executeRaw`
+      INSERT INTO ai_insights
+        (id, userId, insightType, title, summary, riskLevel, contentJson, expiresAt, metadataJson, createdAt, updatedAt)
+      VALUES (
+        ${id}, ${user.id}, ${'portfolio_health'}, ${'Daily Brief'},
+        ${headline}, ${'moderate'},
+        ${JSON.stringify({ brief: headline })},
+        ${expiresAt},
+        ${JSON.stringify({ version: '1.0', type: 'daily_brief' })},
+        ${now}, ${now}
+      )
+    `;
+
+    return { briefGenerated: true };
+  },
 };
 
 export async function load() {
