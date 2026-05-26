@@ -8,6 +8,22 @@ import type {
   PortfolioMover,
 } from '$lib/types/briefing';
 
+// ─── Symbol Helpers ───────────────────────────────────────────────────────────
+
+const OCC_REGEX = /^([A-Z]+)(\d{6})([CP])(\d+)$/;
+
+function stripMarketSuffix(symbol: string): string {
+  return (symbol.split('.')[0] ?? symbol).toUpperCase();
+}
+
+function isOptionSymbol(symbol: string): boolean {
+  return OCC_REGEX.test(stripMarketSuffix(symbol));
+}
+
+// ─── Module-level Constants ───────────────────────────────────────────────────
+
+const PLACEHOLDER_VIX = 18.2; // Phase 1: static placeholder — replace with live API in Phase 2
+
 // ─── Health Score ─────────────────────────────────────────────────────────────
 
 export function computeHealthScore(params: {
@@ -66,18 +82,21 @@ export function parseOptionsFromSnapshot(
   return snapshotRows
     .map((h) => {
       // Strip market suffix (e.g. "NIO260530C00005500.US" → "NIO260530C00005500")
-      const local = (h.symbol.split('.')[0] ?? h.symbol).toUpperCase();
-      const match = local.match(/^([A-Z]+)(\d{6})([CP])(\d+)$/);
+      const local = stripMarketSuffix(h.symbol);
+      const match = local.match(OCC_REGEX);
       if (!match) return null;
       const [, underlying, rawDate, cp, rawStrike] = match;
       const year = 2000 + Number(rawDate.slice(0, 2));
       const month = Number(rawDate.slice(2, 4));
       const day = Number(rawDate.slice(4, 6));
       const expiration = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dte = Math.max(
-        0,
-        Math.ceil((new Date(expiration).getTime() - Date.now()) / 86_400_000),
+      const expiryUtc = Date.UTC(year, month - 1, day);
+      const todayUtc = Date.UTC(
+        new Date().getUTCFullYear(),
+        new Date().getUTCMonth(),
+        new Date().getUTCDate(),
       );
+      const dte = Math.max(0, Math.ceil((expiryUtc - todayUtc) / 86_400_000));
       return {
         symbol: h.symbol,
         underlying,
@@ -153,8 +172,7 @@ export function computeSectorAlert(
 export function computeTopMover(snapshotRows: SnapshotHolding[]): PortfolioMover | null {
   // Filter out option positions (OCC symbol pattern)
   const stockRows = snapshotRows.filter((h) => {
-    const local = (h.symbol.split('.')[0] ?? h.symbol).toUpperCase();
-    return !local.match(/^[A-Z]+\d{6}[CP]\d+$/);
+    return !isOptionSymbol(h.symbol);
   });
 
   if (stockRows.length === 0) return null;
@@ -184,8 +202,7 @@ export function assembleBriefing(params: {
 
   // top5Pct — top 5 non-option holdings as % of total value
   const stockRows = snapshotRows.filter((h) => {
-    const local = (h.symbol.split('.')[0] ?? h.symbol).toUpperCase();
-    return !local.match(/^[A-Z]+\d{6}[CP]\d+$/);
+    return !isOptionSymbol(h.symbol);
   });
   const top5Value = [...stockRows]
     .sort((a, b) => b.marketValue - a.marketValue)
@@ -222,8 +239,6 @@ export function assembleBriefing(params: {
   );
   const unrealisedPnlPct = costBasisTotal > 0 ? (unrealisedPnl / costBasisTotal) * 100 : 0;
 
-  const VIX = 18.2; // Phase 1: static placeholder
-
   return {
     aiHeadline,
     headlineGeneratedAt,
@@ -235,8 +250,8 @@ export function assembleBriefing(params: {
     unrealisedPnlPct,
     thetaToday,
     optionsCount,
-    marketRegime: computeMarketRegime(VIX),
-    vixLevel: VIX,
+    marketRegime: computeMarketRegime(PLACEHOLDER_VIX),
+    vixLevel: PLACEHOLDER_VIX,
     topMover,
     alerts,
   };
@@ -258,6 +273,8 @@ export async function generateBriefHeadline(
   claudeEnabled: boolean,
 ): Promise<string> {
   if (anthropicApiKey && claudeEnabled) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
       const dayPlStr =
         params.dayPl !== null
@@ -267,6 +284,7 @@ export async function generateBriefHeadline(
         params.alerts.map((a) => a.text).join('; ') || 'none';
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
+        signal: controller.signal,
         method: 'POST',
         headers: {
           'x-api-key': anthropicApiKey,
@@ -294,8 +312,10 @@ Portfolio: value $${params.totalValue.toFixed(0)}, health ${params.healthScore}/
         const text = (data.content?.[0]?.text ?? '').trim();
         if (text.length > 0) return text.slice(0, 200);
       }
-    } catch {
-      // fall through to rule-based headline
+    } catch (err) {
+      console.warn('[briefing] headline generation failed, using fallback:', err);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
