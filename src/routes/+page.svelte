@@ -641,9 +641,10 @@ VIX elevated | Breadth negative
       <div class="cta-box">
         <div class="cta-glow"></div>
         <div class="cta-ico"><Zap size={26} /></div>
-        <h2>Ready to see your portfolio differently?</h2>
-        <p>Open the dashboard and start exploring your data with AI.</p>
-        <a href="/dashboard" class="btn-primary btn-lg">Open Dashboard <ArrowRight size={17} /></a>
+        <h2>Ready to invest with institutional clarity?</h2>
+        <p>Open the dashboard — free to start, no credit card required.</p>
+        <a href="/dashboard" class="btn-primary btn-lg">Open Free Dashboard <ArrowRight size={17} /></a>
+        <p class="cta-note">Full access · No trial · No credit card</p>
       </div>
     </div>
   </section>
@@ -1317,6 +1318,10 @@ VIX elevated | Breadth negative
   }
   .cta-box h2 { font-size: clamp(1.3rem, 3vw, 1.75rem); font-weight: 800; color: var(--text); margin: 0 0 10px; }
   .cta-box p  { font-size: 0.88rem; color: var(--muted); margin: 0 0 26px; }
+  .cta-note {
+    font-size: 0.72rem; color: var(--muted); opacity: 0.7;
+    margin: 12px 0 0;
+  }
 
   /* ─────────────────────────────────────────
      Footer
@@ -1339,25 +1344,39 @@ VIX elevated | Breadth negative
      Responsive
   ───────────────────────────────────────── */
   @media (max-width: 860px) {
-    .hero-grid {
-      grid-template-columns: 1fr;
-      gap: 36px;
-    }
-    .hero { padding: 52px 0 48px; }
-    .nav-links { display: none; }
-    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .hero-grid    { grid-template-columns: 1fr; gap: 36px; }
+    .hero         { padding: 52px 0 48px; }
+    .nav-links    { display: none; }
+    .stats-row    { grid-template-columns: repeat(3, 1fr); }
+    /* New sections */
+    .stats-strip  { grid-template-columns: repeat(2, 1fr); }
+    .health-layout { grid-template-columns: 1fr; }
+    .health-mini-grid { grid-template-columns: repeat(2, 1fr); }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .ai-panel     { grid-template-columns: 1fr; }
+    .opt-grid     { grid-template-columns: repeat(2, 1fr); }
+    .trust-grid   { grid-template-columns: repeat(2, 1fr); }
+    .scorecard-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
   @media (max-width: 600px) {
-    .container { padding: 0 16px; }
-    .section { padding: 52px 0; }
-    .hero { padding: 40px 0 36px; }
-    .cta-box { padding: 36px 22px; }
-    .stats-row { grid-template-columns: 1fr; }
-    .feat-grid { grid-template-columns: 1fr; }
-    .steps-grid { grid-template-columns: 1fr; }
-    .hero-btns { flex-direction: column; }
-    .btn-lg { width: 100%; justify-content: center; }
+    .container    { padding: 0 16px; }
+    .section      { padding: 52px 0; }
+    .hero         { padding: 40px 0 36px; }
+    .cta-box      { padding: 36px 22px; }
+    .stats-row    { grid-template-columns: 1fr; }
+    .feat-grid    { grid-template-columns: 1fr; }
+    .steps-grid   { grid-template-columns: 1fr; }
+    .hero-btns    { flex-direction: column; }
+    .btn-lg       { width: 100%; justify-content: center; }
+    /* New sections */
+    .stats-strip  { grid-template-columns: repeat(2, 1fr); }
+    .metrics-grid { grid-template-columns: 1fr; }
+    .opt-grid     { grid-template-columns: 1fr; }
+    .trust-grid   { grid-template-columns: 1fr; }
+    .scorecard-grid { grid-template-columns: 1fr; }
+    .ai-tabs      { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+    .briefing-text { font-size: 0.65rem; padding: 14px 16px; }
   }
 
   @media (max-width: 380px) {
