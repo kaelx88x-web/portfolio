@@ -238,15 +238,6 @@ export async function load() {
     headlineGeneratedAt: briefInsight?.createdAt?.toISOString() ?? null,
   });
 
-  // Latest AI brief — use `summary` field from AiInsight
-  const latestInsight = await prisma.aiInsight.findFirst({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-    select: { summary: true },
-  }).catch(() => null);
-
-  const aiBrief = latestInsight?.summary?.slice(0, 300) ?? '';
-
   return {
     totalValue,
     totalPnl,
@@ -263,7 +254,6 @@ export async function load() {
     topHoldings,
     growthData,
     briefing,
-    aiBrief,
     watchlistItems,
     snapshot,
     dataSource,
