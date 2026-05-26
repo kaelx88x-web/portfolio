@@ -46,6 +46,9 @@
       </a>
       <div class="nav-links">
         <a href="#features">Features</a>
+        <a href="#ai">AI Tools</a>
+        <a href="#options">Options</a>
+        <a href="#compare">Compare</a>
         <a href="#how">How it works</a>
         <a href="/dashboard">Demo</a>
       </div>
@@ -54,6 +57,23 @@
       </a>
     </div>
   </nav>
+
+  <!-- MARKET PULSE -->
+  <div class="pulse-bar">
+    <div class="pulse-inner">
+      <span class="pulse-label">LIVE MARKET PULSE</span>
+      <span class="pulse-sep">·</span>
+      <span class="pulse-item"><span class="pulse-ticker">SPY</span> <span class="pulse-up">+0.82%</span></span>
+      <span class="pulse-sep">·</span>
+      <span class="pulse-item"><span class="pulse-ticker">QQQ</span> <span class="pulse-up">+1.14%</span></span>
+      <span class="pulse-sep">·</span>
+      <span class="pulse-item"><span class="pulse-ticker">VIX</span> <span class="pulse-neutral">18.2</span></span>
+      <span class="pulse-sep">·</span>
+      <span class="pulse-item"><span class="pulse-ticker">Fear &amp; Greed</span> <span class="pulse-neutral">Neutral</span></span>
+      <span class="pulse-sep">·</span>
+      <span class="pulse-item">REGIME: <span class="pulse-regime">RISK-ON</span></span>
+    </div>
+  </div>
 
   <!-- HERO -->
   <section class="hero">
@@ -274,6 +294,35 @@
     text-decoration: none; transition: color 0.15s;
   }
   .nav-links a:hover { color: var(--text); }
+
+  /* ─────────────────────────────────────────
+     Market Pulse bar
+  ───────────────────────────────────────── */
+  .pulse-bar {
+    background: rgba(var(--success-rgb), 0.06);
+    border-bottom: 1px solid rgba(var(--success-rgb), 0.15);
+    overflow: hidden;
+  }
+  .pulse-inner {
+    max-width: 1180px; margin: 0 auto;
+    padding: 7px 20px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+    overflow-x: auto; scrollbar-width: none;
+    font-size: 0.68rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .pulse-inner::-webkit-scrollbar { display: none; }
+  .pulse-label {
+    color: var(--muted); font-weight: 700; letter-spacing: 0.05em; font-size: 0.62rem;
+  }
+  .pulse-sep { color: var(--border); }
+  .pulse-item { color: var(--muted); }
+  .pulse-ticker { color: var(--text); font-weight: 700; margin-right: 3px; }
+  .pulse-up { color: var(--success); }
+  .pulse-neutral { color: var(--muted); }
+  .pulse-regime {
+    color: var(--success); font-weight: 800; letter-spacing: 0.04em;
+  }
 
   /* ─────────────────────────────────────────
      Buttons
