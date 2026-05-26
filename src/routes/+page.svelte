@@ -205,6 +205,74 @@
     </div>
   </section>
 
+  <!-- PORTFOLIO HEALTH SNAPSHOT -->
+  <section id="health" class="section section-alt">
+    <div class="container">
+      <div class="sec-label">PORTFOLIO HEALTH</div>
+      <div class="sec-head">
+        <h2>Know what your portfolio is really telling you</h2>
+        <p>PortfolioAI turns holdings, allocation, income, risk, and performance into one clear health snapshot.</p>
+      </div>
+      <div class="health-layout">
+
+        <!-- Main health card -->
+        <div class="health-main-card">
+          <div class="health-header">
+            <span class="health-title">Portfolio Health</span>
+            <span class="health-badge-warn">Moderate ⚠️</span>
+          </div>
+          <div class="health-metrics">
+            <div class="hm-row">
+              <span class="hm-label">Portfolio Value</span>
+              <span class="hm-value">$24,820</span>
+            </div>
+            <div class="hm-row">
+              <span class="hm-label">Tech Exposure</span>
+              <span class="hm-value hm-warn">41%</span>
+            </div>
+            <div class="hm-row">
+              <span class="hm-label">Dividend Yield</span>
+              <span class="hm-value hm-up">5.8%</span>
+            </div>
+            <div class="hm-row">
+              <span class="hm-label">Max Drawdown Risk</span>
+              <span class="hm-value hm-warn">Medium</span>
+            </div>
+          </div>
+          <div class="health-ai-suggest">
+            <span class="suggest-label">✦ AI Suggestion</span>
+            <p>Reduce concentration in NVDA and increase defensive ETF allocation by 5%.</p>
+          </div>
+        </div>
+
+        <!-- Mini cards -->
+        <div class="health-mini-grid">
+          <div class="health-mini-card">
+            <span class="mini-label">Concentration Risk</span>
+            <span class="mini-value hm-warn">Medium</span>
+            <span class="mini-note">Top 3 holdings = 38%</span>
+          </div>
+          <div class="health-mini-card">
+            <span class="mini-label">Income Quality</span>
+            <span class="mini-value hm-up">Stable</span>
+            <span class="mini-note">Monthly yield improving</span>
+          </div>
+          <div class="health-mini-card">
+            <span class="mini-label">Benchmark Gap</span>
+            <span class="mini-value hm-up">+2.4%</span>
+            <span class="mini-note">Outperforming SPY</span>
+          </div>
+          <div class="health-mini-card">
+            <span class="mini-label">Action Needed</span>
+            <span class="mini-value hm-warn">1 alert</span>
+            <span class="mini-note">Review tech exposure</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -603,6 +671,54 @@
 
   .feat-card h3 { font-size: 0.86rem; font-weight: 700; color: var(--text); margin: 0; }
   .feat-card p  { font-size: 0.76rem; color: var(--muted); line-height: 1.6; margin: 0; }
+
+  /* ─────────────────────────────────────────
+     Portfolio Health Snapshot
+  ───────────────────────────────────────── */
+  .health-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;
+  }
+  .health-main-card {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 14px; padding: 22px;
+  }
+  .health-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .health-title { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+  .health-badge-warn {
+    font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+    background: rgba(var(--warning-rgb), 0.12); color: var(--warning);
+  }
+  .health-metrics { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .hm-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 10px; background: var(--surface-1); border-radius: 8px;
+  }
+  .hm-label { font-size: 0.73rem; color: var(--muted); }
+  .hm-value { font-size: 0.78rem; font-weight: 700; color: var(--text); }
+  .hm-up    { color: var(--success) !important; }
+  .hm-warn  { color: var(--warning) !important; }
+  .health-ai-suggest {
+    background: rgba(var(--primary-rgb), 0.06);
+    border: 1px solid rgba(var(--primary-rgb), 0.15);
+    border-radius: 10px; padding: 12px;
+  }
+  .suggest-label {
+    display: block; font-size: 0.62rem; font-weight: 700;
+    color: var(--primary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px;
+  }
+  .health-ai-suggest p { font-size: 0.76rem; color: var(--text); line-height: 1.5; margin: 0; }
+  .health-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .health-mini-card {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .mini-label { font-size: 0.66rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mini-value { font-size: 1.1rem; font-weight: 800; color: var(--text); }
+  .mini-note  { font-size: 0.65rem; color: var(--muted); }
 
   /* ─────────────────────────────────────────
      Steps
