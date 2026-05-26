@@ -557,6 +557,65 @@ VIX elevated | Breadth negative
     </div>
   </section>
 
+  <!-- TRUST, PRIVACY & EXPLAINABILITY -->
+  <section id="trust" class="section section-alt">
+    <div class="container">
+      <div class="sec-label">TRUSTED AI</div>
+      <div class="sec-head">
+        <h2>AI recommendations you can understand</h2>
+        <p>Every insight shows the reason, data context, and risk behind the recommendation.</p>
+      </div>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <div class="trust-ico">🔒</div>
+          <h3>Read-only broker sync</h3>
+          <p>PortfolioAI analyzes your holdings without needing trading permission by default.</p>
+        </div>
+        <div class="trust-card">
+          <div class="trust-ico">🛑</div>
+          <h3>No auto-trading by default</h3>
+          <p>Suggestions are shown to you first. You stay in control of every decision.</p>
+        </div>
+        <div class="trust-card">
+          <div class="trust-ico">🔍</div>
+          <h3>Explainable AI</h3>
+          <p>Each recommendation includes portfolio context, risk reason, and confidence score.</p>
+        </div>
+        <div class="trust-card">
+          <div class="trust-ico">🛡️</div>
+          <h3>Private portfolio data</h3>
+          <p>Portfolio data is encrypted and never exposed publicly.</p>
+        </div>
+      </div>
+
+      <!-- Explainability example -->
+      <div class="explain-card">
+        <div class="explain-title">Example AI recommendation</div>
+        <div class="explain-row">
+          <span class="explain-lbl">Recommendation</span>
+          <span class="explain-val">Reduce tech exposure</span>
+        </div>
+        <div class="explain-row">
+          <span class="explain-lbl">Reason</span>
+          <span class="explain-val">Technology is 41% of portfolio, above your 30% target</span>
+        </div>
+        <div class="explain-row">
+          <span class="explain-lbl">Risk</span>
+          <span class="explain-val">High correlation between NVDA, QQQ, and SOXL</span>
+        </div>
+        <div class="explain-row">
+          <span class="explain-lbl">Confidence</span>
+          <span class="explain-val hm-up">82%</span>
+        </div>
+        <div class="explain-row">
+          <span class="explain-lbl">Suggested action</span>
+          <span class="explain-val">Rebalance 5% into defensive ETF or cash buffer</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -1177,6 +1236,38 @@ VIX elevated | Breadth negative
     font-size: 0.62rem; color: rgba(var(--danger-rgb), 0.6);
     font-weight: 600; margin-top: 4px;
   }
+
+  /* ─────────────────────────────────────────
+     Trust, Privacy & Explainability
+  ───────────────────────────────────────── */
+  .trust-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 24px;
+  }
+  .trust-card {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 13px; padding: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .trust-ico { font-size: 1.3rem; line-height: 1; }
+  .trust-card h3 { font-size: 0.84rem; font-weight: 700; color: var(--text); margin: 0; }
+  .trust-card p  { font-size: 0.75rem; color: var(--muted); line-height: 1.55; margin: 0; }
+  .explain-card {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 13px; padding: 20px; max-width: 560px;
+  }
+  .explain-title {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+  }
+  .explain-row {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 7px 0; border-bottom: 1px solid var(--overlay-border);
+    font-size: 0.76rem;
+  }
+  .explain-row:last-child { border-bottom: none; }
+  .explain-lbl { min-width: 120px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+  .explain-val { color: var(--text); line-height: 1.4; }
 
   /* ─────────────────────────────────────────
      Steps
