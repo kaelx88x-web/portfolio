@@ -10,7 +10,6 @@ import type { Actions } from './$types';
 import { randomUUID } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import { assembleBriefing, generateBriefHeadline } from '$lib/services/briefing.service';
-import type { DailyBriefing } from '$lib/types/briefing';
 
 export const actions: Actions = {
   refresh: async () => {
@@ -29,7 +28,7 @@ export const actions: Actions = {
 
     // Re-fetch snapshot for latest data
     const snapshot = await getLatestSnapshot(user.id).catch(() => null);
-    let snapshotRows: import('$lib/types/portfolio').SnapshotHolding[] = [];
+    let snapshotRows: SnapshotHolding[] = [];
     let totalValue = 0;
     if (snapshot) {
       try { snapshotRows = JSON.parse(snapshot.holdingsJson); } catch { snapshotRows = []; }
@@ -39,7 +38,7 @@ export const actions: Actions = {
     // Minimal allocation map for headline context
     const sectorMap = new Map<string, number>();
     for (const h of snapshotRows) {
-      const sector = (h as { sector?: string | null }).sector ?? 'Other';
+      const sector = (h.sector ?? h.assetType ?? 'Other') as string;
       sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + Math.abs(h.marketValue));
     }
     const allocationBase = [...sectorMap.values()].reduce((s, v) => s + v, 0);
@@ -57,6 +56,8 @@ export const actions: Actions = {
       : null;
 
     // Compute total return for health score
+    // Note: uses unrealized P&L only (realized+dividends not re-fetched in action context).
+    // Health score here is approximate; load() uses the full return including realized P&L.
     const unrealisedPnl = snapshotRows.reduce((s, h) => s + h.unrealizedPnl, 0);
     const costBasisTotal = snapshotRows.reduce((s, h) => s + (h.marketValue - h.unrealizedPnl), 0);
     const totalReturnPct = costBasisTotal > 0 ? (unrealisedPnl / costBasisTotal) * 100 : 0;
@@ -90,18 +91,23 @@ export const actions: Actions = {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60_000); // 24 hours
 
-    await prisma.$executeRaw`
-      INSERT INTO ai_insights
-        (id, userId, insightType, title, summary, riskLevel, contentJson, expiresAt, metadataJson, createdAt, updatedAt)
-      VALUES (
-        ${id}, ${user.id}, ${'portfolio_health'}, ${'Daily Brief'},
-        ${headline}, ${'moderate'},
-        ${JSON.stringify({ brief: headline })},
-        ${expiresAt},
-        ${JSON.stringify({ version: '1.0', type: 'daily_brief' })},
-        ${now}, ${now}
-      )
-    `;
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO ai_insights
+          (id, userId, insightType, title, summary, riskLevel, contentJson, expiresAt, metadataJson, createdAt, updatedAt)
+        VALUES (
+          ${id}, ${user.id}, ${'portfolio_health'}, ${'Daily Brief'},
+          ${headline}, ${'moderate'},
+          ${JSON.stringify({ brief: headline })},
+          ${expiresAt},
+          ${JSON.stringify({ version: '1.0', type: 'daily_brief' })},
+          ${now}, ${now}
+        )
+      `;
+    } catch (err) {
+      console.error('[generateBrief] failed to save brief to DB:', err);
+      return { briefGenerated: false };
+    }
 
     return { briefGenerated: true };
   },
