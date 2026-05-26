@@ -13,7 +13,8 @@ import type {
 const OCC_REGEX = /^([A-Z]+)(\d{6})([CP])(\d+)$/;
 
 function stripMarketSuffix(symbol: string): string {
-  return (symbol.split('.')[0] ?? symbol).toUpperCase();
+  const parts = symbol.split('.');
+  return parts.reduce((a, b) => (a.length >= b.length ? a : b)).toUpperCase();
 }
 
 function isOptionSymbol(symbol: string): boolean {
