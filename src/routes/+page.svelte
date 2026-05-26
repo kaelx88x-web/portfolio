@@ -501,6 +501,62 @@ VIX elevated | Breadth negative
     </div>
   </section>
 
+  <!-- COMPETITOR SCORECARD -->
+  <section id="compare" class="section">
+    <div class="container">
+      <div class="sec-label">WHY PORTFOLIOAI</div>
+      <div class="sec-head">
+        <h2>Built for investors who want more than a tracker</h2>
+        <p>Most portfolio apps show you what you own. PortfolioAI tells you what it means.</p>
+      </div>
+      <div class="scorecard-grid">
+
+        <div class="score-card">
+          <div class="score-ico">🤖</div>
+          <h3>AI Suite</h3>
+          <p>5 AI tools purpose-built for portfolio analysis. Not a generic chatbot.</p>
+          <div class="score-vs">AllInvestView ✗ · Yahoo ✗ · Ghostfolio ✗</div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-ico">📊</div>
+          <h3>Institutional Analytics</h3>
+          <p>Alpha, beta, Sharpe, max drawdown, stress testing, correlation matrix.</p>
+          <div class="score-vs">Others: basic metrics only</div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-ico">⚡</div>
+          <h3>Portfolio Optimizer</h3>
+          <p>Rebalancing recommendations, scenario simulation, stress test modeling.</p>
+          <div class="score-vs">No competitor offers this free</div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-ico">🔗</div>
+          <h3>Live Broker Sync</h3>
+          <p>Positions pulled live from your broker. No manual CSV import needed.</p>
+          <div class="score-vs">AllInvestView ✗ · Yahoo ✗</div>
+        </div>
+
+        <div class="score-card">
+          <div class="score-ico">🌐</div>
+          <h3>Market Intelligence</h3>
+          <p>SEC insider trades, capital flow, global market status — not just prices.</p>
+          <div class="score-vs">Yahoo partial · Others ✗</div>
+        </div>
+
+        <div class="score-card score-cta-card">
+          <div class="score-ico">💰</div>
+          <h3>Free to start</h3>
+          <p>Full dashboard access. No credit card. No trial period.</p>
+          <a href="/dashboard" class="btn-primary btn-sm" style="margin-top: 12px;">Open Dashboard →</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -1094,6 +1150,32 @@ VIX elevated | Breadth negative
     font-size: 0.72rem; color: var(--primary); padding: 8px 10px;
     background: rgba(var(--primary-rgb), 0.07); border-radius: 7px;
     border-left: 2px solid var(--primary);
+  }
+
+  /* ─────────────────────────────────────────
+     Competitor Scorecard
+  ───────────────────────────────────────── */
+  .scorecard-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .score-card {
+    background: var(--card);
+    border: 1px solid var(--overlay-border);
+    border-top: 2px solid rgba(var(--success-rgb), 0.5);
+    border-radius: 13px; padding: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .score-cta-card {
+    background: rgba(var(--primary-rgb), 0.06);
+    border-color: rgba(var(--primary-rgb), 0.2);
+    border-top-color: var(--primary);
+  }
+  .score-ico { font-size: 1.4rem; line-height: 1; }
+  .score-card h3 { font-size: 0.88rem; font-weight: 800; color: var(--text); margin: 0; }
+  .score-card p  { font-size: 0.75rem; color: var(--muted); line-height: 1.55; margin: 0; flex: 1; }
+  .score-vs {
+    font-size: 0.62rem; color: rgba(var(--danger-rgb), 0.6);
+    font-weight: 600; margin-top: 4px;
   }
 
   /* ─────────────────────────────────────────
