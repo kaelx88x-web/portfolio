@@ -310,7 +310,7 @@ Portfolio: value $${params.totalValue.toFixed(0)}, health ${params.healthScore}/
           content?: { type: string; text: string }[];
         };
         const text = (data.content?.[0]?.text ?? '').trim();
-        if (text.length > 0) return text.slice(0, 200);
+        if (text.length > 0) return text.slice(0, 150);
       }
     } catch (err) {
       console.warn('[briefing] headline generation failed, using fallback:', err);

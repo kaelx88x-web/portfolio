@@ -35,6 +35,11 @@ export const actions: Actions = {
       totalValue = snapshot.totalValue;
     }
 
+    // If no snapshot data, nothing meaningful to brief on — return early
+    if (snapshotRows.length === 0) {
+      return { briefGenerated: false };
+    }
+
     // Minimal allocation map for headline context
     const sectorMap = new Map<string, number>();
     for (const h of snapshotRows) {
