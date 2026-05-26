@@ -165,8 +165,30 @@
   <!-- FEATURES -->
   <section id="features" class="section">
     <div class="container">
+
+      <!-- Stats strip -->
+      <div class="stats-strip">
+        <div class="sstrip-item">
+          <span class="sstrip-num">60+</span>
+          <span class="sstrip-lbl">Analytics pages</span>
+        </div>
+        <div class="sstrip-item">
+          <span class="sstrip-num">8</span>
+          <span class="sstrip-lbl">AI tools</span>
+        </div>
+        <div class="sstrip-item">
+          <span class="sstrip-num">Live</span>
+          <span class="sstrip-lbl">Broker sync</span>
+        </div>
+        <div class="sstrip-item">
+          <span class="sstrip-num">Free</span>
+          <span class="sstrip-lbl">To start</span>
+        </div>
+      </div>
+
+      <div class="sec-label">EVERYTHING IN ONE WORKSPACE</div>
       <div class="sec-head">
-        <h2>Everything you need to invest with clarity</h2>
+        <h2>Institutional tools. Zero setup.</h2>
         <p>From live market data to AI-powered analysis — all in one workspace.</p>
       </div>
       <div class="feat-grid">
@@ -516,6 +538,34 @@
   .sec-head { max-width: 560px; margin-bottom: 40px; }
   .sec-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; color: var(--text); margin: 0 0 10px; }
   .sec-head p  { font-size: 0.92rem; color: var(--muted); line-height: 1.6; margin: 0; }
+
+  /* ─────────────────────────────────────────
+     Section label (small-caps above heading)
+  ───────────────────────────────────────── */
+  .sec-label {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--primary); text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* ─────────────────────────────────────────
+     Stats strip
+  ───────────────────────────────────────── */
+  .stats-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 40px;
+    padding: 20px 0;
+    border-top: 1px solid var(--overlay-border);
+    border-bottom: 1px solid var(--overlay-border);
+  }
+  .sstrip-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .sstrip-num {
+    font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), var(--success));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; color: var(--primary);
+  }
+  .sstrip-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
 
   /* ─────────────────────────────────────────
      Features
