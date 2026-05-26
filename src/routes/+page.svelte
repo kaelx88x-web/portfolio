@@ -616,6 +616,20 @@ VIX elevated | Breadth negative
     </div>
   </section>
 
+  <!-- CTA -->
+  <section class="section">
+    <div class="container">
+      <div class="cta-box">
+        <div class="cta-glow"></div>
+        <div class="cta-ico"><Zap size={26} /></div>
+        <h2>Ready to invest with institutional clarity?</h2>
+        <p>Open the dashboard — free to start, no credit card required.</p>
+        <a href="/dashboard" class="btn-primary btn-lg">Open Free Dashboard <ArrowRight size={17} /></a>
+        <p class="cta-note">Full access · No trial · No credit card</p>
+      </div>
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -631,20 +645,6 @@ VIX elevated | Breadth negative
             <p>{s.body}</p>
           </div>
         {/each}
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA -->
-  <section class="section">
-    <div class="container">
-      <div class="cta-box">
-        <div class="cta-glow"></div>
-        <div class="cta-ico"><Zap size={26} /></div>
-        <h2>Ready to invest with institutional clarity?</h2>
-        <p>Open the dashboard — free to start, no credit card required.</p>
-        <a href="/dashboard" class="btn-primary btn-lg">Open Free Dashboard <ArrowRight size={17} /></a>
-        <p class="cta-note">Full access · No trial · No credit card</p>
       </div>
     </div>
   </section>
@@ -874,53 +874,6 @@ VIX elevated | Breadth negative
     0%,100% { box-shadow: 0 0 0 2px rgba(var(--success-rgb),0.25); }
     50%      { box-shadow: 0 0 0 5px rgba(var(--success-rgb),0.0); }
   }
-
-  .tag-pill {
-    font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 4px;
-    background: rgba(var(--primary-rgb), 0.10); color: var(--primary);
-  }
-
-  /* market rows */
-  .mkt-list { display: flex; flex-direction: column; gap: 6px; }
-  .mkt-row {
-    display: flex; align-items: center; gap: 9px;
-    padding: 6px 9px; border-radius: 8px;
-    background: var(--surface-1);
-  }
-  .mkt-flag { font-size: 0.95rem; line-height: 1; }
-  .mkt-info { flex: 1; min-width: 0; }
-  .mkt-name  { display: block; font-size: 0.73rem; font-weight: 600; color: var(--text); }
-  .mkt-short { font-size: 0.6rem; color: var(--muted); }
-  .mkt-right { display: flex; align-items: center; gap: 5px; }
-  .sdot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--border); flex-shrink: 0;
-  }
-  .sdot-open {
-    background: var(--success);
-    box-shadow: 0 0 0 3px rgba(var(--success-rgb), 0.2);
-    animation: blink 2s infinite;
-  }
-  .mkt-time { font-size: 0.65rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-
-  /* insider rows */
-  .tx-list { display: flex; flex-direction: column; gap: 6px; }
-  .tx-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 9px; border-radius: 8px;
-    background: var(--surface-1);
-  }
-  .tx-left { display: flex; flex-direction: column; gap: 1px; }
-  .tx-name   { font-size: 0.72rem; font-weight: 600; color: var(--text); }
-  .tx-ticker { font-size: 0.6rem; color: var(--muted); }
-  .tx-right  { display: flex; align-items: center; gap: 7px; }
-  .tx-badge {
-    font-size: 0.6rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
-  }
-  .tx-badge.buy  { background: rgba(var(--success-rgb), 0.12); color: var(--success); }
-  .tx-badge.sell { background: rgba(var(--danger-rgb),  0.12); color: var(--danger);  }
-  .tx-val  { font-size: 0.7rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-  .tx-date { font-size: 0.6rem; color: var(--muted); }
 
   /* stats row */
   .stats-row {
