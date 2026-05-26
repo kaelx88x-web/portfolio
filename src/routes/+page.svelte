@@ -404,6 +404,45 @@
     </div>
   </section>
 
+  <!-- AI DAILY BRIEFING -->
+  <section id="briefing" class="section">
+    <div class="container">
+      <div class="sec-label">DAILY AI BRIEFING</div>
+      <div class="sec-head">
+        <h2>Start the day with a portfolio briefing</h2>
+        <p>PortfolioAI summarizes risk, income, market regime, and watchlist alerts before the market opens.</p>
+      </div>
+      <div class="briefing-wrap">
+        <div class="briefing-card">
+          <div class="briefing-header">
+            <span class="briefing-dot"></span>
+            <span class="briefing-title">AI Morning Briefing</span>
+            <span class="briefing-time">6:45 AM</span>
+          </div>
+          <pre class="briefing-text">Good morning, Azhar.
+
+PORTFOLIO HEALTH: Moderate ⚠️
+
+Theta earned today:        +$12.40
+Net unrealized P&amp;L:        -$31.82
+Premium collected total:   +$248.00
+
+⚠️  NIO covered call expires in 3 days
+    Strike $5.50 | Current $5.44
+    → Consider: let expire or roll if ITM risk increases
+
+✅  RUM put is profitable
+    → Consider closing early at 80% max profit
+
+MARKET REGIME: Bearish bias today
+VIX elevated | Breadth negative
+
+→ Avoid opening new high-risk positions today.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -926,6 +965,38 @@
     color: var(--text); border-radius: 10px 10px 10px 3px;
   }
   .mock-ai strong { color: var(--success); }
+
+  /* ─────────────────────────────────────────
+     AI Daily Briefing
+  ───────────────────────────────────────── */
+  .briefing-wrap { display: flex; justify-content: center; }
+  .briefing-card {
+    background: #0a1208;
+    border: 1px solid rgba(var(--success-rgb), 0.25);
+    border-radius: 14px; padding: 0;
+    max-width: 640px; width: 100%;
+    overflow: hidden;
+  }
+  .briefing-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: rgba(var(--success-rgb), 0.08);
+    border-bottom: 1px solid rgba(var(--success-rgb), 0.15);
+  }
+  .briefing-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); animation: blink 2s infinite;
+  }
+  .briefing-title { font-size: 0.72rem; font-weight: 700; color: var(--success); flex: 1; }
+  .briefing-time  { font-size: 0.65rem; color: var(--muted); }
+  .briefing-text {
+    font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
+    font-size: 0.73rem; line-height: 1.7;
+    color: #a8d5a2;
+    padding: 20px 22px;
+    white-space: pre-wrap; word-break: break-word;
+    margin: 0; background: transparent;
+  }
 
   /* ─────────────────────────────────────────
      Steps
