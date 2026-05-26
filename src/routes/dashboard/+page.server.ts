@@ -7,6 +7,10 @@ import { calcCapitalAndRealized } from '$lib/calculators/realized-pnl';
 import type { AllocationSlice, Holding, SnapshotHolding } from '$lib/types/portfolio';
 import { prisma } from '$lib/server/db';
 import type { Actions } from './$types';
+import { randomUUID } from 'node:crypto';
+import { env } from '$env/dynamic/private';
+import { assembleBriefing, generateBriefHeadline } from '$lib/services/briefing.service';
+import type { DailyBriefing } from '$lib/types/briefing';
 
 export const actions: Actions = {
   refresh: async () => {
@@ -127,6 +131,25 @@ export async function load() {
     totalValue: s.totalValue,
   }));
 
+  // Brief headline — latest AI-generated brief (stored with title = 'Daily Brief')
+  const briefInsight = await prisma.aiInsight
+    .findFirst({
+      where: { userId: user.id, title: 'Daily Brief' },
+      orderBy: { createdAt: 'desc' },
+      select: { summary: true, createdAt: true },
+    })
+    .catch(() => null);
+
+  const briefing = assembleBriefing({
+    snapshotRows,
+    totalValue,
+    totalReturnPct,
+    dayPl,
+    allocations,
+    aiHeadline: briefInsight?.summary ?? null,
+    headlineGeneratedAt: briefInsight?.createdAt?.toISOString() ?? null,
+  });
+
   // Latest AI brief — use `summary` field from AiInsight
   const latestInsight = await prisma.aiInsight.findFirst({
     where: { userId: user.id },
@@ -151,6 +174,7 @@ export async function load() {
     holdingAllocations,
     topHoldings,
     growthData,
+    briefing,
     aiBrief,
     watchlistItems,
     snapshot,
