@@ -116,10 +116,12 @@ model Transaction {
   fee         Float     @default(0)
   currency    String    @default("USD")
   notes       String?
+  brokerDealId  String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@unique([id, userId])
+  @@unique([userId, brokerDealId])
   @@index([userId, tradeDate])
   @@index([accountId])
   @@index([assetId])
