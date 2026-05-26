@@ -443,6 +443,64 @@ VIX elevated | Breadth negative
     </div>
   </section>
 
+  <!-- OPTIONS INTELLIGENCE -->
+  <section id="options" class="section section-alt">
+    <div class="container">
+      <div class="sec-label">OPTIONS INTELLIGENCE</div>
+      <div class="sec-head">
+        <h2>Built for stock investors and options income traders</h2>
+        <p>Track covered calls, cash-secured puts, wheel strategy risk, assignment exposure, theta income, and IV conditions in one place.</p>
+      </div>
+      <div class="opt-grid">
+        <div class="opt-card">
+          <div class="opt-icon">📉</div>
+          <h3>Cash-Secured Put Monitor</h3>
+          <p>Tracks collateral, breakeven, expiry, and assignment risk for all open puts.</p>
+        </div>
+        <div class="opt-card">
+          <div class="opt-icon">📞</div>
+          <h3>Covered Call Tracker</h3>
+          <p>Shows strike distance, share coverage, premium collected, and buyback zone.</p>
+        </div>
+        <div class="opt-card">
+          <div class="opt-icon">🔄</div>
+          <h3>Wheel Strategy View</h3>
+          <p>Connects put → assignment → covered call → exit cycle in one visual flow.</p>
+        </div>
+        <div class="opt-card">
+          <div class="opt-icon">⏱️</div>
+          <h3>Theta Income Tracker</h3>
+          <p>Tracks daily, weekly, and monthly premium income across all contracts.</p>
+        </div>
+        <div class="opt-card">
+          <div class="opt-icon">🔔</div>
+          <h3>IV &amp; Expiry Alerts</h3>
+          <p>Flags high-IV opportunities and risky expiries before they become problems.</p>
+        </div>
+        <div class="opt-card">
+          <div class="opt-icon">✂️</div>
+          <h3>50% Profit Rule</h3>
+          <p>Highlights contracts suitable for early close at 50% max profit.</p>
+        </div>
+      </div>
+
+      <!-- Option mockup example -->
+      <div class="opt-mockup">
+        <div class="opt-mock-header">
+          <span class="opt-mock-ticker">NIO $5.50 Covered Call</span>
+          <span class="opt-mock-pill">3 days to expiry</span>
+        </div>
+        <div class="opt-mock-stats">
+          <span>Premium collected: <strong>$18.00</strong></span>
+          <span>Current buyback: <strong>$8.00</strong></span>
+          <span>Profit captured: <strong class="hm-up">55%</strong></span>
+        </div>
+        <div class="opt-mock-ai">✦ AI: Consider closing early if risk/reward is no longer attractive.</div>
+      </div>
+
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -996,6 +1054,46 @@ VIX elevated | Breadth negative
     padding: 20px 22px;
     white-space: pre-wrap; word-break: break-word;
     margin: 0; background: transparent;
+  }
+
+  /* ─────────────────────────────────────────
+     Options Intelligence
+  ───────────────────────────────────────── */
+  .opt-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 24px;
+  }
+  .opt-card {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 13px; padding: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .opt-icon { font-size: 1.3rem; line-height: 1; }
+  .opt-card h3 { font-size: 0.84rem; font-weight: 700; color: var(--text); margin: 0; }
+  .opt-card p  { font-size: 0.75rem; color: var(--muted); line-height: 1.55; margin: 0; }
+  .opt-mockup {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 13px; padding: 18px 20px;
+    max-width: 480px;
+  }
+  .opt-mock-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .opt-mock-ticker { font-size: 0.84rem; font-weight: 700; color: var(--text); }
+  .opt-mock-pill {
+    font-size: 0.62rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    background: rgba(var(--warning-rgb), 0.12); color: var(--warning);
+  }
+  .opt-mock-stats {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 0.74rem; color: var(--muted); margin-bottom: 10px;
+  }
+  .opt-mock-stats strong { color: var(--text); }
+  .opt-mock-ai {
+    font-size: 0.72rem; color: var(--primary); padding: 8px 10px;
+    background: rgba(var(--primary-rgb), 0.07); border-radius: 7px;
+    border-left: 2px solid var(--primary);
   }
 
   /* ─────────────────────────────────────────
