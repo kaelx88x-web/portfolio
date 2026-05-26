@@ -341,6 +341,69 @@
     </div>
   </section>
 
+  <!-- AI DEEP DIVE -->
+  <section id="ai" class="section section-alt">
+    <div class="container">
+      <div class="sec-label">✦ AI SUITE — 5 TOOLS</div>
+      <div class="sec-head">
+        <h2>AI that understands your portfolio</h2>
+        <p>Not a generic chatbot. An AI that knows your holdings, risk profile, allocation, and performance — and gives answers that matter.</p>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="ai-tabs">
+        {#each aiTabs as tab}
+          <button
+            class="ai-tab {activeTab === tab.id ? 'active' : ''}"
+            on:click={() => activeTab = tab.id}
+          >{tab.label}</button>
+        {/each}
+      </div>
+
+      <!-- Tab panels -->
+      {#each aiTabs as tab}
+        {#if activeTab === tab.id}
+          <div class="ai-panel">
+            <div class="ai-panel-copy">
+              <h3>{tab.title}</h3>
+              <p>{tab.desc}</p>
+              <ul class="ai-bullets">
+                {#each tab.bullets as b}
+                  <li>{b}</li>
+                {/each}
+              </ul>
+            </div>
+            <div class="ai-panel-mockup">
+              {#if tab.id === 'copilot'}
+                <div class="mock-chat">
+                  <div class="mock-msg mock-user">Am I too concentrated in tech stocks?</div>
+                  <div class="mock-msg mock-ai">Your tech exposure is <strong>41%</strong> — above the institutional 30% threshold.<br><br>Top 3: NVDA 18%, QQQ 13%, SOXL 10%.<br><br>Consider trimming NVDA by 5% to reduce below 38%.</div>
+                </div>
+              {:else if tab.id === 'risk'}
+                <div class="mock-chat">
+                  <div class="mock-msg mock-ai">📊 Risk Summary<br><br>Volatility: <strong>14.6%</strong> (medium)<br>Beta: <strong>1.08</strong> vs SPY<br>Max Drawdown: <strong>-11.8%</strong><br><br>⚠️ High correlation between NVDA, QQQ, SOXL detected. Consider reducing overlap.</div>
+                </div>
+              {:else if tab.id === 'assistant'}
+                <div class="mock-chat">
+                  <div class="mock-msg mock-ai">📋 Portfolio Narrative — May 2026<br><br>Your portfolio of <strong>$24,820</strong> has a tech-heavy tilt at 41% exposure. YTD return of <strong>+12.8%</strong> outperforms SPY by +3.2%.<br><br>Main risk: concentration in NVDA, QQQ, SOXL.</div>
+                </div>
+              {:else if tab.id === 'memory'}
+                <div class="mock-chat">
+                  <div class="mock-msg mock-ai">🗂️ I remember:<br><br>• You prefer income-generating positions<br>• Goal: reduce tech exposure below 35%<br>• Last rebalance: March 2026<br>• Risk tolerance: moderate</div>
+                </div>
+              {:else if tab.id === 'insights'}
+                <div class="mock-chat">
+                  <div class="mock-msg mock-ai">💡 This week:<br><br>• Theta income up <strong>+18%</strong> vs last week<br>• NIO covered call nearing expiry — action needed in 3 days<br>• Dividend yield improved to 5.8%<br>• SPY correlation remains high at 0.82</div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      {/each}
+
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -813,6 +876,56 @@
   .spark-flat { background: linear-gradient(to right, rgba(var(--primary-rgb),0.1), rgba(var(--primary-rgb),0.2), rgba(var(--primary-rgb),0.1)); }
   .spark-down { background: linear-gradient(to right, rgba(var(--danger-rgb),0.35) 0%, rgba(var(--danger-rgb),0.15) 60%, transparent 100%); }
   .metric-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
+
+  /* ─────────────────────────────────────────
+     AI Deep Dive
+  ───────────────────────────────────────── */
+  .ai-tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .ai-tab {
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--muted);
+    font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .ai-tab:hover { border-color: rgba(var(--primary-rgb), 0.4); color: var(--text); }
+  .ai-tab.active {
+    background: rgba(var(--success-rgb), 0.1);
+    border-color: rgba(var(--success-rgb), 0.4);
+    color: var(--success);
+  }
+  .ai-panel {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start;
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 16px; padding: 28px;
+  }
+  .ai-panel-copy h3 { font-size: 1rem; font-weight: 800; color: var(--text); margin: 0 0 10px; }
+  .ai-panel-copy p  { font-size: 0.82rem; color: var(--muted); line-height: 1.65; margin: 0 0 16px; }
+  .ai-bullets { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .ai-bullets li { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+  .ai-panel-mockup {
+    background: var(--surface-1); border: 1px solid var(--overlay-border);
+    border-radius: 12px; padding: 16px; min-height: 140px;
+  }
+  .mock-chat { display: flex; flex-direction: column; gap: 10px; }
+  .mock-msg {
+    padding: 10px 13px; border-radius: 10px;
+    font-size: 0.76rem; line-height: 1.55; max-width: 88%;
+  }
+  .mock-user {
+    align-self: flex-end;
+    background: rgba(var(--primary-rgb), 0.12); color: var(--text);
+    border-radius: 10px 10px 3px 10px;
+  }
+  .mock-ai {
+    align-self: flex-start;
+    background: var(--card); border: 1px solid var(--overlay-border);
+    color: var(--text); border-radius: 10px 10px 10px 3px;
+  }
+  .mock-ai strong { color: var(--success); }
 
   /* ─────────────────────────────────────────
      Steps
