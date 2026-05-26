@@ -273,6 +273,74 @@
     </div>
   </section>
 
+  <!-- INSTITUTIONAL METRICS PREVIEW -->
+  <section id="institutional" class="section">
+    <div class="container">
+      <div class="sec-label">INSTITUTIONAL METRICS</div>
+      <div class="sec-head">
+        <h2>Fund-manager metrics, explained simply</h2>
+        <p>Alpha, beta, Sharpe ratio, volatility, drawdown, and benchmark comparison — translated into plain English.</p>
+      </div>
+      <div class="metrics-grid">
+
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-name">Alpha</span>
+            <span class="metric-val metric-up">+3.2%</span>
+          </div>
+          <div class="metric-sparkline spark-up"></div>
+          <span class="metric-desc">Extra return vs benchmark</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-name">Beta</span>
+            <span class="metric-val metric-warn">1.08</span>
+          </div>
+          <div class="metric-sparkline spark-flat"></div>
+          <span class="metric-desc">Slightly more volatile than market</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-name">Sharpe Ratio</span>
+            <span class="metric-val metric-up">1.42</span>
+          </div>
+          <div class="metric-sparkline spark-up"></div>
+          <span class="metric-desc">Good risk-adjusted return</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-name">Max Drawdown</span>
+            <span class="metric-val metric-danger">-11.8%</span>
+          </div>
+          <div class="metric-sparkline spark-down"></div>
+          <span class="metric-desc">Worst historical drop</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-name">Volatility</span>
+            <span class="metric-val metric-warn">14.6%</span>
+          </div>
+          <div class="metric-sparkline spark-flat"></div>
+          <span class="metric-desc">Medium movement risk</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-name">Correlation</span>
+            <span class="metric-val metric-neutral">0.82</span>
+          </div>
+          <div class="metric-sparkline spark-flat"></div>
+          <span class="metric-desc">Closely follows SPY</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section id="how" class="section section-alt">
     <div class="container">
@@ -719,6 +787,32 @@
   .mini-label { font-size: 0.66rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .mini-value { font-size: 1.1rem; font-weight: 800; color: var(--text); }
   .mini-note  { font-size: 0.65rem; color: var(--muted); }
+
+  /* ─────────────────────────────────────────
+     Institutional Metrics Preview
+  ───────────────────────────────────────── */
+  .metrics-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .metric-card {
+    background: var(--card); border: 1px solid var(--overlay-border);
+    border-radius: 13px; padding: 18px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .metric-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .metric-name { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .metric-val  { font-size: 1.2rem; font-weight: 900; }
+  .metric-up      { color: var(--success); }
+  .metric-warn    { color: var(--warning); }
+  .metric-danger  { color: var(--danger); }
+  .metric-neutral { color: var(--text); }
+  .metric-sparkline {
+    height: 24px; border-radius: 4px; margin: 8px 0;
+  }
+  .spark-up   { background: linear-gradient(to right, transparent 0%, rgba(var(--success-rgb),0.15) 40%, rgba(var(--success-rgb),0.4) 100%); }
+  .spark-flat { background: linear-gradient(to right, rgba(var(--primary-rgb),0.1), rgba(var(--primary-rgb),0.2), rgba(var(--primary-rgb),0.1)); }
+  .spark-down { background: linear-gradient(to right, rgba(var(--danger-rgb),0.35) 0%, rgba(var(--danger-rgb),0.15) 60%, transparent 100%); }
+  .metric-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
 
   /* ─────────────────────────────────────────
      Steps
