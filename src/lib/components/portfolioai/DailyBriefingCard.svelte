@@ -25,7 +25,9 @@
   }
 
   function fmtTime(iso: string): string {
-    return new Date(iso).toLocaleTimeString('en-US', {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -163,7 +165,7 @@
       <span class="alerts-hdr">Alerts:</span>
       {#each briefing.alerts as alert}
         <div class="chip">
-          <div class="dot" style="background:{dotColor[alert.type]}"></div>
+          <div class="dot" style="background:{(dotColor as Record<string, string>)[alert.type] ?? 'var(--muted)'}"></div>
           <span>{alert.text}</span>
         </div>
       {/each}
