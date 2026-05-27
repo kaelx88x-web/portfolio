@@ -4,8 +4,9 @@ import { prisma } from '$lib/server/db';
 import type { MoomooDealItem } from '$lib/types/portfolio';
 
 function stripBrokerPrefix(code: string): string {
-  // 'US.PATH' → 'PATH'   (prefix format — moomoo bridge)
-  // 'NIO260530C00005500.US' → 'NIO260530C00005500'  (suffix format — legacy)
+  // Takes the longest dot-separated segment.
+  // Invariant: the ticker/OCC symbol is always longer than the market code (e.g. 'US', 'HK').
+  // Works for both prefix ('US.PATH' → 'PATH') and suffix ('NIO260530C00005500.US' → 'NIO260530C00005500').
   const parts = code.split('.');
   return parts.reduce((a, b) => (a.length >= b.length ? a : b)).toUpperCase();
 }
@@ -24,18 +25,17 @@ export async function syncDealsToTransactions(
   });
   const existingIds = new Set(existing.map((r) => r.brokerDealId!));
 
-  // 2. Filter to only new deals
-  const newDeals = deals.filter((d) => !existingIds.has(d.deal_id));
+  // 2. Filter to only new deals; skipped counts only duplicate deal IDs (not malformed timestamps)
+  const nonDuplicates = deals.filter((d) => !existingIds.has(d.deal_id));
+  const skipped = deals.length - nonDuplicates.length;
+  const newDeals = nonDuplicates.filter((d) => !isNaN(new Date(d.create_time).getTime()));
 
-  let inserted = 0;
-  for (const deal of newDeals) {
-    // Guard against malformed timestamps from the bridge
-    const tradeDate = new Date(deal.create_time);
-    if (isNaN(tradeDate.getTime())) continue;
+  if (newDeals.length === 0) return { inserted: 0, skipped };
 
-    const ticker = stripBrokerPrefix(deal.code);
-
-    // Upsert Asset (find or create by symbol)
+  // 3. Deduplicate tickers and upsert all needed assets in one pass (avoids N+1)
+  const uniqueTickers = [...new Set(newDeals.map((d) => stripBrokerPrefix(d.code)))];
+  const assetMap = new Map<string, string>(); // ticker → assetId
+  for (const ticker of uniqueTickers) {
     const asset = await prisma.asset.upsert({
       where: { symbol: ticker },
       update: {},
@@ -46,12 +46,21 @@ export async function syncDealsToTransactions(
         currency: 'USD',
       },
     });
+    assetMap.set(ticker, asset.id);
+  }
+
+  // 4. Insert new transactions
+  let inserted = 0;
+  for (const deal of newDeals) {
+    const ticker = stripBrokerPrefix(deal.code);
+    const assetId = assetMap.get(ticker)!;
+    const tradeDate = new Date(deal.create_time);
 
     await prisma.transaction.create({
       data: {
         userId,
         accountId,
-        assetId: asset.id,
+        assetId,
         brokerDealId: deal.deal_id,
         type: deal.side.toLowerCase(), // 'buy' | 'sell' — matches calcCapitalAndRealized
         tradeDate,
@@ -65,5 +74,5 @@ export async function syncDealsToTransactions(
     inserted++;
   }
 
-  return { inserted, skipped: deals.length - newDeals.length };
+  return { inserted, skipped };
 }
