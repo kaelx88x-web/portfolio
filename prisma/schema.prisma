@@ -63,8 +63,62 @@ model User {
   wheelStrategyReports WheelStrategyReport[]
   agentRegistration    AgentRegistration?
   agentPushLogs        AgentPushLog[]     @relation("agent_push_logs_user")
+  role                String?
+  banned              Boolean   @default(false)
+  banReason           String?
+  banExpires          DateTime?
+  emailVerified       Boolean   @default(false)
+  onboardingCompleted Boolean   @default(false)
+  image               String?
+  sessions            Session[]
+  betterAuthAccounts  BetterAuthAccount[]
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model BetterAuthAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String    @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@index([identifier])
 }
 
 model Account {
