@@ -2,13 +2,36 @@
   import { onMount } from 'svelte';
   import { FlaskConical, RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart2, AlertTriangle, Terminal, MonitorCheck, Wifi, RotateCcw, ServerCrash, Radio } from 'lucide-svelte';
   import { PUBLIC_APP_MODE } from '$env/static/public';
-
-  const isSaas = PUBLIC_APP_MODE === 'saas';
+  import { enhance } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
+  import type { ActionData, PageData } from './$types';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
-  import type { PageData } from './$types';
+
+  const isSaas = PUBLIC_APP_MODE === 'saas';
 
   export let data: PageData;
+  export let form: ActionData;
+
+
+  // Order form state (just the toggles for now — form fields come in Tasks 5-6)
+  let showOrderForm = false;
+  let showResetModal = false;
+
+  // Toast state
+  let toasts: { id: number; type: 'success' | 'warn' | 'error'; message: string }[] = [];
+  let toastCounter = 0;
+
+  function addToast(type: 'success' | 'warn' | 'error', message: string) {
+    const id = ++toastCounter;
+    toasts = [...toasts, { id, type, message }];
+    setTimeout(() => { toasts = toasts.filter(t => t.id !== id); }, 4000);
+  }
+
+  // Account balance panel helpers
+  function usedCollateral(ai: typeof info): number {
+    return (ai.total_assets ?? 0) - (ai.cash ?? 0) - (ai.market_val ?? 0);
+  }
 
   $: paper = data.paper;
   $: info  = paper.account_info;
@@ -51,11 +74,56 @@
   }
 </script>
 
+<!-- ── Toasts ─────────────────────────────────────────────────── -->
+<div class="toast-container">
+  {#each toasts as t (t.id)}
+    <div class="toast toast-{t.type}">
+      {t.message}
+    </div>
+  {/each}
+</div>
+
 <PageHeader
   title="Paper Trading"
   subtitle="Moomoo simulate account — live positions, orders and trade history."
   breadcrumb={[{ label: 'Paper Trading' }]}
 />
+
+<!-- ── Header actions ─────────────────────────────────────────── -->
+{#if !paper.error}
+  <div class="header-actions">
+    <button class="btn-new-order" on:click={() => showOrderForm = !showOrderForm}>
+      {showOrderForm ? '✕ Close' : '+ New Order'}
+    </button>
+    <button class="btn-reset" on:click={() => showResetModal = true}>
+      Reset Account
+    </button>
+  </div>
+{/if}
+
+<!-- ── Account balance panel (amber) ─────────────────────────── -->
+{#if !paper.error}
+  <div class="balance-panel">
+    <div class="balance-stat">
+      <div class="balance-label">Cash Available</div>
+      <div class="balance-value">{money(info.cash ?? 0)}</div>
+    </div>
+    <div class="balance-stat">
+      <div class="balance-label">Buying Power</div>
+      <div class="balance-value">{money(info.power ?? 0)}</div>
+    </div>
+    <div class="balance-stat">
+      <div class="balance-label">Used Collateral</div>
+      <div class="balance-value">{money(usedCollateral(info))}</div>
+    </div>
+    <div class="balance-stat">
+      <div class="balance-label">Unrealized P&amp;L</div>
+      <div class="balance-value" class:positive={info.unrealized_pl >= 0} class:negative={info.unrealized_pl < 0}>
+        {fmt(info.unrealized_pl ?? 0)}
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if paper.error}
   {#if isSaas}
@@ -463,4 +531,56 @@ taskkill /PID &lt;pid&gt; /F</pre>
     font-size: 0.68rem; color: var(--muted);
     margin-bottom: 12px;
   }
+
+  /* ── Account balance panel ───────────────────────────────────── */
+  .balance-panel {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 16px; padding: 14px 16px;
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 10px; background: rgba(245,158,11,0.05);
+  }
+  .balance-stat { display: flex; flex-direction: column; gap: 3px; }
+  .balance-label {
+    font-size: 0.62rem; font-weight: 600; color: rgba(245,158,11,0.7);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .balance-value { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+
+  /* ── Header actions ──────────────────────────────────────────── */
+  .header-actions {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 16px;
+  }
+  .btn-new-order {
+    padding: 7px 16px; border-radius: 7px;
+    background: var(--primary); border: none; color: #fff;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-new-order:hover { opacity: 0.85; }
+  .btn-reset {
+    padding: 7px 14px; border-radius: 7px;
+    background: rgba(var(--danger-rgb),0.1); border: 1px solid rgba(var(--danger-rgb),0.25);
+    color: var(--danger); font-size: 0.75rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-reset:hover { background: rgba(var(--danger-rgb),0.18); }
+
+  /* ── Toasts ──────────────────────────────────────────────────── */
+  .toast-container {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: 8px;
+    font-size: 0.76rem; font-weight: 600;
+    max-width: 360px; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    animation: toast-in 0.2s ease;
+  }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .toast-success { background: rgba(var(--success-rgb),0.15); border: 1px solid rgba(var(--success-rgb),0.4); color: var(--success); }
+  .toast-warn    { background: rgba(245,158,11,0.12);         border: 1px solid rgba(245,158,11,0.35);       color: var(--warning); }
+  .toast-error   { background: rgba(var(--danger-rgb),0.12);  border: 1px solid rgba(var(--danger-rgb),0.35); color: var(--danger); }
+
+  @media (max-width: 900px) { .balance-panel { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .balance-panel { grid-template-columns: 1fr; } }
 </style>
