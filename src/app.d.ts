@@ -1,12 +1,13 @@
+import type { User, Session } from 'better-auth';
+import type { RecommendedStrategy } from '$lib/services/behavioral-profile.service';
+
 declare global {
   namespace App {
-    // interface Error {}
     interface Locals {
-      recommendedStrategy?: import('$lib/services/behavioral-profile.service').RecommendedStrategy;
+      user: User | null;
+      session: Session | null;
+      recommendedStrategy?: RecommendedStrategy;
     }
-    // interface PageData {}
-    // interface PageState {}
-    // interface Platform {}
   }
 }
 
