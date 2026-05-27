@@ -42,7 +42,8 @@
   }
 </script>
 
-<div class="tb">
+<div class="topbar-root">
+<div class="tb" class:paper={isPaperRoute}>
   <!-- Left: logo mark + value hero + account -->
   <div class="tb-left">
     <button class="tb-logo-btn" on:click={() => dispatch('toggleSidebar')} title="Toggle sidebar">
@@ -151,6 +152,13 @@
       {/if}
     </button>
   </div>
+</div>
+{#if isPaperRoute}
+  <div class="paper-banner">
+    <span class="paper-banner-icon">⚠</span>
+    <span>You are in paper trading mode — no real money is at risk</span>
+  </div>
+{/if}
 </div>
 
 <style>
@@ -288,4 +296,21 @@
     /* Extra small — hide notifications too */
     .tb-icon-btn:not(:last-of-type) { display: none; }
   }
+
+  /* ── Paper mode amber treatment ── */
+  .tb.paper {
+    background: rgba(245,158,11,0.08);
+    border-bottom: 2px solid rgba(245,158,11,0.4);
+  }
+
+  .topbar-root { display: flex; flex-direction: column; }
+
+  .paper-banner {
+    display: flex; align-items: center; gap: 6px;
+    height: 24px; padding: 0 16px;
+    background: rgba(245,158,11,0.06);
+    border-bottom: 1px solid rgba(245,158,11,0.2);
+    font-size: 0.7rem; color: var(--warning);
+  }
+  .paper-banner-icon { font-size: 0.7rem; }
 </style>

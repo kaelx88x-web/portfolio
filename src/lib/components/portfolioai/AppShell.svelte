@@ -158,7 +158,7 @@
   }
 
   .shell-topbar {
-    height: 56px; flex-shrink: 0;
+    min-height: 56px; flex-shrink: 0;
     border-bottom: 1px solid var(--overlay-border);
     background: var(--bg-glass);
     backdrop-filter: blur(20px) saturate(160%);
