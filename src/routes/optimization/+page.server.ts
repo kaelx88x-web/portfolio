@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getOptimizationDashboard,
   parseOptimizationBenchmark,
@@ -36,7 +35,7 @@ function isRiskLevel(value: FormDataEntryValue | null): value is RiskLevel {
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
 export const load: PageServerLoad = async ({ url, locals }) => {
-  const user      = await getDemoUser();
+  const user = locals.user!;
   const period    = parseOptimizationPeriod(url.searchParams.get('period'));
   const benchmark = parseOptimizationBenchmark(url.searchParams.get('benchmark'));
 
@@ -59,8 +58,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 export const actions: Actions = {
-  run: async ({ request, url }) => {
-    const user      = await getDemoUser();
+  run: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form      = await request.formData();
     const riskLevelValue = form.get('riskLevel');
     if (!isRiskLevel(riskLevelValue)) {
@@ -101,8 +100,8 @@ export const actions: Actions = {
     }
   },
 
-  saveConstraints: async ({ request }) => {
-    const user = await getDemoUser();
+  saveConstraints: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const constraints: Partial<OptimizationConstraintSet> = {
       singleStockMaxPct:    numberField(form, 'singleStockMaxPct'),

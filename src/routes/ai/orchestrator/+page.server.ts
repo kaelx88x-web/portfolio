@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getAiOrchestrationOverview,
   orchestrateAiQuestion,
@@ -9,8 +8,8 @@ import {
 import { BENCHMARKS, ANALYTICS_PERIODS } from '$lib/services/analytics.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseOrchestratorPeriod(url.searchParams.get('period'));
   const benchmark = parseOrchestratorBenchmark(url.searchParams.get('benchmark'));
 
@@ -25,8 +24,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  ask: async ({ request, url }) => {
-    const user = await getDemoUser();
+  ask: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const question = String(form.get('question') ?? '');
     const period = parseOrchestratorPeriod(url.searchParams.get('period'));

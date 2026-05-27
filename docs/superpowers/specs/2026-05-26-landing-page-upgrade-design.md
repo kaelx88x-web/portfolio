@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-26
 **Status:** Approved
-**Goal:** Upgrade the existing `src/routes/+page.svelte` landing page to institutional-grade positioning — adding a stats strip, AI deep-dive section, and competitor scorecard — to compete with AllInvestView and similar trackers on a global audience.
+**Goal:** Upgrade the existing `src/routes/+page.svelte` landing page to institutional-grade positioning — adding a live market pulse, stats strip, AI deep-dive section, portfolio health snapshot, institutional metrics preview, options intelligence, AI daily briefing, and competitor scorecard — to compete with AllInvestView and similar trackers on a global audience.
 
 ---
 
@@ -33,18 +33,46 @@ The upgrade follows a **C — Balanced** layout: keep existing features grid, ad
 
 | # | Section | Status | Key change |
 |---|---------|--------|-----------|
-| — | Nav | Keep | Add "AI Tools" and "Compare" links |
+| — | Nav | Keep | Add "AI Tools", "Options", and "Compare" links |
+| ⓪ | Live Market Pulse | **New** | Slim ticker bar above hero showing market regime, VIX, SPY/QQQ, and AI market state |
 | ① | Hero | Upgrade | New headline, institutional badge, AI chat preview panel, alpha stat |
 | ② | Stats Strip + Features | Upgrade | Add 4-stat strip above existing features grid |
-| ③ | AI Deep Dive | **New** | Tabbed section, one panel per AI tool |
-| ④ | Competitor Scorecard | **New** | 5 category win cards + inline free CTA card |
-| ⑤ | CTA | Upgrade | New copy: "institutional clarity" framing |
+| ③ | Portfolio Health Snapshot | **New** | Visual card showing health score, concentration risk, dividend yield, drawdown risk, and AI suggestion |
+| ④ | Institutional Metrics Preview | **New** | Alpha, beta, Sharpe, max drawdown, volatility, and benchmark comparison cards |
+| ⑤ | AI Deep Dive | **New** | Tabbed section, one panel per AI tool |
+| ⑥ | AI Daily Briefing | **New** | Morning briefing mockup for portfolio health, theta income, risk alerts, and market regime |
+| ⑦ | Options Intelligence | **New** | Wheel strategy, CSP, covered call, assignment risk, theta, and IV monitoring section |
+| ⑧ | Competitor Scorecard | **New** | 5 category win cards + inline free CTA card |
+| ⑨ | Trust, Privacy & Explainability | **New** | Read-only sync, encrypted data messaging, and AI reasoning transparency |
+| ⑩ | CTA | Upgrade | New copy: "institutional clarity" framing |
 | — | How it works | Keep | No change — 3-step section preserved as-is |
 | — | Footer | Keep | No change |
 
 ---
 
 ## Section Specifications
+
+### ⓪ Live Market Pulse (New)
+
+**Purpose:** Give the landing page a live, market-aware fintech feeling immediately above the hero. This makes PortfolioAI feel active instead of static.
+
+**Placement:** Above the hero section, below nav.
+
+**Layout:** Slim horizontal ticker bar with glass/dark background. Desktop shows all items inline; mobile becomes horizontal scroll.
+
+**Items:**
+| Item | Example value | Purpose |
+|------|---------------|---------|
+| SPY | `+0.82%` | Broad market cue |
+| QQQ | `+1.14%` | Growth/tech cue |
+| VIX | `18.2` | Risk/volatility cue |
+| Fear & Greed | `Neutral` | Sentiment cue |
+| Market Regime | `Risk-On` | AI-readable market state |
+
+**Copy example:**
+`LIVE MARKET PULSE · SPY +0.82% · QQQ +1.14% · VIX 18.2 · REGIME: RISK-ON`
+
+**Implementation note:** Static mock values for landing page only. No API call in this phase.
 
 ### ① Hero (Upgrade)
 
@@ -76,7 +104,60 @@ The upgrade follows a **C — Balanced** layout: keep existing features grid, ad
 **Section headline:** "Institutional tools. Zero setup."
 **Section label:** `EVERYTHING IN ONE WORKSPACE` (small caps, blue)
 
-### ③ AI Deep Dive (New)
+### ③ Portfolio Health Snapshot (New)
+
+**Purpose:** Show that PortfolioAI gives practical, investor-friendly portfolio diagnosis, not just charts.
+
+**Section label:** `PORTFOLIO HEALTH`
+**Headline:** "Know what your portfolio is really telling you"
+**Subheadline:** "PortfolioAI turns holdings, allocation, income, risk, and performance into one clear health snapshot."
+
+**Main card example:**
+```txt
+Portfolio Health: Moderate ⚠️
+
+Portfolio Value: $24,820
+Tech Exposure: 41%
+Dividend Yield: 5.8%
+Max Drawdown Risk: Medium
+
+AI Suggestion:
+Reduce concentration in NVDA and increase defensive ETF allocation by 5%.
+```
+
+**Supporting mini cards:**
+| Card | Value | Note |
+|------|-------|------|
+| Concentration Risk | Medium | Top 3 holdings = 38% |
+| Income Quality | Stable | Monthly yield improving |
+| Benchmark Gap | +2.4% | Outperforming SPY |
+| Action Needed | 1 alert | Review tech exposure |
+
+---
+
+### ④ Institutional Metrics Preview (New)
+
+**Purpose:** Make institutional analytics visible instead of only mentioned in text.
+
+**Section label:** `INSTITUTIONAL METRICS`
+**Headline:** "Fund-manager metrics, explained simply"
+**Subheadline:** "Alpha, beta, Sharpe ratio, volatility, drawdown, and benchmark comparison — translated into plain English."
+
+**Metric cards:**
+| Metric | Example | Plain-English label |
+|--------|---------|--------------------|
+| Alpha | `+3.2%` | Extra return vs benchmark |
+| Beta | `1.08` | Slightly more volatile than market |
+| Sharpe Ratio | `1.42` | Good risk-adjusted return |
+| Max Drawdown | `-11.8%` | Worst historical drop |
+| Volatility | `14.6%` | Medium movement risk |
+| Correlation | `0.82` | Closely follows SPY |
+
+**Optional UI:** Add small sparkline placeholders inside each card. Static SVG or CSS line is enough. No chart dependency needed.
+
+---
+
+### ⑤ AI Deep Dive (New)
 
 **Section label:** `✦ AI SUITE — 5 TOOLS`
 **Headline:** "AI that understands your portfolio"
@@ -104,7 +185,74 @@ The upgrade follows a **C — Balanced** layout: keep existing features grid, ad
 - Bullets: "Knows your actual holdings and weights", "Understands your benchmark and performance", "Flags concentration risk and anomalies", "Suggests follow-up questions automatically"
 - Mockup: user asks "Am I too concentrated in tech?" → AI responds with sector % and top-3 breakdown
 
-### ④ Competitor Scorecard (New)
+### ⑥ AI Daily Briefing (New)
+
+**Purpose:** Create a premium daily habit hook. Users immediately understand the product can brief them every morning like a personal portfolio analyst.
+
+**Section label:** `DAILY AI BRIEFING`
+**Headline:** "Start the day with a portfolio briefing"
+**Subheadline:** "PortfolioAI summarizes risk, income, market regime, and watchlist alerts before the market opens."
+
+**Mockup copy:**
+```txt
+Good morning, Azhar.
+
+PORTFOLIO HEALTH: Moderate ⚠️
+
+Theta earned today:        +$12.40
+Net unrealized P&L:        -$31.82
+Premium collected total:   +$248.00
+
+⚠️ NIO covered call expires in 3 days
+Strike $5.50 | Current $5.44
+→ Consider: let expire or roll if ITM risk increases
+
+✅ RUM put is profitable
+→ Consider closing early at 80% max profit
+
+MARKET REGIME: Bearish bias today
+VIX elevated | Breadth negative
+
+→ Avoid opening new high-risk positions today.
+```
+
+**Design:** Large mock terminal/card with green, yellow, and muted danger accents. On mobile, full-width card.
+
+---
+
+### ⑦ Options Intelligence (New)
+
+**Purpose:** Separate PortfolioAI from normal stock trackers by showing support for options income strategies.
+
+**Section label:** `OPTIONS INTELLIGENCE`
+**Headline:** "Built for stock investors and options income traders"
+**Subheadline:** "Track covered calls, cash-secured puts, wheel strategy risk, assignment exposure, theta income, and IV conditions in one place."
+
+**Feature cards:**
+| Feature | Description |
+|---------|-------------|
+| Cash-Secured Put Monitor | Tracks collateral, breakeven, expiry, and assignment risk |
+| Covered Call Tracker | Shows strike distance, share coverage, premium collected, and buyback zone |
+| Wheel Strategy View | Connects put → assignment → covered call → exit cycle |
+| Theta Income Tracker | Tracks daily, weekly, and monthly premium income |
+| IV & Expiry Alerts | Flags high-IV opportunities and risky expiries |
+| 50% Profit Rule | Highlights contracts suitable for early close |
+
+**Mockup example:**
+```txt
+NIO $5.50 Covered Call
+Expiry: 3 days
+Premium collected: $18.00
+Current buyback: $8.00
+Profit captured: 55%
+AI action: Consider closing early if risk/reward is no longer attractive.
+```
+
+**Implementation note:** Static landing page content only. Actual options engine remains inside the app roadmap.
+
+---
+
+### ⑧ Competitor Scorecard (New)
 
 **Section label:** `WHY PORTFOLIOAI`
 **Headline:** "Built for investors who want more than a tracker"
@@ -124,7 +272,34 @@ The upgrade follows a **C — Balanced** layout: keep existing features grid, ad
 **Win card styling:** subtle top-border gradient (green), dark background, competitor names in muted red (`✗`)
 **CTA card (6th):** blue accent, "Free" in large type, inline "Open Dashboard →" button
 
-### ⑤ CTA Section (Upgrade)
+### ⑨ Trust, Privacy & Explainability (New)
+
+**Purpose:** Reduce fear around broker sync and AI recommendations. Serious investors need to know the platform is safe, explainable, and not blindly trading for them.
+
+**Section label:** `TRUSTED AI`
+**Headline:** "AI recommendations you can understand"
+**Subheadline:** "Every insight shows the reason, data context, and risk behind the recommendation."
+
+**Trust cards:**
+| Card | Copy |
+|------|------|
+| Read-only broker sync | PortfolioAI can analyze holdings without needing trading permission by default |
+| No auto-trading by default | Suggestions are shown to the user first; the user stays in control |
+| Explainable AI | Each recommendation includes portfolio context, risk reason, and confidence score |
+| Private portfolio data | Portfolio data should be encrypted and protected from public exposure |
+
+**Explainability example:**
+```txt
+Recommendation: Reduce tech exposure
+Reason: Technology is 41% of portfolio, above your 30% target
+Risk: High correlation between NVDA, QQQ, and SOXL
+Confidence: 82%
+Suggested action: Rebalance 5% into defensive ETF or cash buffer
+```
+
+---
+
+### ⑩ CTA Section (Upgrade)
 
 **Headline:** "Ready to invest with institutional clarity?"
 **Subheadline:** "Open the dashboard — free to start, no credit card required."
@@ -135,8 +310,9 @@ The upgrade follows a **C — Balanced** layout: keep existing features grid, ad
 
 ## Nav Updates
 
-Add two links to existing nav:
+Add three links to existing nav:
 - "AI Tools" → anchors to `#ai` section
+- "Options" → anchors to `#options` section
 - "Compare" → anchors to `#compare` section
 
 Existing links "Features" and "How it works" kept. "Demo" link kept.
@@ -153,6 +329,12 @@ All changes are in **one file**: `src/routes/+page.svelte`. No new routes, no ne
 | Stats strip | Static HTML/CSS — no data fetching |
 | Scorecard grid | Static HTML/CSS — hardcoded competitor data |
 | Hero AI preview | Static mock — hardcoded chat messages |
+| Live market pulse | Static mock ticker — no API call |
+| Portfolio health snapshot | Static card — no API call |
+| Institutional metrics preview | Static metric cards with optional CSS/SVG sparklines |
+| AI daily briefing | Static mock card — no API call |
+| Options intelligence | Static cards + mock option alert |
+| Trust/explainability section | Static cards + recommendation explanation mock |
 | Styles | Scoped `<style>` block, uses existing CSS variables (`--primary`, `--success`, `--card`, etc.) |
 
 No new dependencies. No new API calls. No new Svelte stores.
@@ -189,10 +371,16 @@ No new CSS variables needed.
 | Section | ≤860px | ≤600px |
 |---------|--------|--------|
 | Hero | Stack to 1 column (already done) | — |
+| Market pulse | Horizontal scroll | Horizontal scroll |
 | Stats strip | 2×2 grid | 2×2 grid |
 | Features grid | 2 columns | 1 column (already done) |
+| Portfolio health | Stack cards | 1 column |
+| Metrics preview | 2 columns | 1 column |
 | AI tab bar | Wrap, scrollable | Horizontal scroll |
 | AI panel | Stack to 1 column | 1 column |
+| Daily briefing | Full width | Full width |
+| Options intelligence | 2 columns | 1 column |
+| Trust cards | 2 columns | 1 column |
 | Scorecard grid | 2 columns | 1 column |
 
 ---
@@ -200,10 +388,14 @@ No new CSS variables needed.
 ## Success Criteria
 
 - Landing page clearly positions as institutional-grade, not a generic free tracker
-- "AI Suite" and "Institutional Analytics" are the two dominant visual hooks above the fold or within first scroll
+- "AI Suite", "Portfolio Health", and "Institutional Analytics" are the dominant visual hooks above the fold or within first scroll
 - Competitor scorecard visible without needing to scroll past 3 full sections
 - All 5 AI tools have named entries in the tab section
-- Nav has "AI Tools" and "Compare" anchor links
+- Live market pulse appears above hero without API calls
+- Options Intelligence section clearly supports wheel strategy, CSP, covered call, theta, IV, and assignment risk
+- AI Daily Briefing mockup communicates daily portfolio habit value
+- Trust section clearly states read-only sync, user control, and explainable AI
+- Nav has "AI Tools", "Options", and "Compare" anchor links
 - Page loads without new server calls — fully static
 - All existing sections (features grid, how-it-works, footer) preserved
 - Mobile layout works at 375px width
@@ -219,3 +411,5 @@ No new CSS variables needed.
 - A/B testing infrastructure
 - Analytics tracking (GA, Plausible)
 - Real user testimonials or review ratings
+- Real-time market API integration for landing page ticker
+- Auto-trading or order placement from landing page

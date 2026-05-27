@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getOptionsIntelligenceDashboard,
   parseOptionsBenchmark,
@@ -16,16 +15,16 @@ import { approveTradeTicket, getTradeTicket } from '$lib/services/trade-layer.se
 import { previewMoomooExecution, submitMoomooExecution, type ExecutionSafetyCheck } from '$lib/services/moomoo-execution.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseOptionsPeriod(url.searchParams.get('period'));
   const benchmark = parseOptionsBenchmark(url.searchParams.get('benchmark'));
   return await getOptionsIntelligenceDashboard(user.id, { period, benchmark });
 };
 
 export const actions: Actions = {
-  refresh: async ({ url }) => {
-    const user = await getDemoUser();
+  refresh: async ({ url, locals }) => {
+    const user = locals.user!;
     try {
       return {
         message: 'Options intelligence refreshed.',
@@ -39,8 +38,8 @@ export const actions: Actions = {
     }
   },
 
-  queueOption: async ({ request }) => {
-    const user = await getDemoUser();
+  queueOption: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const optionType = String(form.get('optionType') ?? 'call') as 'call' | 'put';
     const symbol = String(form.get('symbol') ?? '');
@@ -79,8 +78,8 @@ export const actions: Actions = {
     }
   },
 
-  executeOption: async ({ request }) => {
-    const user = await getDemoUser();
+  executeOption: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const ticketId = String(form.get('ticketId') ?? '');
 

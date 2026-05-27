@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   sendAiCopilotMessage,
   parseCopilotPeriod,
@@ -7,9 +6,9 @@ import {
 } from '$lib/services/ai-copilot.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    const user = await getDemoUser();
+    const user = locals.user!;
     const body = await request.json();
     const period    = parseCopilotPeriod(body.period ?? null);
     const benchmark = parseCopilotBenchmark(body.benchmark ?? null);

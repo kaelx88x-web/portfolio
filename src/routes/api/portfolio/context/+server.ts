@@ -1,5 +1,4 @@
 import { analyticsJson } from '$lib/server/analytics-api';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   buildAiPortfolioContext,
   parseAiBenchmark,
@@ -9,8 +8,8 @@ import {
 } from '$lib/services/ai-context.service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   const context = await buildAiPortfolioContext(user.id, {
     period: parseAiPeriod(url.searchParams.get('period')),
     benchmark: parseAiBenchmark(url.searchParams.get('benchmark'))

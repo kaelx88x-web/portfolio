@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   parseTradeOrderType,
   parseTradeTicketType,
@@ -7,8 +6,8 @@ import {
 } from '$lib/services/trade-layer.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ request, locals }) => {
+  const user = locals.user!;
   const body = await request.json().catch(() => ({}));
   const validation = await validateTradeTicket(user.id, {
     sourceType: String(body.sourceType ?? 'manual'),

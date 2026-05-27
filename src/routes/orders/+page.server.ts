@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getOrderTrackingDashboard,
   reconcileBrokerOrder,
@@ -7,14 +6,14 @@ import {
 } from '$lib/services/order-tracking.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   return getOrderTrackingDashboard(user.id);
 };
 
 export const actions: Actions = {
-  sync: async ({ request }) => {
-    const user = await getDemoUser();
+  sync: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       const result = await syncOrderTracking(user.id, { preferReal: form.get('preferReal') === 'on' });
@@ -23,8 +22,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Order sync failed.' });
     }
   },
-  reconcile: async ({ request }) => {
-    const user = await getDemoUser();
+  reconcile: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await reconcileBrokerOrder(user.id, String(form.get('orderId') ?? ''));

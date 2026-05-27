@@ -1,5 +1,4 @@
 import { redirect, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getAiCopilotOverview,
   parseCopilotBenchmark,
@@ -10,8 +9,8 @@ import {
 } from '$lib/services/ai-copilot.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseCopilotPeriod(url.searchParams.get('period'));
   const benchmark = parseCopilotBenchmark(url.searchParams.get('benchmark'));
   const overview = await getAiCopilotOverview(user.id, period, benchmark);
@@ -20,16 +19,16 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  generateInsight: async ({ request, url }) => {
-    const user = await getDemoUser();
+  generateInsight: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const period = parseCopilotPeriod(url.searchParams.get('period'));
     const benchmark = parseCopilotBenchmark(url.searchParams.get('benchmark'));
     await generateAiInsight(user.id, parseInsightType(form.get('insightType')), period, benchmark);
     throw redirect(303, `/ai?period=${period}&benchmark=${benchmark}`);
   },
-  ask: async ({ request, url }) => {
-    const user = await getDemoUser();
+  ask: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const period = parseCopilotPeriod(url.searchParams.get('period'));
     const benchmark = parseCopilotBenchmark(url.searchParams.get('benchmark'));

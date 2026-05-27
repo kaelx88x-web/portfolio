@@ -4,11 +4,10 @@ import type { RequestHandler } from './$types';
 import { redisGet } from '$lib/server/redis';
 import { redisKey } from '$lib/server/queues';
 import { prisma } from '$lib/server/db';
-import { getDemoUser } from '$lib/server/demo-user';
 import type { OptionAlert } from '$lib/server/queues';
 
-export const GET: RequestHandler = async () => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ locals }) => {
+  const user = locals.user!;
   const userId = user.id;
 
   // Try Redis first (fast path)

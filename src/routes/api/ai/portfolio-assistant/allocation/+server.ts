@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getPortfolioAssistantSection,
   parsePortfolioAssistantBenchmark,
@@ -7,8 +6,8 @@ import {
 } from '$lib/services/ai-portfolio-assistant.service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   const response = await getPortfolioAssistantSection(user.id, 'allocation', {
     period: parsePortfolioAssistantPeriod(url.searchParams.get('period')),
     benchmark: parsePortfolioAssistantBenchmark(url.searchParams.get('benchmark')),

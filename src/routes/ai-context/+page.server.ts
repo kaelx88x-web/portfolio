@@ -1,5 +1,4 @@
 import { fail, redirect, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   BENCHMARKS,
   ANALYTICS_PERIODS,
@@ -16,8 +15,8 @@ import {
 } from '$lib/services/ai-context.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseAiPeriod(url.searchParams.get('period'));
   const benchmark = parseAiBenchmark(url.searchParams.get('benchmark'));
   const [context, memories] = await Promise.all([
@@ -38,8 +37,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  refreshMemory: async ({ url }) => {
-    const user = await getDemoUser();
+  refreshMemory: async ({ url, locals }) => {
+    const user = locals.user!;
     try {
       const period = parsePeriod(url.searchParams.get('period'));
       const benchmark = parseBenchmark(url.searchParams.get('benchmark'));

@@ -1,17 +1,16 @@
 // src/routes/paper-trading/+page.server.ts
 import { getMoomooPaperDashboard } from '$lib/services/moomoo-paper.service';
 import { getLatestAgentPush } from '$lib/services/agent.service';
-import { getDemoUser } from '$lib/server/demo-user';
 import type { PageServerLoad } from './$types';
 
 const IS_SAAS = process.env.PUBLIC_APP_MODE === 'saas';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
   // In SaaS mode, read from the latest agent push stored in DB.
   // The customer's local agent is responsible for keeping it fresh.
   if (IS_SAAS) {
     try {
-      const user = await getDemoUser();
+      const user = locals.user!;
       const push = await getLatestAgentPush(user.id);
 
       if (push) {

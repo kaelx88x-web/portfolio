@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   parseRiskAdvisorBenchmark,
   parseRiskAdvisorPeriod,
@@ -7,8 +6,8 @@ import {
 } from '$lib/services/ai-risk-advisor.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ request, locals }) => {
+  const user = locals.user!;
   const body = await request.json().catch(() => ({}));
   const refreshed = await refreshRiskAdvisor(user.id, {
     period: parseRiskAdvisorPeriod(body.period ?? null),

@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getAllocationHealth,
   parseSmartAllocationBenchmark,
@@ -7,8 +6,8 @@ import {
 } from '$lib/services/smart-allocation.service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   return json({
     status: 'ready',
     health: await getAllocationHealth(user.id, {

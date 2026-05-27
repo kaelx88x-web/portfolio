@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   createTradeTicket,
   listTradeTickets,
@@ -9,8 +8,8 @@ import {
 } from '$lib/services/trade-layer.service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   const statusParam = url.searchParams.get('status');
   const status = statusParam ? parseTradeTicketStatus(statusParam) : null;
   const tickets = await listTradeTickets(user.id, {
@@ -20,8 +19,8 @@ export const GET: RequestHandler = async ({ url }) => {
   return json({ status: 'ready', tickets });
 };
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ request, locals }) => {
+  const user = locals.user!;
   const body = await request.json().catch(() => ({}));
   try {
     const ticket = await createTradeTicket(user.id, {

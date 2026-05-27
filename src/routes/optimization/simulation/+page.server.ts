@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getScenarioSimulationDashboard,
   parseScenarioType,
@@ -11,8 +10,8 @@ import {
 import { getRecommendedStrategy } from '$lib/services/behavioral-profile.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user      = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period    = parseSimulationPeriod(url.searchParams.get('period'));
   const benchmark = parseSimulationBenchmark(url.searchParams.get('benchmark'));
 
@@ -23,8 +22,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  run: async ({ request, url }) => {
-    const user = await getDemoUser();
+  run: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       // portfolioMode from form is AI-derived (set via hidden input + activeMode prop)

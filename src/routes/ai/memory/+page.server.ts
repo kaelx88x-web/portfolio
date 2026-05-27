@@ -1,4 +1,3 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   AI_MEMORY_TYPES,
   getAiMemoryOverview,
@@ -10,8 +9,8 @@ import {
 import { BENCHMARKS, ANALYTICS_PERIODS } from '$lib/services/analytics.service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseAiMemoryPeriod(url.searchParams.get('period'));
   const benchmark = parseAiMemoryBenchmark(url.searchParams.get('benchmark'));
   const snapshotType = parseAiMemoryType(url.searchParams.get('type'));
@@ -27,8 +26,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  refresh: async ({ url }) => {
-    const user = await getDemoUser();
+  refresh: async ({ url, locals }) => {
+    const user = locals.user!;
     await refreshAiMemorySnapshot(user.id, {
       period: parseAiMemoryPeriod(url.searchParams.get('period')),
       benchmark: parseAiMemoryBenchmark(url.searchParams.get('benchmark')),

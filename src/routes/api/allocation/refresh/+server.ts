@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   parseSmartAllocationBenchmark,
   parseSmartAllocationPeriod,
@@ -7,8 +6,8 @@ import {
 } from '$lib/services/smart-allocation.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   return json({
     status: 'refreshed',
     result: await refreshSmartAllocation(user.id, {

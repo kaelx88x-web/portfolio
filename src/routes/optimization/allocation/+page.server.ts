@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getSmartAllocationDashboard,
   parseSmartAllocationBenchmark,
@@ -8,16 +7,16 @@ import {
 } from '$lib/services/smart-allocation.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseSmartAllocationPeriod(url.searchParams.get('period'));
   const benchmark = parseSmartAllocationBenchmark(url.searchParams.get('benchmark'));
   return await getSmartAllocationDashboard(user.id, { period, benchmark });
 };
 
 export const actions: Actions = {
-  refresh: async ({ url }) => {
-    const user = await getDemoUser();
+  refresh: async ({ url, locals }) => {
+    const user = locals.user!;
     try {
       return {
         message: 'Smart allocation refreshed.',

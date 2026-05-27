@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   explainPortfolioAssistantQuestion,
   getPortfolioAssistantOverview,
@@ -11,12 +10,12 @@ import {
 import { BENCHMARKS, ANALYTICS_PERIODS } from '$lib/services/analytics.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
   const period = parsePortfolioAssistantPeriod(url.searchParams.get('period'));
   const benchmark = parsePortfolioAssistantBenchmark(url.searchParams.get('benchmark'));
 
   try {
-    const user = await getDemoUser();
+    const user = locals.user!;
     return {
       period,
       benchmark,
@@ -48,8 +47,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  ask: async ({ request, url }) => {
-    const user = await getDemoUser();
+  ask: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       return {
@@ -64,8 +63,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Portfolio assistant failed.' });
     }
   },
-  refresh: async ({ url }) => {
-    const user = await getDemoUser();
+  refresh: async ({ url, locals }) => {
+    const user = locals.user!;
     await refreshPortfolioAssistant(user.id, {
       period: parsePortfolioAssistantPeriod(url.searchParams.get('period')),
       benchmark: parsePortfolioAssistantBenchmark(url.searchParams.get('benchmark'))

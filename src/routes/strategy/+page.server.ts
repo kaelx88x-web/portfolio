@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getStrategyDashboard,
   parseStrategyBenchmark,
@@ -10,16 +9,16 @@ import {
 } from '$lib/services/strategy-orchestrator.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseStrategyPeriod(url.searchParams.get('period'));
   const benchmark = parseStrategyBenchmark(url.searchParams.get('benchmark'));
   return getStrategyDashboard(user.id, { period, benchmark });
 };
 
 export const actions: Actions = {
-  refresh: async ({ url }) => {
-    const user = await getDemoUser();
+  refresh: async ({ url, locals }) => {
+    const user = locals.user!;
     try {
       await refreshStrategyOrchestrator(user.id, {
         period: parseStrategyPeriod(url.searchParams.get('period')),
@@ -30,8 +29,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Strategy refresh failed.' });
     }
   },
-  updateProfile: async ({ request, url }) => {
-    const user = await getDemoUser();
+  updateProfile: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await updateStrategyProfile(user.id, {

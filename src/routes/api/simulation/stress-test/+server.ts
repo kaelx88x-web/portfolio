@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getStressTest,
   parseSimulationBenchmark,
@@ -8,8 +7,8 @@ import {
 } from '$lib/services/scenario-simulation.service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   const stressTest = await getStressTest(user.id, {
     period: parseSimulationPeriod(url.searchParams.get('period')),
     benchmark: parseSimulationBenchmark(url.searchParams.get('benchmark')),

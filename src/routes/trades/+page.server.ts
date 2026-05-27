@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   approveTradeTicket,
   cancelTradeTicket,
@@ -12,14 +11,14 @@ import {
 import { previewMoomooExecution, submitMoomooExecution, type ExecutionSafetyCheck } from '$lib/services/moomoo-execution.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   return getTradeLayerDashboard(user.id);
 };
 
 export const actions: Actions = {
-  create: async ({ request }) => {
-    const user = await getDemoUser();
+  create: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await createTradeTicket(user.id, formToTicketInput(form));
@@ -28,8 +27,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Trade ticket creation failed.' });
     }
   },
-  approve: async ({ request }) => {
-    const user = await getDemoUser();
+  approve: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await approveTradeTicket(user.id, String(form.get('ticketId') ?? ''), String(form.get('note') ?? 'Approved for future execution review.'));
@@ -38,8 +37,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Ticket approval failed.' });
     }
   },
-  confirm_execute: async ({ request }) => {
-    const user = await getDemoUser();
+  confirm_execute: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const ticketId = String(form.get('ticketId') ?? '');
     try {
@@ -65,8 +64,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Execution failed.' });
     }
   },
-  reject: async ({ request }) => {
-    const user = await getDemoUser();
+  reject: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await rejectTradeTicket(user.id, String(form.get('ticketId') ?? ''), String(form.get('note') ?? 'Rejected after review.'));
@@ -75,8 +74,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Ticket rejection failed.' });
     }
   },
-  cancel: async ({ request }) => {
-    const user = await getDemoUser();
+  cancel: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await cancelTradeTicket(user.id, String(form.get('ticketId') ?? ''), String(form.get('note') ?? 'Cancelled by user.'));

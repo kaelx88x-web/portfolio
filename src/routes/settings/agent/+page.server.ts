@@ -1,12 +1,11 @@
 // src/routes/settings/agent/+page.server.ts
 import { error } from '@sveltejs/kit';
 import { getOrCreateAgentRegistration, rotateAgentKey } from '$lib/services/agent.service';
-import { getDemoUser } from '$lib/server/demo-user';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
   try {
-    const user = await getDemoUser();
+    const user = locals.user!;
     const reg = await getOrCreateAgentRegistration(user.id);
     return {
       apiKey: reg.apiKey,
@@ -24,9 +23,9 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  rotate: async () => {
+  rotate: async ({ locals }) => {
     try {
-      const user = await getDemoUser();
+      const user = locals.user!;
       await rotateAgentKey(user.id);
       return { rotated: true };
     } catch (err) {

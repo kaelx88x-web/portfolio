@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   explainPortfolioAssistantQuestion,
   getPortfolioAssistantOverview,
@@ -9,16 +8,16 @@ import {
 } from '$lib/services/ai-portfolio-assistant.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parsePortfolioAssistantPeriod(url.searchParams.get('period'));
   const benchmark = parsePortfolioAssistantBenchmark(url.searchParams.get('benchmark'));
   return { period, benchmark, ...(await getPortfolioAssistantOverview(user.id, { period, benchmark })) };
 };
 
 export const actions: Actions = {
-  ask: async ({ request, url }) => {
-    const user = await getDemoUser();
+  ask: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       return {

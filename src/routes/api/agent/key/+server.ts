@@ -5,12 +5,11 @@
 
 import { json } from '@sveltejs/kit';
 import { getOrCreateAgentRegistration, rotateAgentKey } from '$lib/services/agent.service';
-import { getDemoUser } from '$lib/server/demo-user';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ locals }) => {
   try {
-    const user = await getDemoUser();
+    const user = locals.user!;
     const reg = await getOrCreateAgentRegistration(user.id);
     return json({
       api_key: reg.apiKey,
@@ -26,9 +25,9 @@ export const GET: RequestHandler = async () => {
   }
 };
 
-export const POST: RequestHandler = async () => {
+export const POST: RequestHandler = async ({ locals }) => {
   try {
-    const user = await getDemoUser();
+    const user = locals.user!;
     const reg = await rotateAgentKey(user.id);
     return json({
       api_key: reg.apiKey,

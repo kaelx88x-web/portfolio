@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { submitMoomooExecution } from '$lib/services/moomoo-execution.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ request, locals }) => {
+  const user = locals.user!;
   const body = await request.json().catch(() => ({}));
   try {
     const execution = await submitMoomooExecution(user.id, String(body.executionRequestId ?? ''), {

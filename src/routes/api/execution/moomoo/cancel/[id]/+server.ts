@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { cancelMoomooExecution } from '$lib/services/moomoo-execution.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ params }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ params, locals }) => {
+  const user = locals.user!;
   try {
     const execution = await cancelMoomooExecution(user.id, params.id);
     return json({ status: execution.status, execution });

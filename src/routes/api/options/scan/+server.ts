@@ -2,10 +2,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getOptionScanQueue } from '$lib/server/queues';
-import { getDemoUser } from '$lib/server/demo-user';
-
-export const POST: RequestHandler = async () => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ locals }) => {
+  const user = locals.user!;
   const userId = user.id;
 
   const queue = getOptionScanQueue();

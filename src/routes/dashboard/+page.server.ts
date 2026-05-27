@@ -129,6 +129,21 @@ export const actions: Actions = {
 export const load: PageServerLoad = async ({ locals }) => {
   const user = locals.user!;
 
+  // [Safety net] Ensure user always has at least one portfolio account
+  // (handles race conditions where the register hook didn't fire)
+  const existingAccounts = await listAccounts(user.id);
+  if (existingAccounts.length === 0) {
+    await prisma.account.create({
+      data: {
+        userId: user.id,
+        name: 'Paper Portfolio',
+        brokerName: 'paper',
+        accountType: 'paper',
+        currency: 'USD',
+      },
+    });
+  }
+
   const [accounts, transactionHoldings, snapshot, watchlists, allTransactions] = await Promise.all([
     listAccounts(user.id),
     getHoldings(user.id),

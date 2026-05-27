@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { listTradeTickets } from '$lib/services/trade-layer.service';
 import {
   cancelMoomooExecution,
@@ -10,16 +9,16 @@ import {
 } from '$lib/services/moomoo-execution.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   const dashboard = await getMoomooExecutionDashboard(user.id);
   const tickets = await listTradeTickets(user.id, { status: 'approved', limit: 30 });
   return { ...dashboard, approvedTickets: tickets };
 };
 
 export const actions: Actions = {
-  preview: async ({ request }) => {
-    const user = await getDemoUser();
+  preview: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await previewMoomooExecution(user.id, {
@@ -32,8 +31,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Execution preview failed.' });
     }
   },
-  submit: async ({ request }) => {
-    const user = await getDemoUser();
+  submit: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await submitMoomooExecution(user.id, String(form.get('executionRequestId') ?? ''), {
@@ -45,8 +44,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Execution submit failed.' });
     }
   },
-  cancel: async ({ request }) => {
-    const user = await getDemoUser();
+  cancel: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await cancelMoomooExecution(user.id, String(form.get('executionRequestId') ?? ''));

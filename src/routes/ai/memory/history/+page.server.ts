@@ -1,9 +1,8 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import { listAiMemorySnapshots, parseAiMemoryType } from '$lib/services/ai-memory.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const snapshotType = parseAiMemoryType(url.searchParams.get('type'));
   return {
     snapshotType,

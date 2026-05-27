@@ -1,4 +1,3 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   generatePrompt,
   parsePromptProvider,
@@ -8,8 +7,8 @@ import {
 } from '$lib/services/prompt-builder.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const promptType = parsePromptType(url.searchParams.get('promptType') ?? url.searchParams.get('prompt_type'));
   const provider = parsePromptProvider(url.searchParams.get('provider'));
   const question = url.searchParams.get('question') ?? 'Review this portfolio.';

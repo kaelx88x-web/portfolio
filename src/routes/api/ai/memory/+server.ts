@@ -1,4 +1,4 @@
 import { aiMemoryOverviewJson } from '$lib/server/ai-memory-api';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => aiMemoryOverviewJson(url);
+export const GET: RequestHandler = async ({ url, locals }) => aiMemoryOverviewJson(locals.user!.id, url);

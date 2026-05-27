@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   orchestrateAiQuestion,
   parseOrchestratorBenchmark,
@@ -7,8 +6,8 @@ import {
 } from '$lib/services/ai-orchestration.service';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await getDemoUser();
+export const POST: RequestHandler = async ({ request, locals }) => {
+  const user = locals.user!;
   const body = await request.json().catch(() => ({}));
   const result = await orchestrateAiQuestion(user.id, {
     question: String(body.question ?? 'Analyze my portfolio orchestration context.'),

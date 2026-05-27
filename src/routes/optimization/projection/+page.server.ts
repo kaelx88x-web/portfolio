@@ -1,4 +1,3 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getPortfolioProjection,
   getRebalanceProjection,
@@ -8,8 +7,8 @@ import {
 } from '$lib/services/scenario-simulation.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseSimulationPeriod(url.searchParams.get('period'));
   const benchmark = parseSimulationBenchmark(url.searchParams.get('benchmark'));
   const portfolioMode = parseSimulationPortfolioMode(url.searchParams.get('portfolioMode'));

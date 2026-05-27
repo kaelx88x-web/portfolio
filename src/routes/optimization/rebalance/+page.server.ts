@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { getAiRebalanceSuggestions } from '$lib/services/ai-rebalance.service';
 import { getBehavioralProfile } from '$lib/services/behavioral-profile.service';
 import { getBehavioralExplanation } from '$lib/services/ai-behavioral-explanation.service';
@@ -21,8 +20,8 @@ import { approveTradeTicket, getTradeTicket } from '$lib/services/trade-layer.se
 import { previewMoomooExecution, submitMoomooExecution, type ExecutionSafetyCheck } from '$lib/services/moomoo-execution.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseOptimizationPeriod(url.searchParams.get('period'));
   const benchmark = parseOptimizationBenchmark(url.searchParams.get('benchmark'));
   const portfolioMode = parseSimulationPortfolioMode(url.searchParams.get('portfolioMode'));
@@ -50,8 +49,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  simulate: async ({ request, url }) => {
-    const user = await getDemoUser();
+  simulate: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       await simulateRebalance(user.id, {
@@ -65,8 +64,8 @@ export const actions: Actions = {
     }
   },
 
-  aiSuggest: async ({ request }) => {
-    const user = await getDemoUser();
+  aiSuggest: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const portfolioMode = parseSimulationPortfolioMode(form.get('portfolioMode'));
     try {
@@ -85,8 +84,8 @@ export const actions: Actions = {
     }
   },
 
-  queueRebalance: async ({ request }) => {
-    const user = await getDemoUser();
+  queueRebalance: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const portfolioMode = parseSimulationPortfolioMode(form.get('portfolioMode'));
     try {
@@ -109,8 +108,8 @@ export const actions: Actions = {
     }
   },
 
-  executeAll: async ({ request }) => {
-    const user = await getDemoUser();
+  executeAll: async ({ request, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     const ticketIds = String(form.get('ticketIds') ?? '').split(',').filter(Boolean);
     const results: Array<{ ticketId: string; status: string; message: string; brokerOrderId?: string | null }> = [];

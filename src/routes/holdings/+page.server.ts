@@ -1,12 +1,11 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import { getCashBalance, getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service';
 import { syncMoomoo, getCapitalFlow } from '$lib/services/broker.service';
 import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service';
 import type { SnapshotHolding } from '$lib/types/portfolio';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   const snapshot = await getLatestSnapshot(user.id);
 
   let holdings;
@@ -38,8 +37,8 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-  refreshPrices: async () => {
-    const user = await getDemoUser();
+  refreshPrices: async ({ locals }) => {
+    const user = locals.user!;
     try {
       const result = await syncMoomoo();
       await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);

@@ -2,10 +2,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { prisma } from '$lib/server/db';
-import { getDemoUser } from '$lib/server/demo-user';
-
-export const GET: RequestHandler = async ({ url }) => {
-  const user = await getDemoUser();
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const user = locals.user!;
   const userId = user.id;
 
   const rawLimit = parseInt(url.searchParams.get('limit') ?? '20', 10);

@@ -1,5 +1,4 @@
 import { fail, type Actions } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   explainRiskAdvisorQuestion,
   getRiskAdvisorOverview,
@@ -11,16 +10,16 @@ import {
 import { BENCHMARKS, ANALYTICS_PERIODS } from '$lib/services/analytics.service';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ url, locals }) => {
+  const user = locals.user!;
   const period = parseRiskAdvisorPeriod(url.searchParams.get('period'));
   const benchmark = parseRiskAdvisorBenchmark(url.searchParams.get('benchmark'));
   return { period, benchmark, periods: ANALYTICS_PERIODS, benchmarks: BENCHMARKS, ...(await getRiskAdvisorOverview(user.id, { period, benchmark })) };
 };
 
 export const actions: Actions = {
-  ask: async ({ request, url }) => {
-    const user = await getDemoUser();
+  ask: async ({ request, url, locals }) => {
+    const user = locals.user!;
     const form = await request.formData();
     try {
       return {
@@ -35,8 +34,8 @@ export const actions: Actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Risk Advisor failed.' });
     }
   },
-  refresh: async ({ url }) => {
-    const user = await getDemoUser();
+  refresh: async ({ url, locals }) => {
+    const user = locals.user!;
     await refreshRiskAdvisor(user.id, {
       period: parseRiskAdvisorPeriod(url.searchParams.get('period')),
       benchmark: parseRiskAdvisorBenchmark(url.searchParams.get('benchmark'))
