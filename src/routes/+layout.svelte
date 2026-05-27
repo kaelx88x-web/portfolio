@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import '../app.css';
   import AppShell from '$lib/components/portfolioai/AppShell.svelte';
+  import ImpersonationBanner from '$lib/components/portfolioai/ImpersonationBanner.svelte';
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
   import { theme } from '$lib/stores/ui';
   import type { LayoutData } from './$types';
@@ -34,6 +35,11 @@
   <title>PortfolioAI</title>
   <meta name="description" content="AI Portfolio Operating System — institutional analytics, AI copilot, broker sync." />
 </svelte:head>
+
+<ImpersonationBanner
+  impersonatedBy={data.session?.impersonatedBy ?? null}
+  impersonatedEmail={data.user?.email ?? ''}
+/>
 
 {#if isPublicRoute}
   <slot />
