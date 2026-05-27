@@ -711,6 +711,7 @@ function normalizeSyncResult(data: any): MoomooSyncResult {
     synced_at: data.synced_at ?? new Date().toISOString(),
     holdings_count: Number(data.holdings_count ?? data.holdings?.length ?? 0),
     holdings: data.holdings ?? [],
+    deals: data.deals ?? [],
     account_info: {
       total_assets: Number(accountInfo.total_assets ?? 0),
       securities_assets: Number(accountInfo.securities_assets ?? 0),
@@ -760,6 +761,7 @@ function fromLaravelSync(data: any): MoomooSyncResult {
     synced_at: account.last_synced_at ?? new Date().toISOString(),
     holdings_count: holdings.length,
     holdings,
+    deals: [],
     account_info: {
       total_assets: Number(account.net_liquidation_value ?? accountInfo.total_assets ?? 0),
       securities_assets: Number(accountInfo.securities_assets ?? 0),
