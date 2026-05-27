@@ -56,6 +56,7 @@
   let optSide: 'BUY' | 'SELL' = 'BUY';
   let optQty = 1;
   let optPrice: number | null = null;
+  let chainRequestId = 0;
   let optExpiryLoading = false;
   let optChainLoading = false;
   let optExpiryError = '';
@@ -71,6 +72,7 @@
     optSelectedCode = '';
     try {
       const r = await fetch(`/api/paper/options/expiry?symbol=${encodeURIComponent(optSymbol.trim())}`);
+      if (!r.ok) throw new Error(r.statusText);
       const data = await r.json();
       if (data.error) { optExpiryError = 'Bridge offline'; return; }
       optExpiryList = data.expiry_dates ?? data ?? [];
@@ -82,29 +84,31 @@
   }
 
   async function fetchChain() {
-    if (!optExpiry || !optSymbol.trim()) return;
+    if (!optExpiry || !optSymbol.trim()) { optChain = []; return; }
+    const reqId = ++chainRequestId;
     optChainLoading = true;
     optChainError = '';
-    optChain = [];
-    optSelectedCode = '';
     try {
-      const params = new URLSearchParams({ symbol: optSymbol.trim(), expiry: optExpiry, option_type: optType });
-      const r = await fetch(`/api/paper/options/chain?${params}`);
+      const qs = new URLSearchParams({ symbol: optSymbol, expiry: optExpiry, option_type: optType });
+      const r = await fetch(`/api/paper/options/chain?${qs}`);
+      if (reqId !== chainRequestId) return; // discard stale response
+      if (!r.ok) throw new Error(r.statusText);
       const data = await r.json();
-      if (data.error) { optChainError = 'Bridge offline'; return; }
-      const rows = data.chain ?? data ?? [];
-      optChain = rows.map((row: any) => ({
-        strike: row.strike,
-        bid: row.bid,
-        ask: row.ask,
-        iv: row.iv,
-        option_code: row.option_code,
-        spread_pct: row.ask > 0 ? (row.ask - row.bid) / row.ask * 100 : 0,
+      if (reqId !== chainRequestId) return; // check again after json parse
+      if (data.error) throw new Error(data.error);
+      type RawChainRow = { strike: number; bid: number; ask: number; iv: number; option_code: string };
+      const rows: RawChainRow[] = data.chain ?? data ?? [];
+      optChain = rows.map((row) => ({
+        ...row,
+        spread_pct: row.ask > 0 ? (row.ask - row.bid) / row.ask * 100 : 0
       }));
-    } catch {
-      optChainError = 'Bridge offline';
+      optSelectedCode = '';
+    } catch (e) {
+      if (reqId !== chainRequestId) return;
+      optChainError = e instanceof Error ? e.message : 'Bridge offline';
+      optChain = [];
     } finally {
-      optChainLoading = false;
+      if (reqId === chainRequestId) optChainLoading = false;
     }
   }
 
@@ -123,7 +127,7 @@
   }
 
   // Re-fetch chain when expiry or type changes
-  $: if (optExpiry || optType) { fetchChain(); }
+  $: optExpiry, optType, fetchChain();
 
   // Validation / preview state (wired fully in Tasks 7-8)
   let validationErrors: string[] = [];
