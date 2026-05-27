@@ -1,11 +1,38 @@
+// src/hooks.server.ts
 import type { Handle, HandleServerError } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
+import { redirect } from '@sveltejs/kit';
+import { auth } from '$lib/server/auth';
+import { prisma } from '$lib/server/db';
 import { getRecommendedStrategy } from '$lib/services/behavioral-profile.service';
 
+const PUBLIC_PATHS = ['/login', '/register', '/api/auth'];
+
 export const handle: Handle = async ({ event, resolve }) => {
-  if (event.request.method === 'GET' && event.url.pathname.startsWith('/optimization')) {
-    const user = await getDemoUser();
-    event.locals.recommendedStrategy = await getRecommendedStrategy(user.id).catch(() => undefined);
+  // 1. Validate session and set locals
+  const session = await auth.api.getSession({ headers: event.request.headers });
+  event.locals.user = session?.user ?? null;
+  event.locals.session = session?.session ?? null;
+
+  // 2. Kick banned users — delete their sessions from the database immediately
+  if (event.locals.user?.banned) {
+    await prisma.session.deleteMany({ where: { userId: event.locals.user.id } }).catch(() => {});
+    throw redirect(303, '/login?error=banned');
+  }
+
+  // 3. Require auth for all non-public routes
+  const isPublic = PUBLIC_PATHS.some((p) => event.url.pathname.startsWith(p));
+  if (!event.locals.user && !isPublic) {
+    throw redirect(303, '/login');
+  }
+
+  // 4. Admin-only guard
+  if (event.url.pathname.startsWith('/admin') && event.locals.user?.role !== 'admin') {
+    throw redirect(303, '/dashboard');
+  }
+
+  // 5. Keep existing recommendedStrategy for /optimization routes
+  if (event.request.method === 'GET' && event.url.pathname.startsWith('/optimization') && event.locals.user) {
+    event.locals.recommendedStrategy = await getRecommendedStrategy(event.locals.user.id).catch(() => undefined);
   }
 
   return resolve(event);
