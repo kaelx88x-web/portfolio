@@ -261,13 +261,11 @@ export const load: PageServerLoad = async ({ locals }) => {
     select: { onboardingCompleted: true },
   }).catch(() => null);
   const onboardingCompleted = dbUser?.onboardingCompleted ?? false;
-  const hasHoldings = snapshotRows.filter(h => h.symbol && !h.symbol.includes('.')).length > 0
-    || snapshotRows.length > 0;
   const hasCash = (snapshot?.cashBalance ?? 0) > 0;
   const hasBroker = accounts.some(a => a.brokerName !== 'paper');
 
-  // Auto-complete onboarding once user has done at least 2 steps (stock + cash or similar)
-  const autoCompleteOnboarding = !onboardingCompleted && hasHoldings && hasCash;
+  // Auto-complete onboarding once user has set cash balance
+  const autoCompleteOnboarding = !onboardingCompleted && hasCash;
   if (autoCompleteOnboarding) {
     await prisma.user.update({
       where: { id: user.id },
@@ -316,7 +314,6 @@ export const load: PageServerLoad = async ({ locals }) => {
     snapshotDate,
     onboarding: {
       show: !(onboardingCompleted || autoCompleteOnboarding),
-      hasHoldings,
       hasCash,
       hasBroker,
       onboardingCompleted: onboardingCompleted || autoCompleteOnboarding,

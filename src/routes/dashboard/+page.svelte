@@ -95,7 +95,6 @@
 <!-- Onboarding checklist (shown until dismissed or all steps complete) -->
 {#if data.onboarding?.show}
   <OnboardingChecklist
-    hasHoldings={data.onboarding.hasHoldings}
     hasCash={data.onboarding.hasCash}
     hasBroker={data.onboarding.hasBroker}
     onboardingCompleted={data.onboarding.onboardingCompleted}

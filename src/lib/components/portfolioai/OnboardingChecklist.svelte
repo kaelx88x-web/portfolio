@@ -2,17 +2,15 @@
   import { enhance } from '$app/forms';
   import { CheckCircle2, Circle, ArrowRight } from 'lucide-svelte';
 
-  export let hasHoldings: boolean = false;
   export let hasCash: boolean = false;
   export let hasBroker: boolean = false;
   export let onboardingCompleted: boolean = false;
 
   $: items = [
-    { id: 'account', label: 'Create account',       done: true,                  href: null },
-    { id: 'stock',   label: 'Add first stock',       done: hasHoldings,           href: '/transactions?action=add' },
-    { id: 'cash',    label: 'Set cash balance',      done: hasCash,               href: '/accounts' },
-    { id: 'broker',  label: 'Connect broker',        done: hasBroker,             href: '/broker', optional: true },
-    { id: 'explore', label: 'Explore dashboard',     done: onboardingCompleted,   href: null },
+    { id: 'account', label: 'Create account',    done: true,               href: null },
+    { id: 'cash',    label: 'Set cash balance',  done: hasCash,            href: '/accounts' },
+    { id: 'broker',  label: 'Connect broker',    done: hasBroker,          href: '/broker', optional: true },
+    { id: 'explore', label: 'Explore dashboard', done: onboardingCompleted, href: null },
   ];
 
   $: doneCount = items.filter(i => i.done).length;
