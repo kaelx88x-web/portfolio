@@ -8,6 +8,13 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'mysql' }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:5173',
+  trustedOrigins: [
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
+  ],
   emailAndPassword: { enabled: true },
   plugins: [adminPlugin()],
   session: {

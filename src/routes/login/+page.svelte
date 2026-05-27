@@ -4,7 +4,9 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
 
-  const authClient = createAuthClient();
+  const authClient = createAuthClient({
+    baseURL: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
+  });
 
   let email = '';
   let password = '';
