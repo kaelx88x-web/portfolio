@@ -9,6 +9,7 @@ const prisma = new PrismaClient();
 const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'mysql' }),
   emailAndPassword: { enabled: true },
+  account: { modelName: 'betterAuthAccount' },
   plugins: [adminPlugin()],
 });
 

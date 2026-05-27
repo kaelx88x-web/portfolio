@@ -16,6 +16,11 @@ export const auth = betterAuth({
     ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
   ],
   emailAndPassword: { enabled: true },
+  // Tell Better Auth to use BetterAuthAccount instead of Account
+  // (Account is our broker account model — it has required fields Better Auth can't fill)
+  account: {
+    modelName: 'betterAuthAccount',
+  },
   plugins: [adminPlugin()],
   session: {
     cookieCache: { enabled: true, maxAge: 60 * 5 }, // 5-min cache
