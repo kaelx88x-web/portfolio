@@ -237,9 +237,9 @@ function moomooOpenDPathCandidates() {
 
   if (process.platform === 'win32') {
     const roots = [
-      process.process.env.ProgramFiles,
+      process.env.ProgramFiles,
       process.env['ProgramFiles(x86)'],
-      process.process.env.LOCALAPPDATA ? join(process.process.env.LOCALAPPDATA, 'Programs') : null
+      process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs') : null
     ].filter(Boolean) as string[];
 
     for (const root of roots) {
