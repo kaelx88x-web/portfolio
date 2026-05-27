@@ -77,6 +77,16 @@ export type AccountInfo = {
   pdt_seq: string;
 };
 
+export type MoomooDealItem = {
+  deal_id: string;
+  code: string;
+  side: string;
+  qty: number;
+  price: number;
+  create_time: string;
+  fee?: number;
+};
+
 export type MoomooSyncResult = {
   account_label: string;
   account_number: string;
@@ -87,6 +97,7 @@ export type MoomooSyncResult = {
   synced_at: string;
   holdings_count: number;
   holdings: BrokerHolding[];
+  deals: MoomooDealItem[];
   account_info: AccountInfo;
 };
 
