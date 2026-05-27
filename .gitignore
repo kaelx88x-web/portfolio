@@ -18,6 +18,9 @@ moomoo-service/*.log
 connector/__pycache__/
 connector/tests/__pycache__/
 *.pyc
+
+# Git worktrees
+.worktrees/
 *.pyo
 connector/dist/
 connector/build/
