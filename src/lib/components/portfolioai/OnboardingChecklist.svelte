@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { CheckCircle2, Circle } from 'lucide-svelte';
+  import { CheckCircle2, Circle, ArrowRight } from 'lucide-svelte';
 
   export let hasHoldings: boolean = false;
   export let hasCash: boolean = false;
@@ -8,11 +8,11 @@
   export let onboardingCompleted: boolean = false;
 
   $: items = [
-    { id: 'account', label: 'Create account', done: true },
-    { id: 'stock', label: 'Add first stock', done: hasHoldings },
-    { id: 'cash', label: 'Set cash balance', done: hasCash },
-    { id: 'broker', label: 'Connect broker', done: hasBroker, optional: true },
-    { id: 'explore', label: 'Explore dashboard', done: onboardingCompleted },
+    { id: 'account', label: 'Create account',       done: true,                  href: null },
+    { id: 'stock',   label: 'Add first stock',       done: hasHoldings,           href: '/transactions?action=add' },
+    { id: 'cash',    label: 'Set cash balance',      done: hasCash,               href: '/accounts' },
+    { id: 'broker',  label: 'Connect broker',        done: hasBroker,             href: '/broker', optional: true },
+    { id: 'explore', label: 'Explore dashboard',     done: onboardingCompleted,   href: null },
   ];
 
   $: doneCount = items.filter(i => i.done).length;
@@ -36,9 +36,18 @@
         {#if item.done}
           <CheckCircle2 size={15} style="color:var(--success);flex-shrink:0" />
           <span style="color:var(--muted);text-decoration:line-through">{item.label}</span>
+        {:else if item.href}
+          <Circle size={15} style="color:var(--muted);flex-shrink:0" />
+          <a href={item.href} class="flex items-center gap-1 hover:underline" style="color:var(--primary)">
+            {item.label}
+            <ArrowRight size={12} />
+          </a>
+          {#if item.optional}
+            <span class="text-xs" style="color:var(--muted)">(optional)</span>
+          {/if}
         {:else}
           <Circle size={15} style="color:var(--muted);flex-shrink:0" />
-          <span style="color:var(--text)">{item.label}</span>
+          <span style="color:var(--muted)">{item.label}</span>
           {#if item.optional}
             <span class="text-xs" style="color:var(--muted)">(optional)</span>
           {/if}

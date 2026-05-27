@@ -266,6 +266,15 @@ export const load: PageServerLoad = async ({ locals }) => {
   const hasCash = (snapshot?.cashBalance ?? 0) > 0;
   const hasBroker = accounts.some(a => a.brokerName !== 'paper');
 
+  // Auto-complete onboarding once user has done at least 2 steps (stock + cash or similar)
+  const autoCompleteOnboarding = !onboardingCompleted && hasHoldings && hasCash;
+  if (autoCompleteOnboarding) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingCompleted: true },
+    }).catch(() => {});
+  }
+
   // Brief headline — latest AI-generated brief (stored with title = 'Daily Brief')
   const briefInsight = await prisma.aiInsight
     .findFirst({
@@ -306,11 +315,11 @@ export const load: PageServerLoad = async ({ locals }) => {
     dataSource,
     snapshotDate,
     onboarding: {
-      show: !onboardingCompleted,
+      show: !(onboardingCompleted || autoCompleteOnboarding),
       hasHoldings,
       hasCash,
       hasBroker,
-      onboardingCompleted,
+      onboardingCompleted: onboardingCompleted || autoCompleteOnboarding,
     },
   };
 }
