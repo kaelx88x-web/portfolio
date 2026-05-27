@@ -43,6 +43,88 @@
   let stockQty: number | null = null;
   let stockPrice: number | null = null;
 
+  // Option form
+  let optSymbol = '';
+  let optExpiry = '';
+  let optType: 'call' | 'put' = 'call';
+  let optExpiryList: string[] = [];
+  let optChain: { strike: number; bid: number; ask: number; iv: number; option_code: string; spread_pct: number }[] = [];
+  let optSelectedCode = '';
+  let optSelectedBid = 0;
+  let optSelectedAsk = 0;
+  let optSelectedStrike = 0;
+  let optSide: 'BUY' | 'SELL' = 'BUY';
+  let optQty = 1;
+  let optPrice: number | null = null;
+  let optExpiryLoading = false;
+  let optChainLoading = false;
+  let optExpiryError = '';
+  let optChainError = '';
+
+  async function fetchExpiry() {
+    if (optSymbol.trim().length < 2) return;
+    optExpiryLoading = true;
+    optExpiryError = '';
+    optExpiryList = [];
+    optExpiry = '';
+    optChain = [];
+    optSelectedCode = '';
+    try {
+      const r = await fetch(`/api/paper/options/expiry?symbol=${encodeURIComponent(optSymbol.trim())}`);
+      const data = await r.json();
+      if (data.error) { optExpiryError = 'Bridge offline'; return; }
+      optExpiryList = data.expiry_dates ?? data ?? [];
+    } catch {
+      optExpiryError = 'Bridge offline';
+    } finally {
+      optExpiryLoading = false;
+    }
+  }
+
+  async function fetchChain() {
+    if (!optExpiry || !optSymbol.trim()) return;
+    optChainLoading = true;
+    optChainError = '';
+    optChain = [];
+    optSelectedCode = '';
+    try {
+      const params = new URLSearchParams({ symbol: optSymbol.trim(), expiry: optExpiry, option_type: optType });
+      const r = await fetch(`/api/paper/options/chain?${params}`);
+      const data = await r.json();
+      if (data.error) { optChainError = 'Bridge offline'; return; }
+      const rows = data.chain ?? data ?? [];
+      optChain = rows.map((row: any) => ({
+        strike: row.strike,
+        bid: row.bid,
+        ask: row.ask,
+        iv: row.iv,
+        option_code: row.option_code,
+        spread_pct: row.ask > 0 ? (row.ask - row.bid) / row.ask * 100 : 0,
+      }));
+    } catch {
+      optChainError = 'Bridge offline';
+    } finally {
+      optChainLoading = false;
+    }
+  }
+
+  function selectStrike(row: { strike: number; bid: number; ask: number; iv: number; option_code: string; spread_pct: number }) {
+    optSelectedCode = row.option_code;
+    optSelectedBid = row.bid;
+    optSelectedAsk = row.ask;
+    optSelectedStrike = row.strike;
+    optPrice = optSide === 'BUY' ? row.ask : row.bid;
+  }
+
+  function daysToExpiry(expiry: string): number {
+    const now = new Date();
+    const exp = new Date(expiry);
+    return Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Re-fetch chain when expiry or type changes
+  $: if (optExpiry || optType) { fetchChain(); }
+
   // Validation / preview state (wired fully in Tasks 7-8)
   let validationErrors: string[] = [];
   let previewData: {
@@ -60,8 +142,12 @@
       if (!stockSymbol.trim()) errors.push('Symbol is required');
       if (!stockQty || stockQty <= 0) errors.push('Quantity is required and must be at least 1');
       if (stockOrderType === 'limit' && (!stockPrice || stockPrice <= 0)) errors.push('Limit price is required for limit orders');
+    } else {
+      if (!optSymbol.trim()) errors.push('Symbol is required');
+      if (!optSelectedCode) errors.push('Select a strike from the chain table');
+      if (!optQty || optQty <= 0) errors.push('Quantity is required and must be at least 1');
+      if (!optPrice || optPrice <= 0) errors.push('Limit price is required');
     }
-    // option validation added in Task 6
     return errors;
   }
 
@@ -71,7 +157,7 @@
       return () => {};
     }
     previewLoading = true;
-    localStorage.setItem('paper_last_symbol', activeTab === 'stock' ? stockSymbol : stockSymbol);
+    localStorage.setItem('paper_last_symbol', activeTab === 'stock' ? stockSymbol : optSymbol);
     return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
       previewLoading = false;
       if (result.type === 'success' && result.data) {
@@ -87,7 +173,7 @@
 
   onMount(() => {
     const last = localStorage.getItem('paper_last_symbol');
-    if (last) stockSymbol = last;
+    if (last) { stockSymbol = last; optSymbol = last; }
   });
 
   $: paper = data.paper;
@@ -257,10 +343,134 @@
         <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
       </form>
     {:else}
-      <!-- Option tab placeholder — will be replaced in Task 6 -->
-      <div class="empty" style="padding:24px;text-align:center;color:var(--muted);font-size:0.76rem;">
-        Option tab coming soon…
-      </div>
+      <!-- OPTION TAB -->
+      <form method="POST" action="?/previewOrder" use:enhance={handlePreviewEnhance}>
+        <input type="hidden" name="asset_type" value="option" />
+        <input type="hidden" name="option_code" value={optSelectedCode} />
+        <input type="hidden" name="side" value={optSide} />
+        <input type="hidden" name="symbol" value={optSymbol} />
+
+        <!-- Step 1: Symbol + expiry + type -->
+        <div class="form-field">
+          <label class="field-label" for="opt-symbol">Underlying Symbol</label>
+          <input id="opt-symbol" type="text"
+            bind:value={optSymbol}
+            on:input={() => optSymbol = optSymbol.toUpperCase()}
+            on:blur={fetchExpiry}
+            placeholder="AAPL"
+            class="form-input" />
+        </div>
+
+        <div class="opt-row">
+          <div class="form-field" style="flex:1">
+            <label class="field-label" for="opt-expiry">Expiry</label>
+            {#if optExpiryLoading}
+              <div class="form-input muted-val">Loading…</div>
+            {:else if optExpiryError}
+              <div class="form-input muted-val danger-text">{optExpiryError}</div>
+            {:else}
+              <select id="opt-expiry" class="form-input" bind:value={optExpiry}>
+                <option value="">Select expiry</option>
+                {#each optExpiryList as d}<option value={d}>{d}</option>{/each}
+              </select>
+            {/if}
+          </div>
+          <div class="form-field" style="flex:0 0 auto">
+            <label class="field-label">Type</label>
+            <div class="toggle-row">
+              <button type="button" class="toggle-btn" class:active-type={optType === 'call'} on:click={() => { optType = 'call'; }}>CALL</button>
+              <button type="button" class="toggle-btn" class:active-type={optType === 'put'}  on:click={() => { optType = 'put'; }}>PUT</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Option chain table -->
+        {#if optExpiry && !optChainLoading && !optChainError && optChain.length > 0}
+          <div class="chain-wrap">
+            <table class="chain-table">
+              <thead>
+                <tr>
+                  <th>Strike</th>
+                  <th class="num">Bid</th>
+                  <th class="num">Ask</th>
+                  <th class="num">IV%</th>
+                  <th class="num">Spread</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each optChain as row}
+                  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+                  <tr
+                    class:chain-selected={optSelectedCode === row.option_code}
+                    on:click={() => selectStrike(row)}
+                  >
+                    <td class="sym">
+                      ${row.strike}
+                      {#if row.spread_pct > 30}<span class="spread-warn" title="Wide spread">⚠</span>{/if}
+                    </td>
+                    <td class="num">{row.bid.toFixed(2)}</td>
+                    <td class="num">{row.ask.toFixed(2)}</td>
+                    <td class="num">{row.iv.toFixed(1)}%</td>
+                    <td class="num">{row.spread_pct.toFixed(1)}%</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else if optChainLoading}
+          <div class="chain-status muted">Loading chain…</div>
+        {:else if optChainError}
+          <div class="chain-status danger-text">{optChainError}</div>
+        {/if}
+
+        <!-- Step 3: After strike selected -->
+        {#if optSelectedCode}
+          <div class="selected-contract">
+            <span class="muted">Selected: </span>
+            <strong style="color:var(--primary)">{optSymbol} {optExpiry} ${optSelectedStrike} {optType.toUpperCase()}</strong>
+            · Ask ${optSelectedAsk.toFixed(2)}
+          </div>
+
+          {#if optExpiry && daysToExpiry(optExpiry) <= 7}
+            <div class="warn-strip">⚠ Expiry in {daysToExpiry(optExpiry)} days — theta decay is accelerating</div>
+          {/if}
+
+          <div class="form-field">
+            <label class="field-label">Side</label>
+            <div class="toggle-row">
+              <button type="button" class="toggle-btn" class:buy={optSide === 'BUY'} on:click={() => { optSide = 'BUY'; optPrice = optSelectedAsk; }}>BUY</button>
+              <button type="button" class="toggle-btn" class:sell={optSide === 'SELL'} on:click={() => { optSide = 'SELL'; optPrice = optSelectedBid; }}>SELL</button>
+            </div>
+          </div>
+
+          <div class="opt-row">
+            <div class="form-field" style="flex:1">
+              <label class="field-label" for="opt-qty">Qty (contracts)</label>
+              <input id="opt-qty" name="qty" type="number" min="1" step="1"
+                bind:value={optQty} class="form-input" />
+            </div>
+            <div class="form-field" style="flex:1">
+              <label class="field-label" for="opt-price">Limit Price</label>
+              <input id="opt-price" name="price" type="number" min="0.01" step="0.01"
+                bind:value={optPrice} class="form-input" />
+            </div>
+          </div>
+        {/if}
+
+        <!-- Validation errors -->
+        {#if validationErrors.length > 0}
+          <div class="validation-errors">
+            {#each validationErrors as err}<div>• {err}</div>{/each}
+          </div>
+        {/if}
+
+        <div class="form-actions">
+          <button type="submit" class="btn-preview" disabled={!optSelectedCode || previewLoading}>
+            {previewLoading ? 'Loading…' : 'Preview Order →'}
+          </button>
+        </div>
+        <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
+      </form>
     {/if}
   </div>
 {/if}
@@ -773,5 +983,38 @@ taskkill /PID &lt;pid&gt; /F</pre>
     margin-bottom: 10px; padding: 8px 12px; border-radius: 7px;
     background: rgba(var(--danger-rgb),0.08); border: 1px solid rgba(var(--danger-rgb),0.25);
     color: var(--danger); font-size: 0.72rem; line-height: 1.6;
+  }
+
+  /* ── Option chain table ──────────────────────────────────────── */
+  .opt-row { display: flex; gap: 10px; align-items: flex-end; }
+  .chain-wrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .chain-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+  .chain-table thead { background: var(--surface-1); }
+  .chain-table th {
+    padding: 6px 10px; text-align: left;
+    font-size: 0.6rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+  }
+  .chain-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .chain-table tr:last-child td { border-bottom: none; }
+  .chain-table tr:hover td { background: rgba(var(--primary-rgb),0.05); }
+  .chain-selected td { background: rgba(var(--primary-rgb),0.12) !important; color: var(--primary); font-weight: 700; }
+  .spread-warn { color: var(--warning); margin-left: 4px; font-size: 0.65rem; }
+  .chain-status { padding: 12px; font-size: 0.74rem; text-align: center; }
+  .muted-val { color: var(--muted); }
+  .danger-text { color: var(--danger); }
+  .selected-contract {
+    padding: 8px 10px; border-radius: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.74rem; margin-bottom: 12px;
+  }
+  .warn-strip {
+    padding: 6px 10px; border-radius: 6px; margin-bottom: 10px;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+    font-size: 0.72rem; color: var(--warning);
   }
 </style>
