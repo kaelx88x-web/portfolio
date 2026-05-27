@@ -20,9 +20,11 @@ export const actions: Actions = {
       const accounts = await listAccounts(user.id);
       const account = accounts[0];
       await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
+      // Fire deal sync in background — don't block the UI refresh
       if (account && result.deals.length > 0) {
-        const syncResult = await syncDealsToTransactions(user.id, account.id, result.deals);
-        console.log(`[deal-sync] inserted=${syncResult.inserted} skipped=${syncResult.skipped}`);
+        syncDealsToTransactions(user.id, account.id, result.deals)
+          .then((r) => console.log(`[deal-sync] inserted=${r.inserted} skipped=${r.skipped}`))
+          .catch((err) => console.error('[deal-sync] error:', err));
       }
       return { refreshed: true, updatedAt: new Date().toISOString(), count: result.holdings_count };
     } catch (e) {
