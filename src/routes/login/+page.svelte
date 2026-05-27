@@ -1,5 +1,37 @@
 <script lang="ts">
-  import { BarChart3 } from 'lucide-svelte';
+  import { BarChart3, Loader2 } from 'lucide-svelte';
+  import { createAuthClient } from 'better-auth/client';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+
+  const authClient = createAuthClient();
+
+  let email = '';
+  let password = '';
+  let error = '';
+  let loading = false;
+
+  // Show banned message if redirected with ?error=banned
+  $: if ($page.url.searchParams.get('error') === 'banned') {
+    error = 'Your account has been suspended. Contact support.';
+  }
+
+  async function handleLogin() {
+    error = '';
+    loading = true;
+    try {
+      const result = await authClient.signIn.email({ email, password });
+      if (result.error) {
+        error = result.error.message ?? 'Invalid email or password.';
+      } else {
+        await goto('/dashboard');
+      }
+    } catch (e) {
+      error = 'Login failed. Please try again.';
+    } finally {
+      loading = false;
+    }
+  }
 </script>
 
 <main class="grid min-h-screen bg-navy text-slate-100 lg:grid-cols-[0.9fr_1.1fr]">
@@ -14,10 +46,19 @@
       <h1 class="text-3xl font-bold text-white">Welcome back</h1>
       <p class="mt-2 text-sm text-slate-400">Sign in to your investing cockpit.</p>
 
-      <form class="mt-8 space-y-4">
-        <input class="field" type="email" placeholder="Email address" value="demo@portfolioai.app" />
-        <input class="field" type="password" placeholder="Password" value="portfolioai" />
-        <button class="button w-full" type="button">Login</button>
+      {#if error}
+        <div class="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
+      {/if}
+
+      <form class="mt-8 space-y-4" on:submit|preventDefault={handleLogin}>
+        <input class="field" type="email" placeholder="Email address" bind:value={email} required />
+        <input class="field" type="password" placeholder="Password" bind:value={password} required />
+        <button class="button w-full" type="submit" disabled={loading}>
+          {#if loading}<Loader2 size={16} class="animate-spin inline mr-2" />{/if}
+          Login
+        </button>
       </form>
 
       <p class="mt-6 text-center text-sm text-slate-400">
