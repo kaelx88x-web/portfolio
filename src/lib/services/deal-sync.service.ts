@@ -49,30 +49,25 @@ export async function syncDealsToTransactions(
     assetMap.set(ticker, asset.id);
   }
 
-  // 4. Insert new transactions
-  let inserted = 0;
-  for (const deal of newDeals) {
+  // 4. Batch-insert new transactions (single round-trip)
+  const rows = newDeals.map((deal) => {
     const ticker = stripBrokerPrefix(deal.code);
-    const assetId = assetMap.get(ticker)!;
-    const tradeDate = new Date(deal.create_time);
+    return {
+      userId,
+      accountId,
+      assetId: assetMap.get(ticker)!,
+      brokerDealId: deal.deal_id,
+      type: deal.side.toLowerCase(), // 'buy' | 'sell' — matches calcCapitalAndRealized
+      tradeDate: new Date(deal.create_time),
+      quantity: deal.qty,
+      price: deal.price,
+      fee: deal.fee ?? 0,
+      currency: 'USD', // Phase 1: USD only; non-USD markets (HK, SG) are out of scope for now
+      notes: `Synced from moomoo deal ${deal.deal_id}`,
+    };
+  });
 
-    await prisma.transaction.create({
-      data: {
-        userId,
-        accountId,
-        assetId,
-        brokerDealId: deal.deal_id,
-        type: deal.side.toLowerCase(), // 'buy' | 'sell' — matches calcCapitalAndRealized
-        tradeDate,
-        quantity: deal.qty,
-        price: deal.price,
-        fee: deal.fee ?? 0,
-        currency: 'USD',
-        notes: `Synced from moomoo deal ${deal.deal_id}`,
-      },
-    });
-    inserted++;
-  }
+  const result = await prisma.transaction.createMany({ data: rows });
 
-  return { inserted, skipped };
+  return { inserted: result.count, skipped };
 }

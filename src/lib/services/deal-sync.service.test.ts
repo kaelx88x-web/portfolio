@@ -6,6 +6,7 @@ vi.mock('$lib/server/db', () => ({
     transaction: {
       findMany: vi.fn(),
       create: vi.fn(),
+      createMany: vi.fn(),
     },
     asset: {
       upsert: vi.fn(),
@@ -17,7 +18,7 @@ import { syncDealsToTransactions } from './deal-sync.service';
 import { prisma } from '$lib/server/db';
 
 const mockPrisma = prisma as {
-  transaction: { findMany: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  transaction: { findMany: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn>; createMany: ReturnType<typeof vi.fn> };
   asset: { upsert: ReturnType<typeof vi.fn> };
 };
 
@@ -29,6 +30,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.asset.upsert.mockResolvedValue(ASSET_STUB);
   mockPrisma.transaction.create.mockResolvedValue({});
+  mockPrisma.transaction.createMany.mockResolvedValue({ count: 0 });
 });
 
 describe('syncDealsToTransactions', () => {
@@ -36,11 +38,12 @@ describe('syncDealsToTransactions', () => {
     mockPrisma.transaction.findMany.mockResolvedValue([]);
     const result = await syncDealsToTransactions(USER_ID, ACCOUNT_ID, []);
     expect(result).toEqual({ inserted: 0, skipped: 0 });
-    expect(mockPrisma.transaction.create).not.toHaveBeenCalled();
+    expect(mockPrisma.transaction.createMany).not.toHaveBeenCalled();
   });
 
   it('inserts a new BUY deal with lowercased type', async () => {
     mockPrisma.transaction.findMany.mockResolvedValue([]);
+    mockPrisma.transaction.createMany.mockResolvedValue({ count: 1 });
     const result = await syncDealsToTransactions(USER_ID, ACCOUNT_ID, [
       {
         deal_id: 'deal-1',
@@ -53,17 +56,19 @@ describe('syncDealsToTransactions', () => {
       },
     ]);
     expect(result).toEqual({ inserted: 1, skipped: 0 });
-    expect(mockPrisma.transaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: USER_ID,
-        accountId: ACCOUNT_ID,
-        assetId: 'asset-1',
-        brokerDealId: 'deal-1',
-        type: 'buy',
-        quantity: 10,
-        price: 15.5,
-        fee: 0.5,
-      }),
+    expect(mockPrisma.transaction.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          userId: USER_ID,
+          accountId: ACCOUNT_ID,
+          assetId: 'asset-1',
+          brokerDealId: 'deal-1',
+          type: 'buy',
+          quantity: 10,
+          price: 15.5,
+          fee: 0.5,
+        }),
+      ]),
     });
   });
 
@@ -80,7 +85,7 @@ describe('syncDealsToTransactions', () => {
       },
     ]);
     expect(result).toEqual({ inserted: 0, skipped: 1 });
-    expect(mockPrisma.transaction.create).not.toHaveBeenCalled();
+    expect(mockPrisma.transaction.createMany).not.toHaveBeenCalled();
   });
 
   it('strips prefix-format code correctly: US.PATH → PATH', async () => {
@@ -113,6 +118,6 @@ describe('syncDealsToTransactions', () => {
       },
     ]);
     expect(result).toEqual({ inserted: 0, skipped: 0 });
-    expect(mockPrisma.transaction.create).not.toHaveBeenCalled();
+    expect(mockPrisma.transaction.createMany).not.toHaveBeenCalled();
   });
 });
