@@ -435,6 +435,10 @@
             <div class="warn-strip">⚠ Expiry in {daysToExpiry(optExpiry)} days — theta decay is accelerating</div>
           {/if}
 
+          {#if optSelectedAsk > 0 && (optSelectedAsk - optSelectedBid) / optSelectedAsk > 0.30}
+            <div class="warn-strip">⚠ Wide spread (&gt;30%) — you may get a worse fill</div>
+          {/if}
+
           <div class="form-field">
             <label class="field-label">Side</label>
             <div class="toggle-row">
@@ -445,7 +449,7 @@
 
           <div class="opt-row">
             <div class="form-field" style="flex:1">
-              <label class="field-label" for="opt-qty">Qty (contracts)</label>
+              <label class="field-label" for="opt-qty">Contracts</label>
               <input id="opt-qty" name="qty" type="number" min="1" step="1"
                 bind:value={optQty} class="form-input" />
             </div>
@@ -988,8 +992,8 @@ taskkill /PID &lt;pid&gt; /F</pre>
   /* ── Option chain table ──────────────────────────────────────── */
   .opt-row { display: flex; gap: 10px; align-items: flex-end; }
   .chain-wrap {
-    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
-    margin-bottom: 12px;
+    border: 1px solid var(--border); border-radius: 8px; overflow-y: auto;
+    max-height: 280px; margin-bottom: 12px;
   }
   .chain-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
   .chain-table thead { background: var(--surface-1); }
