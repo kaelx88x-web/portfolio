@@ -43,122 +43,122 @@
 </script>
 
 <div class="topbar-root">
-<div class="tb" class:paper={isPaperRoute}>
-  <!-- Left: logo mark + value hero + account -->
-  <div class="tb-left">
-    <button class="tb-logo-btn" on:click={() => dispatch('toggleSidebar')} title="Toggle sidebar">
-      ◈
-    </button>
-    <div class="tb-sep"></div>
+  <div class="tb" class:paper={isPaperRoute}>
+    <!-- Left: logo mark + value hero + account -->
+    <div class="tb-left">
+      <button class="tb-logo-btn" on:click={() => dispatch('toggleSidebar')} title="Toggle sidebar">
+        ◈
+      </button>
+      <div class="tb-sep"></div>
 
-    <!-- Portfolio value hero -->
-    <div class="tb-value-hero">
-      <div class="tb-value-label">Total Portfolio</div>
-      <div class="tb-value-row">
-        <span class="tb-value">{formatMoney(portfolioValue)}</span>
-        <span class="tb-change" class:positive={dayChange >= 0} class:negative={dayChange < 0}>
-          {dayChange >= 0 ? '+' : ''}{formatMoney(dayChange)} ({dayChangePct >= 0 ? '+' : ''}{dayChangePct.toFixed(2)}%)
-        </span>
+      <!-- Portfolio value hero -->
+      <div class="tb-value-hero">
+        <div class="tb-value-label">Total Portfolio</div>
+        <div class="tb-value-row">
+          <span class="tb-value">{formatMoney(portfolioValue)}</span>
+          <span class="tb-change" class:positive={dayChange >= 0} class:negative={dayChange < 0}>
+            {dayChange >= 0 ? '+' : ''}{formatMoney(dayChange)} ({dayChangePct >= 0 ? '+' : ''}{dayChangePct.toFixed(2)}%)
+          </span>
+        </div>
+      </div>
+
+      <div class="tb-sep"></div>
+
+      <!-- Account switcher -->
+      <div class="tb-account-wrap">
+        <button class="tb-account-btn" class:open={showAccountMenu} on:click={() => showAccountMenu = !showAccountMenu}>
+          <span class="tb-acc-dot" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}></span>
+          <span class="tb-acc-name">{accountName}</span>
+          <span class="tb-acc-badge" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}>
+            {accountMode === 'LIVE' ? 'LIVE' : 'SIMULATE'}
+          </span>
+          <ChevronDown size={13} />
+        </button>
+
+        {#if showAccountMenu}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="tb-acc-backdrop" on:click={() => showAccountMenu = false}></div>
+          <div class="tb-acc-menu">
+            <div class="tb-acc-menu-label">Switch Mode</div>
+            <button class="tb-acc-option" class:selected={accountMode === 'LIVE'} on:click={switchToLive}>
+              <TrendingUp size={13} />
+              <div class="tb-acc-opt-text">
+                <span class="tb-acc-opt-name">Live Portfolio</span>
+                <span class="tb-acc-opt-sub">Real broker data</span>
+              </div>
+              {#if accountMode === 'LIVE'}<span class="tb-acc-opt-check">✓</span>{/if}
+            </button>
+            <button class="tb-acc-option" class:selected={accountMode === 'SANDBOX'} on:click={switchToPaper}>
+              <FlaskConical size={13} />
+              <div class="tb-acc-opt-text">
+                <span class="tb-acc-opt-name">Paper Trading</span>
+                <span class="tb-acc-opt-sub">Practice with $100k sandbox</span>
+              </div>
+              {#if accountMode === 'SANDBOX'}<span class="tb-acc-opt-check">✓</span>{/if}
+            </button>
+          </div>
+        {/if}
       </div>
     </div>
 
-    <div class="tb-sep"></div>
-
-    <!-- Account switcher -->
-    <div class="tb-account-wrap">
-      <button class="tb-account-btn" class:open={showAccountMenu} on:click={() => showAccountMenu = !showAccountMenu}>
-        <span class="tb-acc-dot" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}></span>
-        <span class="tb-acc-name">{accountName}</span>
-        <span class="tb-acc-badge" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}>
-          {accountMode === 'LIVE' ? 'LIVE' : 'SIMULATE'}
-        </span>
-        <ChevronDown size={13} />
+    <!-- Right: AI, notifications, avatar, panel toggles -->
+    <div class="tb-right">
+      <button class="tb-ai-btn" on:click={askAI}>
+        <Sparkles size={13} />
+        Ask AI
       </button>
 
-      {#if showAccountMenu}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div class="tb-acc-backdrop" on:click={() => showAccountMenu = false}></div>
-        <div class="tb-acc-menu">
-          <div class="tb-acc-menu-label">Switch Mode</div>
-          <button class="tb-acc-option" class:selected={accountMode === 'LIVE'} on:click={switchToLive}>
-            <TrendingUp size={13} />
-            <div class="tb-acc-opt-text">
-              <span class="tb-acc-opt-name">Live Portfolio</span>
-              <span class="tb-acc-opt-sub">Real broker data</span>
-            </div>
-            {#if accountMode === 'LIVE'}<span class="tb-acc-opt-check">✓</span>{/if}
-          </button>
-          <button class="tb-acc-option" class:selected={accountMode === 'SANDBOX'} on:click={switchToPaper}>
-            <FlaskConical size={13} />
-            <div class="tb-acc-opt-text">
-              <span class="tb-acc-opt-name">Paper Trading</span>
-              <span class="tb-acc-opt-sub">Practice with $100k sandbox</span>
-            </div>
-            {#if accountMode === 'SANDBOX'}<span class="tb-acc-opt-check">✓</span>{/if}
-          </button>
-        </div>
-      {/if}
+      <button class="tb-icon-btn" title="Notifications">
+        <Bell size={16} />
+        <span class="tb-notif-dot"></span>
+      </button>
+
+      <button class="tb-avatar" title="Profile">
+        PA
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <button
+        class="tb-icon-btn"
+        class:active={!sidebarCollapsed}
+        on:click={() => dispatch('toggleSidebar')}
+        title="Toggle sidebar"
+      >
+        <LayoutGrid size={15} />
+      </button>
+
+      <button
+        class="tb-icon-btn"
+        class:active={aiPanelOpen}
+        on:click={() => dispatch('toggleAiPanel')}
+        title="Toggle AI panel"
+      >
+        <Sparkles size={15} />
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <button
+        class="tb-icon-btn"
+        on:click={theme.toggle}
+        title={$theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      >
+        {#if $theme === 'dark'}
+          <Sun size={15} />
+        {:else}
+          <Moon size={15} />
+        {/if}
+      </button>
     </div>
   </div>
-
-  <!-- Right: AI, notifications, avatar, panel toggles -->
-  <div class="tb-right">
-    <button class="tb-ai-btn" on:click={askAI}>
-      <Sparkles size={13} />
-      Ask AI
-    </button>
-
-    <button class="tb-icon-btn" title="Notifications">
-      <Bell size={16} />
-      <span class="tb-notif-dot"></span>
-    </button>
-
-    <button class="tb-avatar" title="Profile">
-      PA
-    </button>
-
-    <div class="tb-sep"></div>
-
-    <button
-      class="tb-icon-btn"
-      class:active={!sidebarCollapsed}
-      on:click={() => dispatch('toggleSidebar')}
-      title="Toggle sidebar"
-    >
-      <LayoutGrid size={15} />
-    </button>
-
-    <button
-      class="tb-icon-btn"
-      class:active={aiPanelOpen}
-      on:click={() => dispatch('toggleAiPanel')}
-      title="Toggle AI panel"
-    >
-      <Sparkles size={15} />
-    </button>
-
-    <div class="tb-sep"></div>
-
-    <button
-      class="tb-icon-btn"
-      on:click={theme.toggle}
-      title={$theme === 'dark' ? 'Light mode' : 'Dark mode'}
-    >
-      {#if $theme === 'dark'}
-        <Sun size={15} />
-      {:else}
-        <Moon size={15} />
-      {/if}
-    </button>
-  </div>
-</div>
-{#if isPaperRoute}
-  <div class="paper-banner">
-    <span class="paper-banner-icon">⚠</span>
-    <span>You are in paper trading mode — no real money is at risk</span>
-  </div>
-{/if}
+  {#if isPaperRoute}
+    <div class="paper-banner">
+      <span class="paper-banner-icon">⚠</span>
+      <span>You are in paper trading mode — no real money is at risk</span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -166,6 +166,7 @@
     display: flex; align-items: center; justify-content: space-between;
     height: 56px; padding: 0 16px; gap: 12px;
     background: transparent;
+    border-bottom: 1px solid var(--overlay-border);
   }
 
   .tb-left  { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }

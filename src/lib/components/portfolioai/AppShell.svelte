@@ -34,6 +34,7 @@
 
   // Which section's fly-out to show (pinned takes precedence over hovered)
   $: visibleSectionId = $pinnedSection ?? $hoveredSection;
+  $: isPaperRoute = $page.url.pathname.startsWith('/paper-trading');
   $: visibleSection = visibleSectionId
     ? (NAV_SECTIONS.find(s => s.id === visibleSectionId) ?? null)
     : null;
@@ -72,7 +73,7 @@
   }
 </script>
 
-<div class="shell">
+<div class="shell" class:paper-route={isPaperRoute}>
 
   <!-- Navigation progress bar -->
   {#if $navigating}
@@ -159,7 +160,6 @@
 
   .shell-topbar {
     min-height: 56px; flex-shrink: 0;
-    border-bottom: 1px solid var(--overlay-border);
     background: var(--bg-glass);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -223,6 +223,9 @@
     position: fixed; inset: 56px 0 0 0; z-index: 29;
     background: transparent;
   }
+
+  .shell.paper-route .shell-ai-panel  { top: 80px; }
+  .shell.paper-route .ai-panel-backdrop { inset: 80px 0 0 0; }
 
   .ai-panel-placeholder { padding: 8px; }
 
