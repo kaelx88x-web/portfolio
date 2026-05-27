@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { PageData } from './$types';
+  import type { PageData, ActionData } from './$types';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import AccountCard from '$lib/components/portfolioai/AccountCard.svelte';
   import EmptyState from '$lib/components/portfolioai/EmptyState.svelte';
 
   export let data: PageData;
-  export let form: Record<string, unknown> = {};
+  export let form: ActionData;
 
   let showCreateForm = false;
 
@@ -49,7 +49,9 @@
 </div>
 
 {#if form?.message}
-  <div class="form-msg">{form.message}</div>
+  <div class="form-msg" class:form-msg-err={form && 'status' in form && (form as any).status >= 400}>
+    {form.message}
+  </div>
 {/if}
 
 {#if showCreateForm}
@@ -105,7 +107,8 @@
 <style>
   .page-top    { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
   .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .form-msg    { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); font-size: 0.82rem; color: var(--text); }
+  .form-msg        { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(var(--success-rgb),0.3); background: rgba(var(--success-rgb),0.06); font-size: 0.82rem; color: var(--success); }
+  .form-msg-err    { border-color: rgba(var(--danger-rgb),0.3); background: rgba(var(--danger-rgb),0.06); color: var(--danger); }
   .create-form { padding: 20px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
   .form-title  { font-weight: 700; color: var(--text); font-size: 0.85rem; margin: 0; }
   .form-row-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

@@ -129,6 +129,7 @@ model Account {
   brokerName     String
   accountType    String
   currency       String            @default("USD")
+  cashBalance    Float             @default(0)
   transactions   Transaction[]
   holdingSnaps   HoldingSnapshot[]
   createdAt      DateTime          @default(now())

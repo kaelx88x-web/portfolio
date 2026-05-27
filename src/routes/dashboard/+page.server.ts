@@ -261,7 +261,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     select: { onboardingCompleted: true },
   }).catch(() => null);
   const onboardingCompleted = dbUser?.onboardingCompleted ?? false;
-  const hasCash = (snapshot?.cashBalance ?? 0) > 0;
+  const hasCash = (snapshot?.cashBalance ?? 0) > 0 || accounts.some((a) => (a.cashBalance ?? 0) > 0);
   const hasBroker = accounts.some(a => a.brokerName !== 'paper');
 
   // Auto-complete onboarding once user has set cash balance

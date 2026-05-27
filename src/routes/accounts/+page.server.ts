@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { numberFromForm, requiredString } from '$lib/server/form';
+import { prisma } from '$lib/server/db';
 import {
   createAccount,
   deleteAccount,
@@ -83,5 +84,23 @@ export const actions: Actions = {
     } catch {
       return fail(400, { message: 'Account cannot be deleted while it has transactions' });
     }
-  }
+  },
+
+  setCash: async ({ request, locals }) => {
+    const user = locals.user!;
+    const formData = await request.formData();
+    const accountId = requiredString(formData, 'accountId');
+    const cash = numberFromForm(formData, 'cash');
+
+    // Verify ownership
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
+    if (!account) return fail(403, { message: 'Account not found' });
+
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { cashBalance: cash },
+    });
+
+    return { message: `Cash balance updated to $${cash.toLocaleString()}` };
+  },
 };

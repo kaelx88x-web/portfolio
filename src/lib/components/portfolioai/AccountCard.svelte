@@ -7,6 +7,9 @@
   export let dayPnl: number | null = null;
   export let lastSynced: Date | null = null;
 
+  let showCash = false;
+  let cashInput: number = (account as any).cashBalance ?? 0;
+
   function money(n: number, currency = 'USD') {
     return n.toLocaleString('en-US', { style: 'currency', currency, minimumFractionDigits: 2 });
   }
@@ -85,11 +88,39 @@
       {#if mode === 'SANDBOX'}
         <a href="/paper-trading" class="btn-sec">Open Sandbox</a>
       {/if}
-      <button class="btn-sec" on:click={() => (showEdit = !showEdit)}>
+      {#if !lastSynced}
+        <button class="btn-sec" on:click={() => { showCash = !showCash; showEdit = false; }}>
+          {showCash ? 'Cancel' : 'Set Cash'}
+        </button>
+      {/if}
+      <button class="btn-sec" on:click={() => { showEdit = !showEdit; showCash = false; }}>
         {showEdit ? 'Cancel' : 'Edit'}
       </button>
     </div>
   </div>
+
+  <!-- Inline set-cash form -->
+  {#if showCash}
+    <form method="POST" action="/accounts?/setCash" class="edit-form">
+      <input type="hidden" name="accountId" value={account.id} />
+      <div class="cash-row">
+        <label class="edit-label" for="cash-{account.id}">Cash Balance ({cur})</label>
+        <input
+          id="cash-{account.id}"
+          name="cash"
+          type="number"
+          min="0"
+          step="0.01"
+          class="edit-field cash-input"
+          bind:value={cashInput}
+          placeholder="0.00"
+        />
+      </div>
+      <div class="edit-actions">
+        <button type="submit" class="btn-primary">Save Cash</button>
+      </div>
+    </form>
+  {/if}
 
   <!-- Inline edit form -->
   {#if showEdit}
@@ -160,8 +191,10 @@
                  text-decoration:none; display:inline-flex; align-items:center; }
   .btn-sec:hover { border-color:rgba(var(--primary-rgb),0.5); color:var(--text); }
 
-  /* Edit form */
+  /* Edit / cash form */
   .edit-form   { border-top:1px solid var(--border); padding-top:14px; display:flex; flex-direction:column; gap:12px; }
+  .cash-row    { display:flex; flex-direction:column; gap:4px; }
+  .cash-input  { max-width:200px; }
   .edit-row    { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .edit-label  { font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); display:block; margin-bottom:4px; }
   .edit-field  { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px;
