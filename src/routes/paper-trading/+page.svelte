@@ -33,6 +33,63 @@
     return (ai.total_assets ?? 0) - (ai.cash ?? 0) - (ai.market_val ?? 0);
   }
 
+  // ── Order form state ──────────────────────────────────────────
+  let activeTab: 'stock' | 'option' = 'stock';
+
+  // Stock form
+  let stockSide: 'BUY' | 'SELL' = 'BUY';
+  let stockSymbol = '';
+  let stockOrderType: 'market' | 'limit' = 'limit';
+  let stockQty: number | null = null;
+  let stockPrice: number | null = null;
+
+  // Validation / preview state (wired fully in Tasks 7-8)
+  let validationErrors: string[] = [];
+  let previewData: {
+    symbol: string; side: string; qty: number;
+    estimated_value: number;
+    safety_status: 'pass' | 'warn' | 'block';
+    message: string; risk_notes: string[]; warnings: string[];
+    asset_type?: string; order_type?: string; price?: number; option_code?: string;
+  } | null = null;
+  let previewLoading = false;
+
+  function validateOrder(): string[] {
+    const errors: string[] = [];
+    if (activeTab === 'stock') {
+      if (!stockSymbol.trim()) errors.push('Symbol is required');
+      if (!stockQty || stockQty <= 0) errors.push('Quantity is required and must be at least 1');
+      if (stockOrderType === 'limit' && (!stockPrice || stockPrice <= 0)) errors.push('Limit price is required for limit orders');
+    }
+    // option validation added in Task 6
+    return errors;
+  }
+
+  function handlePreviewEnhance() {
+    validationErrors = validateOrder();
+    if (validationErrors.length > 0) {
+      return () => {};
+    }
+    previewLoading = true;
+    localStorage.setItem('paper_last_symbol', activeTab === 'stock' ? stockSymbol : stockSymbol);
+    return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
+      previewLoading = false;
+      if (result.type === 'success' && result.data) {
+        previewData = result.data as typeof previewData;
+      } else if (result.type === 'failure') {
+        const msg = (result.data as any)?.message ?? 'Preview failed';
+        const isOffline = (result.data as any)?.bridgeOffline;
+        addToast(isOffline ? 'warn' : 'error', isOffline ? `⚠ Bridge offline — ${msg}` : msg);
+      }
+      await update();
+    };
+  }
+
+  onMount(() => {
+    const last = localStorage.getItem('paper_last_symbol');
+    if (last) stockSymbol = last;
+  });
+
   $: paper = data.paper;
   $: info  = paper.account_info;
   $: positions = paper.positions ?? [];
@@ -122,6 +179,89 @@
         {fmt(info.unrealized_pl ?? 0)}
       </div>
     </div>
+  </div>
+{/if}
+
+<!-- ── Inline order form ──────────────────────────────────────── -->
+{#if showOrderForm && !paper.error}
+  <div class="order-form-wrap">
+    <div class="order-form-tabs">
+      <button class="tab-btn" class:active={activeTab === 'stock'} on:click={() => activeTab = 'stock'}>Stock</button>
+      <button class="tab-btn" class:active={activeTab === 'option'} on:click={() => activeTab = 'option'}>Option</button>
+    </div>
+
+    {#if activeTab === 'stock'}
+      <form method="POST" action="?/previewOrder" use:enhance={handlePreviewEnhance}>
+        <input type="hidden" name="asset_type" value="stock" />
+
+        <!-- Side toggle -->
+        <div class="form-field">
+          <label class="field-label">Side</label>
+          <div class="toggle-row">
+            <button type="button" class="toggle-btn" class:buy={stockSide === 'BUY'} on:click={() => stockSide = 'BUY'}>BUY</button>
+            <button type="button" class="toggle-btn" class:sell={stockSide === 'SELL'} on:click={() => stockSide = 'SELL'}>SELL</button>
+          </div>
+          <input type="hidden" name="side" value={stockSide} />
+        </div>
+
+        <!-- Symbol -->
+        <div class="form-field">
+          <label class="field-label" for="stock-symbol">Symbol</label>
+          <input id="stock-symbol" name="symbol" type="text"
+            bind:value={stockSymbol}
+            on:input={() => stockSymbol = stockSymbol.toUpperCase()}
+            placeholder="AAPL"
+            class="form-input" />
+        </div>
+
+        <!-- Order type toggle -->
+        <div class="form-field">
+          <label class="field-label">Order Type</label>
+          <div class="toggle-row">
+            <button type="button" class="toggle-btn" class:active-type={stockOrderType === 'limit'} on:click={() => stockOrderType = 'limit'}>Limit</button>
+            <button type="button" class="toggle-btn" class:active-type={stockOrderType === 'market'} on:click={() => stockOrderType = 'market'}>Market</button>
+          </div>
+          <input type="hidden" name="order_type" value={stockOrderType} />
+        </div>
+
+        <!-- Qty -->
+        <div class="form-field">
+          <label class="field-label" for="stock-qty">Qty (shares)</label>
+          <input id="stock-qty" name="qty" type="number" min="1" step="1"
+            bind:value={stockQty} placeholder="1" class="form-input" />
+        </div>
+
+        <!-- Limit price (hidden when Market) -->
+        {#if stockOrderType === 'limit'}
+          <div class="form-field">
+            <label class="field-label" for="stock-price">Limit Price</label>
+            <input id="stock-price" name="price" type="number" min="0.01" step="0.01"
+              bind:value={stockPrice} placeholder="182.50" class="form-input" />
+          </div>
+        {/if}
+
+        <!-- Validation errors -->
+        {#if validationErrors.length > 0}
+          <div class="validation-errors">
+            {#each validationErrors as err}<div>• {err}</div>{/each}
+          </div>
+        {/if}
+
+        <div class="form-actions">
+          <button type="submit" class="btn-preview" disabled={previewLoading}>
+            {previewLoading ? 'Loading…' : 'Preview Order →'}
+          </button>
+        </div>
+
+        <!-- Paper notice strip -->
+        <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
+      </form>
+    {:else}
+      <!-- Option tab placeholder — will be replaced in Task 6 -->
+      <div class="empty" style="padding:24px;text-align:center;color:var(--muted);font-size:0.76rem;">
+        Option tab coming soon…
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -583,4 +723,55 @@ taskkill /PID &lt;pid&gt; /F</pre>
 
   @media (max-width: 900px) { .balance-panel { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 500px) { .balance-panel { grid-template-columns: 1fr; } }
+
+  /* ── Order form ──────────────────────────────────────────────── */
+  .order-form-wrap {
+    margin-bottom: 20px; padding: 18px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card);
+  }
+  .order-form-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab-btn {
+    padding: 5px 16px; border-radius: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.72rem; font-weight: 600; color: var(--muted); cursor: pointer;
+  }
+  .tab-btn.active {
+    background: rgba(var(--primary-rgb),0.12); border-color: rgba(var(--primary-rgb),0.4);
+    color: var(--primary);
+  }
+  .form-field { margin-bottom: 12px; }
+  .field-label { display: block; font-size: 0.62rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .form-input {
+    width: 100%; padding: 7px 10px; border-radius: 7px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.8rem; box-sizing: border-box;
+  }
+  .form-input:focus { outline: none; border-color: rgba(var(--primary-rgb),0.5); }
+  .toggle-row { display: flex; gap: 4px; }
+  .toggle-btn {
+    flex: 1; padding: 5px 10px; border-radius: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.7rem; font-weight: 700; color: var(--muted); cursor: pointer;
+  }
+  .toggle-btn.buy  { background: rgba(var(--success-rgb),0.15); border-color: rgba(var(--success-rgb),0.4); color: var(--success); }
+  .toggle-btn.sell { background: rgba(var(--danger-rgb),0.15);  border-color: rgba(var(--danger-rgb),0.4);  color: var(--danger); }
+  .toggle-btn.active-type { background: rgba(var(--primary-rgb),0.12); border-color: rgba(var(--primary-rgb),0.4); color: var(--primary); }
+  .form-actions { margin-top: 14px; }
+  .btn-preview {
+    width: 100%; padding: 9px; border-radius: 8px;
+    background: var(--primary); border: none; color: #fff;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  }
+  .btn-preview:disabled { opacity: 0.6; cursor: not-allowed; }
+  .paper-notice {
+    margin-top: 10px; padding: 6px 10px; border-radius: 6px;
+    background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
+    font-size: 0.7rem; color: var(--warning);
+  }
+  .validation-errors {
+    margin-bottom: 10px; padding: 8px 12px; border-radius: 7px;
+    background: rgba(var(--danger-rgb),0.08); border: 1px solid rgba(var(--danger-rgb),0.25);
+    color: var(--danger); font-size: 0.72rem; line-height: 1.6;
+  }
 </style>
