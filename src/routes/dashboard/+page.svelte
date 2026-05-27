@@ -12,6 +12,7 @@
   import AllocationChart from '$lib/components/portfolioai/charts/AllocationChart.svelte';
   import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
   import WatchlistTable from '$lib/components/portfolioai/tables/WatchlistTable.svelte';
+  import OnboardingChecklist from '$lib/components/portfolioai/OnboardingChecklist.svelte';
 
   export let data: PageData;
   export let form: ActionData;
@@ -89,6 +90,16 @@
       <div class="welcome-sub">Navigate sections with the <span class="welcome-q">?</span> icons to learn what each number means</div>
     </div>
   </div>
+{/if}
+
+<!-- Onboarding checklist (shown until dismissed or all steps complete) -->
+{#if data.onboarding?.show}
+  <OnboardingChecklist
+    hasHoldings={data.onboarding.hasHoldings}
+    hasCash={data.onboarding.hasCash}
+    hasBroker={data.onboarding.hasBroker}
+    onboardingCompleted={data.onboarding.onboardingCompleted}
+  />
 {/if}
 
 <!-- AI Banner -->

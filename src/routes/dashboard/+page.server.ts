@@ -12,6 +12,14 @@ import { env } from '$env/dynamic/private';
 import { assembleBriefing, generateBriefHeadline } from '$lib/services/briefing.service';
 
 export const actions: Actions = {
+  dismissOnboarding: async ({ locals }) => {
+    await prisma.user.update({
+      where: { id: locals.user!.id },
+      data: { onboardingCompleted: true },
+    });
+    return { dismissed: true };
+  },
+
   refresh: async ({ locals }) => {
     const user = locals.user!;
     try {
@@ -247,6 +255,17 @@ export const load: PageServerLoad = async ({ locals }) => {
     totalValue: s.totalValue,
   }));
 
+  // Onboarding checklist data
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { onboardingCompleted: true },
+  }).catch(() => null);
+  const onboardingCompleted = dbUser?.onboardingCompleted ?? false;
+  const hasHoldings = snapshotRows.filter(h => h.symbol && !h.symbol.includes('.')).length > 0
+    || snapshotRows.length > 0;
+  const hasCash = (snapshot?.cashBalance ?? 0) > 0;
+  const hasBroker = accounts.some(a => a.brokerName !== 'paper');
+
   // Brief headline — latest AI-generated brief (stored with title = 'Daily Brief')
   const briefInsight = await prisma.aiInsight
     .findFirst({
@@ -286,5 +305,12 @@ export const load: PageServerLoad = async ({ locals }) => {
     snapshot,
     dataSource,
     snapshotDate,
+    onboarding: {
+      show: !onboardingCompleted,
+      hasHoldings,
+      hasCash,
+      hasBroker,
+      onboardingCompleted,
+    },
   };
 }
