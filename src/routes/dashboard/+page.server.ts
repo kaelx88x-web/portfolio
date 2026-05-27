@@ -1,4 +1,3 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import { getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service';
 import { listAccounts } from '$lib/services/account.service';
 import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service';
@@ -7,14 +6,14 @@ import { syncDealsToTransactions } from '$lib/services/deal-sync.service';
 import { calcCapitalAndRealized } from '$lib/calculators/realized-pnl';
 import type { AllocationSlice, Holding, SnapshotHolding } from '$lib/types/portfolio';
 import { prisma } from '$lib/server/db';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 import { randomUUID } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import { assembleBriefing, generateBriefHeadline } from '$lib/services/briefing.service';
 
 export const actions: Actions = {
-  refresh: async () => {
-    const user = await getDemoUser();
+  refresh: async ({ locals }) => {
+    const user = locals.user!;
     try {
       const result = await syncMoomoo();
       const accounts = await listAccounts(user.id);
@@ -32,8 +31,8 @@ export const actions: Actions = {
     }
   },
 
-  generateBrief: async () => {
-    const user = await getDemoUser();
+  generateBrief: async ({ locals }) => {
+    const user = locals.user!;
 
     // Re-fetch snapshot for latest data
     const snapshot = await getLatestSnapshot(user.id).catch(() => null);
@@ -127,8 +126,8 @@ export const actions: Actions = {
   },
 };
 
-export async function load() {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
 
   const [accounts, transactionHoldings, snapshot, watchlists, allTransactions] = await Promise.all([
     listAccounts(user.id),

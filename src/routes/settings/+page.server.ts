@@ -1,16 +1,16 @@
 import { fail } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
-import { getDemoUser } from '$lib/server/demo-user';
 import { requiredString } from '$lib/server/form';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load() {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   return { user };
 }
 
-export const actions = {
-  update: async ({ request }) => {
-    const user = await getDemoUser();
+export const actions: Actions = {
+  update: async ({ request, locals }) => {
+    const user = locals.user!;
     const formData = await request.formData();
     try {
       await prisma.user.update({

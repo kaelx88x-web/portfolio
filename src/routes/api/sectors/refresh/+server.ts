@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { prisma } from '$lib/server/db';
-import { getDemoUser } from '$lib/server/demo-user';
+import type { RequestHandler } from './$types';
 
 function bridgeBase(): string {
   return env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
 }
 
-export async function POST() {
+export const POST: RequestHandler = async ({ locals }) => {
   const assets = await prisma.asset.findMany();
 
   if (assets.length === 0) {
@@ -102,7 +102,7 @@ export async function POST() {
 
   // Bust risk-exposure cache so the page picks up new sectors immediately
   try {
-    const user = await getDemoUser();
+    const user = locals.user!;
     await prisma.analyticsCache.deleteMany({
       where: { userId: user.id, cacheKey: { contains: 'risk_exposure' } }
     });

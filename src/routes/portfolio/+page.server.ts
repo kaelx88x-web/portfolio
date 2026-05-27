@@ -1,10 +1,10 @@
-import { getDemoUser } from '$lib/server/demo-user';
 import { getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service';
 import { getLatestSnapshot } from '$lib/services/snapshot.service';
 import type { SnapshotHolding } from '$lib/types/portfolio';
+import type { PageServerLoad } from './$types';
 
-export async function load() {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   const [snapshot, transactionHoldings] = await Promise.all([
     getLatestSnapshot(user.id),
     getHoldings(user.id),

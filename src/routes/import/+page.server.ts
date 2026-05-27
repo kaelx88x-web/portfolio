@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { importCsvTransactions, previewCsvTransactions } from '$lib/services/import.service';
+import type { Actions } from './$types';
 
-export const actions = {
+export const actions: Actions = {
   preview: async ({ request }) => {
     const formData = await request.formData();
     const file = formData.get('csv');
@@ -21,8 +21,8 @@ export const actions = {
       csvContent
     };
   },
-  confirm: async ({ request }) => {
-    const user = await getDemoUser();
+  confirm: async ({ request, locals }) => {
+    const user = locals.user!;
     const formData = await request.formData();
     const csvContent = formData.get('csvContent');
 

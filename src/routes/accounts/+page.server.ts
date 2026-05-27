@@ -1,5 +1,4 @@
 import { fail } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { numberFromForm, requiredString } from '$lib/server/form';
 import {
   createAccount,
@@ -10,9 +9,10 @@ import {
 import { getHoldings } from '$lib/services/portfolio.service';
 import { getLatestSnapshot } from '$lib/services/snapshot.service';
 import type { SnapshotHolding } from '$lib/types/portfolio';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load() {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   const [accounts, holdings, snapshot] = await Promise.all([
     listAccounts(user.id),
     getHoldings(user.id),
@@ -39,9 +39,9 @@ export async function load() {
   return { accounts, holdings, snapshotTotalValue, snapshotDayPl, snapshotAccountId, snapshotDate };
 }
 
-export const actions = {
-  create: async ({ request }) => {
-    const user = await getDemoUser();
+export const actions: Actions = {
+  create: async ({ request, locals }) => {
+    const user = locals.user!;
     const formData = await request.formData();
 
     try {
@@ -57,8 +57,8 @@ export const actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Unable to create account' });
     }
   },
-  update: async ({ request }) => {
-    const user = await getDemoUser();
+  update: async ({ request, locals }) => {
+    const user = locals.user!;
     const formData = await request.formData();
 
     try {
@@ -73,8 +73,8 @@ export const actions = {
       return fail(400, { message: error instanceof Error ? error.message : 'Unable to update account' });
     }
   },
-  delete: async ({ request }) => {
-    const user = await getDemoUser();
+  delete: async ({ request, locals }) => {
+    const user = locals.user!;
     const formData = await request.formData();
 
     try {

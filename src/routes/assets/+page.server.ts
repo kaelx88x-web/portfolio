@@ -1,15 +1,16 @@
 import { fail } from '@sveltejs/kit';
 import { numberFromForm, optionalString, requiredString } from '$lib/server/form';
 import { createAsset, deleteAsset, listAssets, updateAsset } from '$lib/services/asset.service';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load({ url }) {
+export const load: PageServerLoad = async ({ url }) => {
   const search = url.searchParams.get('q');
   const assets = await listAssets(search);
 
   return { assets, search };
 }
 
-export const actions = {
+export const actions: Actions = {
   create: async ({ request }) => {
     const formData = await request.formData();
     try {

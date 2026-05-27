@@ -1,10 +1,10 @@
 import { fail } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { findOrCreateAsset } from '$lib/services/asset.service';
 import { addWatchlistItem, createWatchlist, listWatchlists, removeWatchlistItem } from '$lib/services/watchlist.service';
+import type { PageServerLoad, Actions } from './$types';
 
-export async function load() {
-  const user = await getDemoUser();
+export const load: PageServerLoad = async ({ locals }) => {
+  const user = locals.user!;
   const watchlists = await listWatchlists(user.id);
 
   const items = watchlists.flatMap((wl) =>
@@ -20,9 +20,9 @@ export async function load() {
   return { watchlists, items };
 }
 
-export const actions = {
-  add: async ({ request }) => {
-    const user = await getDemoUser();
+export const actions: Actions = {
+  add: async ({ request, locals }) => {
+    const user = locals.user!;
     const fd = await request.formData();
     const symbol = (fd.get('symbol') as string ?? '').trim().toUpperCase();
     const notes  = (fd.get('notes')  as string ?? '').trim() || null;
