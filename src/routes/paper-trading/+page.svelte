@@ -175,6 +175,31 @@
     };
   }
 
+  let submitLoading = false;
+
+  function handleSubmitEnhance() {
+    submitLoading = true;
+    return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
+      submitLoading = false;
+      if (result.type === 'success' && result.data?.submitted) {
+        const orderId = result.data.broker_order_id;
+        addToast('success', `✓ Order submitted${orderId ? ` — broker_order_id: ${orderId}` : ''}`);
+        showPositionEstimate(result.data);
+        previewData = null;
+        showOrderForm = false;
+        await invalidateAll();
+      } else if (result.type === 'failure') {
+        const msg = result.data?.message ?? 'Submit failed';
+        const isOffline = result.data?.bridgeOffline;
+        addToast(isOffline ? 'warn' : 'error', isOffline ? `⚠ Bridge offline — ${msg}` : msg);
+      }
+      await update();
+    };
+  }
+
+  // Placeholder — wired in Task 9
+  function showPositionEstimate(_data: any) {}
+
   onMount(() => {
     const last = localStorage.getItem('paper_last_symbol');
     if (last) { stockSymbol = last; optSymbol = last; }
@@ -479,6 +504,57 @@
         </div>
         <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
       </form>
+    {/if}
+  </div>
+{/if}
+
+<!-- ── Order preview card ──────────────────────────────────────── -->
+{#if previewData}
+  <div class="preview-card" class:preview-warn={previewData.safety_status === 'warn'} class:preview-block={previewData.safety_status === 'block'}>
+    <div class="preview-header">
+      <span class="preview-title">Order Preview</span>
+      <span class="preview-badge {previewData.safety_status}">{previewData.safety_status.toUpperCase()}</span>
+      <button class="preview-close" on:click={() => previewData = null}>✕</button>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Symbol</span><span class="preview-val sym">{previewData.symbol}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Side</span>
+      <span class="preview-val side-badge" class:buy={previewData.side === 'BUY'} class:sell={previewData.side === 'SELL'}>{previewData.side}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Qty</span><span class="preview-val">{previewData.qty}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Est. Value</span><span class="preview-val">{money(previewData.estimated_value)}</span>
+    </div>
+    {#if previewData.risk_notes.length > 0}
+      <div class="preview-risk">
+        {#each previewData.risk_notes as note}<div class="risk-note">⚑ {note}</div>{/each}
+      </div>
+    {/if}
+    {#if previewData.warnings.length > 0}
+      <div class="preview-warnings">
+        {#each previewData.warnings as w}<div class="warn-note">{w}</div>{/each}
+      </div>
+    {/if}
+
+    {#if previewData.safety_status !== 'block'}
+      <form method="POST" action="?/submitOrder" use:enhance={handleSubmitEnhance}>
+        <input type="hidden" name="asset_type" value={previewData.asset_type} />
+        <input type="hidden" name="side" value={previewData.side} />
+        <input type="hidden" name="symbol" value={previewData.symbol} />
+        <input type="hidden" name="order_type" value={previewData.order_type ?? 'limit'} />
+        <input type="hidden" name="qty" value={previewData.qty} />
+        <input type="hidden" name="price" value={previewData.price ?? 0} />
+        <input type="hidden" name="option_code" value={previewData.option_code ?? ''} />
+        <button type="submit" class="btn-confirm" disabled={submitLoading}>
+          {submitLoading ? 'Submitting…' : 'Confirm & Submit'}
+        </button>
+      </form>
+    {:else}
+      <div class="preview-blocked">⛔ Order blocked — see risk notes above</div>
     {/if}
   </div>
 {/if}
@@ -1024,5 +1100,41 @@ taskkill /PID &lt;pid&gt; /F</pre>
     padding: 6px 10px; border-radius: 6px; margin-bottom: 10px;
     background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
     font-size: 0.72rem; color: var(--warning);
+  }
+
+  /* ── Preview card ────────────────────────────────────────────── */
+  .preview-card {
+    margin-bottom: 20px; padding: 16px 18px;
+    border: 1px solid rgba(var(--primary-rgb),0.3); border-radius: 12px;
+    background: var(--card);
+  }
+  .preview-card.preview-warn { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.04); }
+  .preview-card.preview-block { border-color: rgba(var(--danger-rgb),0.4); background: rgba(var(--danger-rgb),0.04); }
+  .preview-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .preview-title { font-size: 0.8rem; font-weight: 700; color: var(--text); flex: 1; }
+  .preview-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+  .preview-badge {
+    font-size: 0.58rem; font-weight: 800; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.06em;
+  }
+  .preview-badge.pass { background: rgba(var(--success-rgb),0.12); color: var(--success); }
+  .preview-badge.warn { background: rgba(245,158,11,0.12); color: var(--warning); }
+  .preview-badge.block { background: rgba(var(--danger-rgb),0.12); color: var(--danger); }
+  .preview-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.78rem; }
+  .preview-label { color: var(--muted); min-width: 80px; }
+  .preview-val { color: var(--text); font-weight: 600; }
+  .preview-risk { margin: 10px 0; }
+  .risk-note { font-size: 0.72rem; color: var(--warning); margin-bottom: 4px; }
+  .preview-warnings { margin: 8px 0; }
+  .warn-note { font-size: 0.72rem; color: var(--warning); margin-bottom: 4px; }
+  .btn-confirm {
+    width: 100%; margin-top: 12px; padding: 9px;
+    background: var(--success); border: none; border-radius: 8px;
+    color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  }
+  .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+  .preview-blocked {
+    margin-top: 10px; padding: 8px 12px; border-radius: 7px;
+    background: rgba(var(--danger-rgb),0.08); color: var(--danger);
+    font-size: 0.74rem; font-weight: 600;
   }
 </style>
