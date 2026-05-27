@@ -14,10 +14,13 @@
     if (data.snapshotAccountId && accountId === data.snapshotAccountId && data.snapshotTotalValue > 0) {
       return data.snapshotTotalValue;
     }
-    // Manual/other accounts — sum holdings from transaction records
-    return (data.holdings ?? [])
+    // Sum holdings from transaction records + manually-set cash balance
+    const holdingsValue = (data.holdings ?? [])
       .filter((h: { accountId: string; marketValue: number }) => h.accountId === accountId)
       .reduce((s: number, h: { marketValue: number }) => s + h.marketValue, 0);
+    const account = data.accounts.find((a) => a.id === accountId);
+    const cashBalance = (account as any)?.cashBalance ?? 0;
+    return holdingsValue + cashBalance;
   }
 
   function accountDayPnl(accountId: string): number | null {
