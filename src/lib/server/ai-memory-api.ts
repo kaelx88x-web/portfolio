@@ -1,5 +1,4 @@
 import { analyticsJson } from '$lib/server/analytics-api';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   compressAiMemory,
   getAiMemoryOverview,
@@ -14,51 +13,44 @@ import {
   type AiMemoryOptions
 } from '$lib/services/ai-memory.service';
 
-export async function aiMemoryOverviewJson(url: URL) {
-  const user = await getDemoUser();
-  return analyticsJson(await getAiMemoryOverview(user.id, memoryOptionsFromUrl(url)));
+export async function aiMemoryOverviewJson(userId: string, url: URL) {
+  return analyticsJson(await getAiMemoryOverview(userId, memoryOptionsFromUrl(url)));
 }
 
-export async function latestAiMemoryJson(url: URL) {
-  const user = await getDemoUser();
+export async function latestAiMemoryJson(userId: string, url: URL) {
   return analyticsJson({
     status: 'ready',
-    memory: await getLatestAiMemory(user.id, memoryOptionsFromUrl(url))
+    memory: await getLatestAiMemory(userId, memoryOptionsFromUrl(url))
   });
 }
 
-export async function aiMemoryHistoryJson(url: URL) {
-  const user = await getDemoUser();
+export async function aiMemoryHistoryJson(userId: string, url: URL) {
   return analyticsJson({
     status: 'ready',
-    history: await listAiMemorySnapshots(user.id, memoryOptionsFromUrl(url))
+    history: await listAiMemorySnapshots(userId, memoryOptionsFromUrl(url))
   });
 }
 
-export async function aiMemoryTimelineJson() {
-  const user = await getDemoUser();
+export async function aiMemoryTimelineJson(userId: string) {
   return analyticsJson({
     status: 'ready',
-    timeline: await listAiMemoryTimeline(user.id)
+    timeline: await listAiMemoryTimeline(userId)
   });
 }
 
-export async function aiHistoricalInsightsJson() {
-  const user = await getDemoUser();
+export async function aiHistoricalInsightsJson(userId: string) {
   return analyticsJson({
     status: 'ready',
-    insights: await listAiHistoricalInsights(user.id)
+    insights: await listAiHistoricalInsights(userId)
   });
 }
 
-export async function refreshAiMemoryJson(url: URL) {
-  const user = await getDemoUser();
-  return analyticsJson(await refreshAiMemorySnapshot(user.id, { ...memoryOptionsFromUrl(url), forceRefresh: true }));
+export async function refreshAiMemoryJson(userId: string, url: URL) {
+  return analyticsJson(await refreshAiMemorySnapshot(userId, { ...memoryOptionsFromUrl(url), forceRefresh: true }));
 }
 
-export async function compressAiMemoryJson(url: URL) {
-  const user = await getDemoUser();
-  return analyticsJson(await compressAiMemory(user.id, memoryOptionsFromUrl(url)));
+export async function compressAiMemoryJson(userId: string, url: URL) {
+  return analyticsJson(await compressAiMemory(userId, memoryOptionsFromUrl(url)));
 }
 
 export function memoryOptionsFromUrl(url: URL): AiMemoryOptions {

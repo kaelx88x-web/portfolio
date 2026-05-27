@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import { getCashBalance, getHoldings } from '$lib/services/portfolio.service';
 import { takeSnapshotFromHoldings } from '$lib/services/snapshot.service';
 import {
@@ -10,27 +9,24 @@ import {
   type AnalyticsPeriod
 } from '$lib/services/analytics.service';
 
-export async function loadAnalyticsFromUrl(url: URL) {
-  const user = await getDemoUser();
+export async function loadAnalyticsFromUrl(userId: string, url: URL) {
   const period = parsePeriod(url.searchParams.get('period'));
   const benchmark = parseBenchmark(url.searchParams.get('benchmark'));
-  const analytics = await getAnalyticsDashboard(user.id, period, benchmark);
+  const analytics = await getAnalyticsDashboard(userId, period, benchmark);
 
-  return { user, analytics, period, benchmark };
+  return { analytics, period, benchmark };
 }
 
-export async function recalculateAnalyticsSnapshot() {
-  const user = await getDemoUser();
-  const [holdings, cashBalance] = await Promise.all([getHoldings(user.id), getCashBalance(user.id)]);
+export async function recalculateAnalyticsSnapshot(userId: string) {
+  const [holdings, cashBalance] = await Promise.all([getHoldings(userId), getCashBalance(userId)]);
   if (holdings.length === 0 && cashBalance <= 0) {
     throw new Error('No manual transaction holdings found. Sync Moomoo first; analytics will use the latest broker snapshot.');
   }
 
-  await takeSnapshotFromHoldings(user.id, holdings, cashBalance);
+  await takeSnapshotFromHoldings(userId, holdings, cashBalance);
 
   return {
-    user,
-    analytics: await getAnalyticsDashboard(user.id, 'MAX', 'SPY')
+    analytics: await getAnalyticsDashboard(userId, 'MAX', 'SPY')
   };
 }
 

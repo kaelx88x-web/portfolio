@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getPortfolioMetricsDashboard,
   PORTFOLIO_METRIC_PERIODS,
@@ -7,20 +6,18 @@ import {
   type PortfolioMetricPeriod
 } from '$lib/services/portfolio-metrics.service';
 
-export async function loadPortfolioMetricsFromUrl(url: URL) {
-  const user = await getDemoUser();
+export async function loadPortfolioMetricsFromUrl(userId: string, url: URL) {
   const period = parsePortfolioMetricPeriod(url.searchParams.get('period'));
-  const metrics = await getPortfolioMetricsDashboard(user.id, period);
+  const metrics = await getPortfolioMetricsDashboard(userId, period);
 
-  return { user, period, metrics };
+  return { period, metrics };
 }
 
-export async function refreshPortfolioMetricsFromUrl(url: URL) {
-  const user = await getDemoUser();
+export async function refreshPortfolioMetricsFromUrl(userId: string, url: URL) {
   const period = parsePortfolioMetricPeriod(url.searchParams.get('period'));
-  const metrics = await refreshPortfolioMetrics(user.id, period);
+  const metrics = await refreshPortfolioMetrics(userId, period);
 
-  return { user, period, metrics };
+  return { period, metrics };
 }
 
 export function portfolioMetricsJson(data: unknown) {

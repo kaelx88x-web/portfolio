@@ -1,5 +1,4 @@
 import { analyticsJson } from '$lib/server/analytics-api';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   compressLivePromptContext,
   generatePrompt,
@@ -27,21 +26,18 @@ export async function promptTemplateJson(slug: string) {
   });
 }
 
-export async function generatePromptJson(request: Request, url: URL) {
-  const user = await getDemoUser();
+export async function generatePromptJson(userId: string, request: Request, url: URL) {
   const body = await readJsonBody(request);
-  return analyticsJson(await generatePrompt(user.id, promptOptionsFromInput(url, body)));
+  return analyticsJson(await generatePrompt(userId, promptOptionsFromInput(url, body)));
 }
 
-export async function compressPromptJson(request: Request, url: URL) {
-  const user = await getDemoUser();
+export async function compressPromptJson(userId: string, request: Request, url: URL) {
   const body = await readJsonBody(request);
-  return analyticsJson(await compressLivePromptContext(user.id, promptOptionsFromInput(url, body)));
+  return analyticsJson(await compressLivePromptContext(userId, promptOptionsFromInput(url, body)));
 }
 
-export async function refreshPromptCacheJson() {
-  const user = await getDemoUser();
-  return analyticsJson(await refreshPromptCache(user.id));
+export async function refreshPromptCacheJson(userId: string) {
+  return analyticsJson(await refreshPromptCache(userId));
 }
 
 export function promptOptionsFromInput(url: URL, body: Record<string, unknown> = {}): PromptBuilderOptions {

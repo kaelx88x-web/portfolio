@@ -1,25 +1,22 @@
 import { json } from '@sveltejs/kit';
-import { getDemoUser } from '$lib/server/demo-user';
 import {
   getRiskExposureDashboard,
   parseRiskExposurePeriod,
   refreshRiskExposure
 } from '$lib/services/risk-exposure.service';
 
-export async function loadRiskExposureFromUrl(url: URL) {
-  const user = await getDemoUser();
+export async function loadRiskExposureFromUrl(userId: string, url: URL) {
   const period = parseRiskExposurePeriod(url.searchParams.get('period'));
-  const riskExposure = await getRiskExposureDashboard(user.id, period);
+  const riskExposure = await getRiskExposureDashboard(userId, period);
 
-  return { user, period, riskExposure };
+  return { period, riskExposure };
 }
 
-export async function refreshRiskExposureFromUrl(url: URL) {
-  const user = await getDemoUser();
+export async function refreshRiskExposureFromUrl(userId: string, url: URL) {
   const period = parseRiskExposurePeriod(url.searchParams.get('period'));
-  const riskExposure = await refreshRiskExposure(user.id, period);
+  const riskExposure = await refreshRiskExposure(userId, period);
 
-  return { user, period, riskExposure };
+  return { period, riskExposure };
 }
 
 export function riskExposureJson(data: unknown) {
