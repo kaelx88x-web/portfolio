@@ -3,6 +3,7 @@ import { getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service
 import { listAccounts } from '$lib/services/account.service';
 import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service';
 import { syncMoomoo } from '$lib/services/broker.service';
+import { syncDealsToTransactions } from '$lib/services/deal-sync.service';
 import { calcCapitalAndRealized } from '$lib/calculators/realized-pnl';
 import type { AllocationSlice, Holding, SnapshotHolding } from '$lib/types/portfolio';
 import { prisma } from '$lib/server/db';
@@ -16,7 +17,13 @@ export const actions: Actions = {
     const user = await getDemoUser();
     try {
       const result = await syncMoomoo();
+      const accounts = await listAccounts(user.id);
+      const account = accounts[0];
       await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
+      if (account && result.deals.length > 0) {
+        const syncResult = await syncDealsToTransactions(user.id, account.id, result.deals);
+        console.log(`[deal-sync] inserted=${syncResult.inserted} skipped=${syncResult.skipped}`);
+      }
       return { refreshed: true, updatedAt: new Date().toISOString(), count: result.holdings_count };
     } catch (e) {
       return { refreshed: false, error: e instanceof Error ? e.message : 'Sync failed' };
