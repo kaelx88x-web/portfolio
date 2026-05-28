@@ -17,6 +17,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const { acc_id, trd_env, name, currency = 'USD' } = body;
 
   if (!acc_id) throw error(400, 'acc_id is required');
+  if (!['REAL', 'SIMULATE'].includes(trd_env)) throw error(400, 'trd_env must be REAL or SIMULATE');
+  const safeCurrency = ['USD', 'HKD', 'SGD', 'MYR', 'JPY'].includes(currency) ? currency : 'USD';
 
   // Save selection on User
   await prisma.user.update({
@@ -32,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       name: name ?? buildAccountName(trd_env, acc_id),
       brokerName: 'moomoo',
       accountType: buildAccountType(trd_env),
-      currency,
+      currency: safeCurrency,
       brokerAccId: acc_id,
     },
     update: {},
