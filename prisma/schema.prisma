@@ -138,6 +138,7 @@ model Account {
   updatedAt      DateTime          @updatedAt
 
   @@unique([id, userId])
+  @@unique([userId, brokerAccId])
   @@index([userId])
 }
 

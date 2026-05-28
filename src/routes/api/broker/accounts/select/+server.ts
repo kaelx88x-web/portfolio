@@ -25,24 +25,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   });
 
   // Auto-create portfolio Account if none exists for this brokerAccId
-  const existing = await prisma.account.findFirst({
-    where: { userId: locals.user.id, brokerAccId: acc_id },
+  const account = await prisma.account.upsert({
+    where: { userId_brokerAccId: { userId: locals.user.id, brokerAccId: acc_id } },
+    create: {
+      userId: locals.user.id,
+      name: name ?? buildAccountName(trd_env, acc_id),
+      brokerName: 'moomoo',
+      accountType: buildAccountType(trd_env),
+      currency,
+      brokerAccId: acc_id,
+    },
+    update: {},
   });
 
-  let accountId = existing?.id;
-  if (!existing) {
-    const created = await prisma.account.create({
-      data: {
-        userId: locals.user.id,
-        name: name ?? buildAccountName(trd_env, acc_id),
-        brokerName: 'moomoo',
-        accountType: buildAccountType(trd_env),
-        currency,
-        brokerAccId: acc_id,
-      },
-    });
-    accountId = created.id;
-  }
-
-  return json({ ok: true, accountId });
+  return json({ ok: true, accountId: account.id });
 };
