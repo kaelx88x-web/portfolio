@@ -629,7 +629,7 @@ export async function getMoomooDeals(preferReal = true, history = true): Promise
   }
 }
 
-export async function syncMoomoo(preferReal = true): Promise<MoomooSyncResult> {
+export async function syncMoomoo(preferReal = true, accId?: string): Promise<MoomooSyncResult> {
   const apiUrl = `${base()}/brokers/moomoo/sync${preferReal ? '' : '?prefer_real=false'}`;
   const legacyUrl = `${base()}/brokers/moomoo/sync-portfolio?prefer_real=${preferReal ? 'true' : 'false'}`;
   let apiError = '';
@@ -665,7 +665,7 @@ export async function syncMoomoo(preferReal = true): Promise<MoomooSyncResult> {
   }
 
   try {
-    return await syncMoomooBridge(preferReal);
+    return await syncMoomooBridge(preferReal, accId);
   } catch (err) {
     throw new Error(
       `Moomoo sync failed. API ${apiUrl}: ${apiError}. Legacy API ${legacyUrl}: ${legacyError}. Bridge ${bridgeBase()}/sync: ${errorMessage(err)}.`
@@ -673,9 +673,9 @@ export async function syncMoomoo(preferReal = true): Promise<MoomooSyncResult> {
   }
 }
 
-async function syncMoomooBridge(preferReal: boolean): Promise<MoomooSyncResult> {
+async function syncMoomooBridge(preferReal: boolean, accId?: string): Promise<MoomooSyncResult> {
   const [syncRes, balanceRes] = await Promise.all([
-    fetch(`${bridgeBase()}/sync?prefer_real=${preferReal ? 'true' : 'false'}`, { method: 'POST' }),
+    fetch(`${bridgeBase()}/sync?prefer_real=${preferReal ? 'true' : 'false'}${accId ? `&acc_id=${encodeURIComponent(accId)}` : ''}`, { method: 'POST' }),
     fetch(`${bridgeBase()}/fund-balance`).catch(() => null)
   ]);
   if (!syncRes.ok) {
