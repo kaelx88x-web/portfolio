@@ -63,20 +63,35 @@
       ? `Synced ${new Date(data.snapshotDate).toLocaleString()}`
       : new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
   />
-  <form method="POST" action="?/refresh" use:enhance={() => {
-    refreshing = true;
-    return async ({ update }) => { await update(); refreshing = false; };
-  }}>
-    <button class="btn-refresh" type="submit" disabled={refreshing}>
-      <RefreshCw size={13} class={refreshing ? 'spin' : ''} />
-      {refreshing ? 'Syncing…' : 'Refresh'}
-    </button>
-  </form>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <form method="POST" action="?/refresh" use:enhance={() => {
+      refreshing = true;
+      return async ({ update }) => { await update(); refreshing = false; };
+    }}>
+      <button class="btn-refresh" type="submit" disabled={refreshing}>
+        <RefreshCw size={13} class={refreshing ? 'spin' : ''} />
+        {refreshing ? 'Syncing…' : 'Refresh'}
+      </button>
+    </form>
+    <form method="POST" action="?/refreshPrices" use:enhance={() => {
+      refreshing = true;
+      return async ({ update }) => { await update(); refreshing = false; };
+    }}>
+      <button class="btn-refresh" type="submit" disabled={refreshing} title="Fetch latest prices from Yahoo Finance (free)">
+        <RefreshCw size={13} class={refreshing ? 'spin' : ''} />
+        {refreshing ? 'Updating…' : 'Update Prices'}
+      </button>
+    </form>
+  </div>
 </div>
 
 {#if form?.refreshed}
   <div class="refresh-toast success">
     ✓ Synced {form.count} holding{form.count !== 1 ? 's' : ''} · {form.updatedAt ? new Date(form.updatedAt).toLocaleTimeString() : 'just now'}
+  </div>
+{:else if form?.pricesRefreshed}
+  <div class="refresh-toast success">
+    ✓ Updated {form.updated} price{form.updated !== 1 ? 's' : ''} from Yahoo Finance · {form.refreshedAt ? new Date(form.refreshedAt).toLocaleTimeString() : 'just now'}
   </div>
 {:else if form?.error}
   <div class="refresh-toast error">⚠ {form.error}</div>

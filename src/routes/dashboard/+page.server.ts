@@ -4,6 +4,7 @@ import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service'
 import { syncMoomoo } from '$lib/services/broker.service';
 import { syncDealsToTransactions } from '$lib/services/deal-sync.service';
 import { calcCapitalAndRealized } from '$lib/calculators/realized-pnl';
+import { refreshHoldingPrices } from '$lib/services/market-price.service';
 import type { AllocationSlice, Holding, SnapshotHolding } from '$lib/types/portfolio';
 import { prisma } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -18,6 +19,16 @@ export const actions: Actions = {
       data: { onboardingCompleted: true },
     });
     return { dismissed: true };
+  },
+
+  refreshPrices: async ({ locals }) => {
+    const user = locals.user!;
+    try {
+      const result = await refreshHoldingPrices(user.id);
+      return { pricesRefreshed: true, ...result };
+    } catch (e) {
+      return { pricesRefreshed: false, error: e instanceof Error ? e.message : 'Price refresh failed' };
+    }
   },
 
   refresh: async ({ locals }) => {
