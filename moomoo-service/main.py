@@ -1367,8 +1367,8 @@ def paper_dashboard():
 
 
 @app.post("/sync")
-def sync(prefer_real: bool = True):
-    bundle = _fetch_account_bundle(prefer_real=prefer_real)
+def sync(prefer_real: bool = True, acc_id: str | None = None):
+    bundle = _fetch_account_bundle(prefer_real=prefer_real, acc_id=acc_id)
     return {
         "account_label": bundle["account"]["account_label"],
         "account_number": bundle["account"]["account_number"],
@@ -1397,6 +1397,7 @@ def _fetch_account_bundle(
     include_orders: bool = True,
     include_deals: bool = True,
     include_history: bool = True,
+    acc_id: str | None = None,
 ):
     try:
         from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm, TrdEnv
@@ -1420,12 +1421,18 @@ def _fetch_account_bundle(
             ret, accounts = ctx.get_acc_list()
             if ret != RET_OK:
                 continue
-            account = _select_account(accounts, prefer_real)
-            if account is None:
-                continue
-
-            if prefer_real and str(account.get("trd_env")) != "REAL":
-                continue
+            if acc_id is not None:
+                # explicit account requested — find by acc_id, skip prefer_real filter
+                matches = accounts[accounts["acc_id"].astype(str) == str(acc_id)]
+                if matches.empty:
+                    continue
+                account = matches.iloc[0].to_dict()
+            else:
+                account = _select_account(accounts, prefer_real)
+                if account is None:
+                    continue
+                if prefer_real and str(account.get("trd_env")) != "REAL":
+                    continue
 
             trd_env = TrdEnv.REAL if str(account.get("trd_env")) == "REAL" else TrdEnv.SIMULATE
             ret, acc_info = ctx.accinfo_query(
