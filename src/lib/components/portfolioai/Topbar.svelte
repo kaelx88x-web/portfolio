@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Bell, ChevronDown, LayoutGrid, Sparkles, Sun, Moon, FlaskConical, TrendingUp } from 'lucide-svelte';
-  import { goto } from '$app/navigation';
+  import { Bell, ChevronDown, LayoutGrid, Sparkles, Sun, Moon } from 'lucide-svelte';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
   import { theme } from '$lib/stores/ui';
@@ -31,14 +31,63 @@
     goto('/ai/copilot');
   }
 
-  function switchToLive() {
-    showAccountMenu = false;
-    goto('/dashboard');
-  }
-
   function switchToPaper() {
     showAccountMenu = false;
     goto('/paper-trading');
+  }
+
+  // Broker account selector
+  interface BrokerAccount {
+    acc_id: string;
+    trd_env: 'REAL' | 'SIMULATE';
+    is_real: boolean;
+    is_active: boolean;
+    name: string;
+  }
+
+  let brokerAccounts: BrokerAccount[] = [];
+  let brokerAccountsLoading = false;
+  let brokerAccountsError = '';
+  let selectingAccId = '';
+
+  async function fetchBrokerAccounts() {
+    brokerAccountsLoading = true;
+    brokerAccountsError = '';
+    try {
+      const res = await fetch('/api/broker/accounts');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      brokerAccounts = data as BrokerAccount[];
+    } catch (e) {
+      brokerAccountsError = 'Bridge offline';
+      brokerAccounts = [];
+    } finally {
+      brokerAccountsLoading = false;
+    }
+  }
+
+  async function selectBrokerAccount(acc: BrokerAccount) {
+    selectingAccId = acc.acc_id;
+    try {
+      const res = await fetch('/api/broker/accounts/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acc_id: acc.acc_id, trd_env: acc.trd_env, name: acc.name }),
+      });
+      if (!res.ok) throw new Error('Select failed');
+      showAccountMenu = false;
+      await invalidateAll();
+    } catch {
+      brokerAccountsError = 'Failed to switch account';
+    } finally {
+      selectingAccId = '';
+    }
+  }
+
+  // Fetch accounts when menu opens (only if not already loaded/loading)
+  $: if (showAccountMenu && brokerAccounts.length === 0 && !brokerAccountsLoading) {
+    fetchBrokerAccounts();
   }
 </script>
 
@@ -80,22 +129,38 @@
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div class="tb-acc-backdrop" on:click={() => showAccountMenu = false}></div>
           <div class="tb-acc-menu">
-            <div class="tb-acc-menu-label">Switch Mode</div>
-            <button class="tb-acc-option" class:selected={accountMode === 'LIVE'} on:click={switchToLive}>
-              <TrendingUp size={13} />
-              <div class="tb-acc-opt-text">
-                <span class="tb-acc-opt-name">Live Portfolio</span>
-                <span class="tb-acc-opt-sub">Real broker data</span>
-              </div>
-              {#if accountMode === 'LIVE'}<span class="tb-acc-opt-check">✓</span>{/if}
-            </button>
-            <button class="tb-acc-option" class:selected={accountMode === 'SANDBOX'} on:click={switchToPaper}>
-              <FlaskConical size={13} />
-              <div class="tb-acc-opt-text">
-                <span class="tb-acc-opt-name">Paper Trading</span>
-                <span class="tb-acc-opt-sub">Practice with $100k sandbox</span>
-              </div>
-              {#if accountMode === 'SANDBOX'}<span class="tb-acc-opt-check">✓</span>{/if}
+            <div class="tb-acc-menu-section">BROKER ACCOUNTS</div>
+
+            {#if brokerAccountsLoading}
+              <div class="tb-acc-loading">Loading…</div>
+            {:else if brokerAccountsError}
+              <div class="tb-acc-error">{brokerAccountsError}</div>
+            {:else if brokerAccounts.length === 0}
+              <div class="tb-acc-loading">No accounts found</div>
+            {:else}
+              {#each brokerAccounts as acc}
+                <button
+                  class="tb-acc-option"
+                  class:selected={$portfolioSummary.activeBrokerAccId === acc.acc_id}
+                  disabled={selectingAccId === acc.acc_id}
+                  on:click={() => selectBrokerAccount(acc)}
+                >
+                  <span class="tb-acc-dot" class:live={acc.is_real} class:sandbox={!acc.is_real}></span>
+                  <span class="tb-acc-opt-label">{acc.name}</span>
+                  <span class="tb-acc-id-chip">{acc.acc_id.slice(-6)}</span>
+                  {#if selectingAccId === acc.acc_id}
+                    <span class="tb-acc-opt-check">…</span>
+                  {:else if $portfolioSummary.activeBrokerAccId === acc.acc_id}
+                    <span class="tb-acc-opt-check">✓</span>
+                  {/if}
+                </button>
+              {/each}
+            {/if}
+
+            <div class="tb-acc-divider"></div>
+            <button class="tb-acc-option" on:click={switchToPaper}>
+              <span class="tb-acc-symbol">⚗</span>
+              <span class="tb-acc-opt-label">Paper Trading</span>
             </button>
           </div>
         {/if}
@@ -245,6 +310,21 @@
   }
   .tb-acc-badge.live    { background: rgba(var(--success-rgb),0.12); color: var(--success); }
   .tb-acc-badge.sandbox { background: rgba(var(--warning-rgb),0.12); color: var(--warning); }
+
+  .tb-acc-menu-section {
+    font-size: 0.58rem; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--muted); padding: 8px 12px 4px; text-transform: uppercase;
+  }
+  .tb-acc-loading { font-size: 0.72rem; color: var(--muted); padding: 8px 12px; }
+  .tb-acc-error   { font-size: 0.72rem; color: var(--danger); padding: 8px 12px; }
+  .tb-acc-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .tb-acc-id-chip {
+    font-size: 0.58rem; font-family: monospace; color: var(--muted);
+    background: var(--surface-1); border-radius: 4px; padding: 1px 5px; margin-left: 4px;
+    flex-shrink: 0;
+  }
+  .tb-acc-symbol { font-size: 0.85rem; margin-right: 2px; }
+  .tb-acc-opt-label { flex: 1; font-size: 0.75rem; font-weight: 600; }
 
   .tb-ai-btn {
     display: flex; align-items: center; gap: 5px;
