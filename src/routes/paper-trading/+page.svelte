@@ -254,8 +254,8 @@
   function statusClass(s: string) {
     const u = s.toUpperCase();
     if (u.includes('FILL')) return 'filled';
-    if (u.includes('CANCEL')) return 'cancelled';
-    if (u.includes('SUBMIT') || u.includes('QUEUE')) return 'pending';
+    if (u.includes('CANCEL') || u.includes('REJECT') || u.includes('FAIL')) return 'cancelled';
+    if (u.includes('PENDING') || u.includes('SUBMIT') || u.includes('QUEUE') || u.includes('WAIT')) return 'pending';
     return 'other';
   }
 
@@ -769,11 +769,12 @@ taskkill /PID &lt;pid&gt; /F</pre>
             <th class="num">Price</th>
             <th class="num">Avg Fill</th>
             <th>Status</th>
+            <th>Order ID</th>
             <th>Date</th>
           </tr>
         </thead>
         <tbody>
-          {#each orders.slice(0, 50) as ord}
+          {#each orders.slice(0, 20) as ord}
             <tr>
               <td class="sym">{ord.symbol.replace(/^HK\.|^US\./, '')}</td>
               <td>
@@ -787,6 +788,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
               <td class="num">{ord.price?.toFixed(3) ?? '—'}</td>
               <td class="num">{ord.average_filled_price > 0 ? ord.average_filled_price.toFixed(3) : '—'}</td>
               <td><span class="status-badge {statusClass(ord.status)}">{ord.status}</span></td>
+              <td class="broker-id">{ord.order_id ? String(ord.order_id).slice(0, 8) : '—'}</td>
               <td class="muted date">{formatDate(ord.submitted_at)}</td>
             </tr>
           {/each}
@@ -1171,4 +1173,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
     background: rgba(var(--primary-rgb),0.08); border: 1px solid rgba(var(--primary-rgb),0.25);
     font-size: 0.76rem; color: var(--text); line-height: 1.5;
   }
+
+  /* ── Broker order ID ─────────────────────────────────────────── */
+  .broker-id { font-family: monospace; font-size: 0.68rem; color: var(--muted); }
 </style>
