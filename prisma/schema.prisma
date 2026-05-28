@@ -14,6 +14,7 @@ model User {
   passwordHash     String?
   baseCurrency     String              @default("USD")
   portfolioMode    String              @default("stock") @db.VarChar(20)
+  activeBrokerAccId String?   @db.VarChar(64)
   accounts         Account[]
   transactions     Transaction[]
   holdingSnaps     HoldingSnapshot[]
@@ -130,6 +131,7 @@ model Account {
   accountType    String
   currency       String            @default("USD")
   cashBalance    Float             @default(0)
+  brokerAccId    String?   @db.VarChar(64)
   transactions   Transaction[]
   holdingSnaps   HoldingSnapshot[]
   createdAt      DateTime          @default(now())
