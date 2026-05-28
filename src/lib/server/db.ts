@@ -1,15 +1,21 @@
 import { PrismaClient } from '@prisma/client';
+import { env } from '$env/dynamic/private';
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
+function makePrisma(): PrismaClient {
+  const url = env.DATABASE_URL ?? process.env.DATABASE_URL;
+  return new PrismaClient({
+    datasources: url ? { db: { url } } : undefined,
+    log: (env.NODE_ENV ?? process.env.NODE_ENV) === 'development' ? ['error', 'warn'] : ['error'],
   });
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
 }
+
+// In dev, skip the global cache so hot-reloads always get a fresh client
+// with the current env vars. In prod, cache to avoid connection pool exhaustion.
+export const prisma =
+  (env.NODE_ENV ?? process.env.NODE_ENV) === 'production'
+    ? (globalForPrisma.prisma ??= makePrisma())
+    : makePrisma();
