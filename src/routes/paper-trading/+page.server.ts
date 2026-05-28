@@ -216,4 +216,32 @@ export const actions: Actions = {
       return fail(503, { message: 'Bridge offline — start moomoo-service and retry', bridgeOffline: true });
     }
   },
+
+  async resetAccount({ locals }) {
+    const user = locals.user;
+    if (!user) return fail(401, { message: 'Unauthorized' });
+
+    try {
+      const res = await fetch(`${BRIDGE}/paper/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        if (res.status === 501) {
+          return fail(501, { message: 'Reset not supported by this bridge version' });
+        }
+        const err = await res.json().catch(() => ({}));
+        return fail(502, { message: (err as any).detail ?? `Bridge error ${res.status}` });
+      }
+      const result = await res.json() as { cancelled_orders?: number; closed_positions?: number };
+      return {
+        reset: true,
+        cancelled_orders: result.cancelled_orders ?? 0,
+        closed_positions: result.closed_positions ?? 0,
+      };
+    } catch (e) {
+      return fail(503, { message: 'Bridge offline — start moomoo-service and retry', bridgeOffline: true });
+    }
+  },
 };

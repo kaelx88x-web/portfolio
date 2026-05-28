@@ -197,6 +197,23 @@
     };
   }
 
+  let resetLoading = false;
+
+  function handleResetEnhance() {
+    resetLoading = true;
+    return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
+      resetLoading = false;
+      showResetModal = false;
+      if (result.type === 'success' && result.data?.reset) {
+        addToast('success', `Paper account reset — ${result.data.cancelled_orders} orders cancelled, ${result.data.closed_positions} positions closed`);
+        await invalidateAll();
+      } else if (result.type === 'failure') {
+        addToast('error', result.data?.message ?? 'Reset failed');
+      }
+      await update();
+    };
+  }
+
   let positionEstimate: string | null = null;
 
   function showPositionEstimate(data: { symbol: string; side: string; qty: number; price: number; asset_type: string }) {
@@ -837,6 +854,27 @@ taskkill /PID &lt;pid&gt; /F</pre>
 </section>
 {/if}
 
+<!-- ── Reset confirmation modal ───────────────────────────────── -->
+{#if showResetModal}
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <div class="modal-backdrop" on:click={() => showResetModal = false}></div>
+  <div class="modal">
+    <div class="modal-title">Reset paper account?</div>
+    <p class="modal-body">
+      This will cancel all open SIMULATE orders and close all positions via the Moomoo OpenD simulate account reset.
+      This cannot be undone.
+    </p>
+    <div class="modal-actions">
+      <button class="modal-cancel" on:click={() => showResetModal = false}>Cancel</button>
+      <form method="POST" action="?/resetAccount" use:enhance={handleResetEnhance}>
+        <button type="submit" class="modal-confirm" disabled={resetLoading}>
+          {resetLoading ? 'Resetting…' : 'Reset Account'}
+        </button>
+      </form>
+    </div>
+  </div>
+{/if}
+
 <style>
   /* ── Connection error card ──────────────────────────────────── */
   .conn-error-card {
@@ -1176,4 +1214,26 @@ taskkill /PID &lt;pid&gt; /F</pre>
 
   /* ── Broker order ID ─────────────────────────────────────────── */
   .broker-id { font-family: monospace; font-size: 0.68rem; color: var(--muted); }
+
+  /* ── Reset modal ─────────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
+  }
+  .modal {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 101; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px 28px; min-width: 340px; max-width: 480px;
+  }
+  .modal-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .modal-body { font-size: 0.78rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-cancel {
+    padding: 8px 18px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-size: 0.78rem; cursor: pointer;
+  }
+  .modal-confirm {
+    padding: 8px 18px; border-radius: 7px; border: none;
+    background: var(--danger); color: #fff; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  }
+  .modal-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
