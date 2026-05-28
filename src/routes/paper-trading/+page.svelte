@@ -249,6 +249,10 @@
   $: fromAgent = (paper as Record<string, unknown>).from_agent as boolean ?? false;
   $: agentPushedAt = (paper as Record<string, unknown>).agent_pushed_at as string | null ?? null;
 
+  $: if (form && (form as any).bridgeOffline) {
+    addToast('warn', `⚠ Bridge offline — ${ (form as any).message ?? 'moomoo-service unreachable'}`);
+  }
+
   // Update topbar with paper account values
   $: portfolioSummary.set({
     totalValue:   info.total_assets ?? 0,
