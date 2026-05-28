@@ -23,7 +23,11 @@ export const actions: Actions = {
   sync: async ({ locals }) => {
     const user = locals.user!;
     try {
-      const result = await syncMoomoo();
+      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { activeBrokerAccId: true } }).catch((err) => {
+        console.warn('[broker/sync] Failed to fetch activeBrokerAccId from DB:', (err as Error).message);
+        return null;
+      });
+      const result = await syncMoomoo(true, dbUser?.activeBrokerAccId ?? undefined);
       await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
       await writeSyncLog(user.id, 'success', result.holdings_count);
 
