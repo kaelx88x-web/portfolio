@@ -197,8 +197,27 @@
     };
   }
 
-  // Placeholder — wired in Task 9
-  function showPositionEstimate(_data: any) {}
+  let positionEstimate: string | null = null;
+
+  function showPositionEstimate(data: { symbol: string; side: string; qty: number; price: number; asset_type: string }) {
+    if (data.asset_type !== 'stock') { positionEstimate = null; return; }
+    const sym = data.symbol.toUpperCase();
+    const existing = positions.find((p: any) => (p.symbol ?? '').replace(/^US\.|^HK\./, '') === sym);
+    const existingQty = existing?.quantity ?? 0;
+    const existingCost = existing?.average_cost ?? 0;
+    let newQty: number;
+    let newCostBasis: number;
+    if (data.side === 'BUY') {
+      newQty = existingQty + data.qty;
+      const totalCost = existingQty * existingCost + data.qty * data.price;
+      newCostBasis = newQty > 0 ? totalCost / newQty : data.price;
+    } else {
+      newQty = Math.max(0, existingQty - data.qty);
+      newCostBasis = existingCost;
+    }
+    positionEstimate = `${data.side} ${data.qty} ${sym} @ $${data.price.toFixed(2)} → estimated holding: ~${newQty} shares, cost basis ~$${(newQty * newCostBasis).toFixed(2)} (estimate — actual fill may differ)`;
+    setTimeout(() => { positionEstimate = null; }, 6000);
+  }
 
   onMount(() => {
     const last = localStorage.getItem('paper_last_symbol');
@@ -556,6 +575,14 @@
     {:else}
       <div class="preview-blocked">⛔ Order blocked — see risk notes above</div>
     {/if}
+  </div>
+{/if}
+
+<!-- ── Position simulator banner ─────────────────────────────── -->
+{#if positionEstimate}
+  <div class="position-estimate">
+    <strong>Estimated position after fill:</strong>
+    {positionEstimate}
   </div>
 {/if}
 
@@ -1136,5 +1163,12 @@ taskkill /PID &lt;pid&gt; /F</pre>
     margin-top: 10px; padding: 8px 12px; border-radius: 7px;
     background: rgba(var(--danger-rgb),0.08); color: var(--danger);
     font-size: 0.74rem; font-weight: 600;
+  }
+
+  /* ── Position estimate banner ────────────────────────────────── */
+  .position-estimate {
+    margin-bottom: 16px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(var(--primary-rgb),0.08); border: 1px solid rgba(var(--primary-rgb),0.25);
+    font-size: 0.76rem; color: var(--text); line-height: 1.5;
   }
 </style>
