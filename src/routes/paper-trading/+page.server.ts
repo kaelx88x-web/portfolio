@@ -138,7 +138,8 @@ export const actions: Actions = {
         riskNotes.push(`Max loss on this trade: $${maxLoss.toFixed(2)} (premium paid)`);
       } else {
         // SELL option
-        const strikeFromCode = parseFloat(optionCode.split(/[CP]/i).slice(-1)[0] ?? '0') || 0;
+        const rawStrike = parseFloat(optionCode.split(/[CP]/i).slice(-1)[0] ?? '0') || 0;
+        const strikeFromCode = rawStrike > 1000 ? rawStrike / 1000 : rawStrike;
         const collateral = (strikeFromCode || price * 10) * 100 * qty * 0.20;
         riskNotes.push(`Estimated collateral required: $${collateral.toFixed(2)}.`);
         riskNotes.push('Assignment risk: if exercised, you must buy/deliver 100 shares per contract.');
@@ -198,9 +199,12 @@ export const actions: Actions = {
         return fail(502, { message: err.detail ?? `Bridge error ${res.status}` });
       }
       const result = await res.json();
+      if (!result.broker_order_id) {
+        return fail(502, { message: 'Order accepted but no broker_order_id returned — verify in moomoo app' });
+      }
       return {
         submitted: true,
-        broker_order_id: result.broker_order_id ?? null,
+        broker_order_id: result.broker_order_id,
         status: result.status ?? 'submitted',
         symbol,
         side: side.toUpperCase(),
