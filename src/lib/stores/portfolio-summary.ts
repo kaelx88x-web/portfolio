@@ -6,6 +6,7 @@ export interface PortfolioSummary {
   dayChangePct: number;
   accountName: string;
   accountMode: 'LIVE' | 'SANDBOX';
+  activeBrokerAccId: string | null;
 }
 
 export const portfolioSummary = writable<PortfolioSummary>({
@@ -14,4 +15,5 @@ export const portfolioSummary = writable<PortfolioSummary>({
   dayChangePct: 0,
   accountName: 'Portfolio',
   accountMode: 'LIVE',
+  activeBrokerAccId: null,
 });

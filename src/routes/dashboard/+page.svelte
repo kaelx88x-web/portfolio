@@ -52,6 +52,7 @@
     dayChangePct: dayPlPct ?? 0,
     accountName: data.accounts?.[0]?.name ?? 'Portfolio',
     accountMode: 'LIVE',
+    activeBrokerAccId: data.activeBrokerAccId ?? null,
   });
 </script>
 

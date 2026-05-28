@@ -23,7 +23,8 @@ export const actions: Actions = {
   refresh: async ({ locals }) => {
     const user = locals.user!;
     try {
-      const result = await syncMoomoo();
+      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { activeBrokerAccId: true } }).catch(() => null);
+      const result = await syncMoomoo(true, dbUser?.activeBrokerAccId ?? undefined);
       const accounts = await listAccounts(user.id);
       const account = accounts[0];
       await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
@@ -258,9 +259,10 @@ export const load: PageServerLoad = async ({ locals }) => {
   // Onboarding checklist data
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { onboardingCompleted: true },
+    select: { onboardingCompleted: true, activeBrokerAccId: true },
   }).catch(() => null);
   const onboardingCompleted = dbUser?.onboardingCompleted ?? false;
+  const activeBrokerAccId = dbUser?.activeBrokerAccId ?? null;
   const hasCash = (snapshot?.cashBalance ?? 0) > 0 || accounts.some((a) => (a.cashBalance ?? 0) > 0);
   const hasBroker = accounts.some(a => a.brokerName !== 'paper');
 
@@ -318,5 +320,6 @@ export const load: PageServerLoad = async ({ locals }) => {
       hasBroker,
       onboardingCompleted: onboardingCompleted || autoCompleteOnboarding,
     },
+    activeBrokerAccId,
   };
 }
