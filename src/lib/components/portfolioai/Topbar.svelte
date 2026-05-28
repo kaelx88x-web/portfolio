@@ -79,7 +79,7 @@
       showAccountMenu = false;
       await invalidateAll();
     } catch {
-      brokerAccountsError = 'Failed to switch account';
+      brokerAccountsError = 'Bridge offline — account not switched';
     } finally {
       selectingAccId = '';
     }
@@ -138,7 +138,7 @@
             {:else if brokerAccounts.length === 0}
               <div class="tb-acc-loading">No accounts found</div>
             {:else}
-              {#each brokerAccounts as acc}
+              {#each brokerAccounts as acc (acc.acc_id)}
                 <button
                   class="tb-acc-option"
                   class:selected={$portfolioSummary.activeBrokerAccId === acc.acc_id}
@@ -275,12 +275,6 @@
     background: var(--card); border: 1px solid var(--border);
     border-radius: 10px; padding: 6px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  }
-
-  .tb-acc-menu-label {
-    font-size: 0.58rem; font-weight: 700; color: var(--muted);
-    letter-spacing: 0.08em; text-transform: uppercase;
-    padding: 4px 8px 6px;
   }
 
   .tb-acc-option {
