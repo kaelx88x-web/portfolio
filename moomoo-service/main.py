@@ -44,6 +44,7 @@ class ExecutionOrderRequest(BaseModel):
     acc_id: str | int | None = None
     client_order_id: str | None = None
     source_ticket_id: str | None = None
+    dry_run: bool = False
 
 
 class CancelOrderRequest(BaseModel):
@@ -1209,6 +1210,16 @@ def execution_order(req: ExecutionOrderRequest):
     if req.order_type.lower() == "limit" and (req.price is None or req.price <= 0):
         raise HTTPException(status_code=400, detail="Limit orders require a positive price.")
 
+    if req.dry_run:
+        return {
+            "status": "dry_run_ok",
+            "broker_order_id": None,
+            "account_id": None,
+            "trade_env": req.trade_env,
+            "market": "US",
+            "dry_run": True,
+        }
+
     try:
         from moomoo import OpenSecTradeContext, OrderType, RET_OK, TrdEnv, TrdMarket, TrdSide
     except ImportError:
@@ -1693,6 +1704,74 @@ def _dedupe(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
     for row in rows:
         seen[str(row.get(key))] = row
     return list(seen.values())
+
+
+@app.post("/paper/reset")
+def paper_reset():
+    """Cancel all open SIMULATE orders and close all SIMULATE positions."""
+    try:
+        from moomoo import OpenSecTradeContext, RET_OK, TrdEnv, TrdMarket, TrdSide, OrderType, ModifyOrderOp
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    cancelled = 0
+    closed = 0
+    errors = []
+
+    ctx = None
+    try:
+        ctx = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, host=OPEND_HOST, port=OPEND_PORT)
+
+        # 1. Get all open SIMULATE orders and cancel them
+        ret, orders = ctx.order_list_query(trd_env=TrdEnv.SIMULATE)
+        if ret == RET_OK and orders is not None and not orders.empty:
+            for row in orders.to_dict("records"):
+                order_id = str(row.get("order_id") or "")
+                status = str(row.get("order_status") or "")
+                # Only cancel pending/queued orders
+                if order_id and status.upper() not in ("FILLED_ALL", "CANCELLED_ALL", "FAILED", "DISABLED"):
+                    try:
+                        ctx.modify_order(
+                            modify_order_op=ModifyOrderOp.CANCEL,
+                            order_id=order_id, qty=0, price=0,
+                            trd_env=TrdEnv.SIMULATE,
+                        )
+                        cancelled += 1
+                    except Exception as exc:
+                        errors.append(f"cancel {order_id}: {exc}")
+
+        # 2. Get all SIMULATE positions and close them with market orders
+        ret2, positions = ctx.position_list_query(trd_env=TrdEnv.SIMULATE)
+        if ret2 == RET_OK and positions is not None and not positions.empty:
+            for row in positions.to_dict("records"):
+                code = str(row.get("code") or "")
+                qty = float(row.get("qty") or 0)
+                if not code or qty <= 0:
+                    continue
+                close_side = TrdSide.SELL  # long positions
+                try:
+                    ctx.place_order(
+                        price=0, qty=qty, code=code,
+                        trd_side=close_side, order_type=OrderType.MARKET,
+                        trd_env=TrdEnv.SIMULATE,
+                    )
+                    closed += 1
+                except Exception as exc:
+                    errors.append(f"close {code}: {exc}")
+
+        return {
+            "reset": True,
+            "cancelled_orders": cancelled,
+            "closed_positions": closed,
+            "errors": errors,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if ctx is not None:
+            ctx.close()
 
 
 if __name__ == "__main__":

@@ -2,13 +2,244 @@
   import { onMount } from 'svelte';
   import { FlaskConical, RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart2, AlertTriangle, Terminal, MonitorCheck, Wifi, RotateCcw, ServerCrash, Radio } from 'lucide-svelte';
   import { PUBLIC_APP_MODE } from '$env/static/public';
-
-  const isSaas = PUBLIC_APP_MODE === 'saas';
+  import { enhance } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
+  import type { ActionData, PageData } from './$types';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
-  import type { PageData } from './$types';
+
+  const isSaas = PUBLIC_APP_MODE === 'saas';
 
   export let data: PageData;
+  export let form: ActionData;
+
+
+  // Order form state (just the toggles for now — form fields come in Tasks 5-6)
+  let showOrderForm = false;
+  let showResetModal = false;
+
+  // Toast state
+  let toasts: { id: number; type: 'success' | 'warn' | 'error'; message: string }[] = [];
+  let toastCounter = 0;
+
+  function addToast(type: 'success' | 'warn' | 'error', message: string) {
+    const id = ++toastCounter;
+    toasts = [...toasts, { id, type, message }];
+    setTimeout(() => { toasts = toasts.filter(t => t.id !== id); }, 4000);
+  }
+
+  // Account balance panel helpers
+  function usedCollateral(ai: typeof info): number {
+    return (ai.total_assets ?? 0) - (ai.cash ?? 0) - (ai.market_val ?? 0);
+  }
+
+  // ── Order form state ──────────────────────────────────────────
+  let activeTab: 'stock' | 'option' = 'stock';
+
+  // Stock form
+  let stockSide: 'BUY' | 'SELL' = 'BUY';
+  let stockSymbol = '';
+  let stockOrderType: 'market' | 'limit' = 'limit';
+  let stockQty: number | null = null;
+  let stockPrice: number | null = null;
+
+  // Option form
+  let optSymbol = '';
+  let optExpiry = '';
+  let optType: 'call' | 'put' = 'call';
+  let optExpiryList: string[] = [];
+  let optChain: { strike: number; bid: number; ask: number; iv: number; option_code: string; spread_pct: number }[] = [];
+  let optSelectedCode = '';
+  let optSelectedBid = 0;
+  let optSelectedAsk = 0;
+  let optSelectedStrike = 0;
+  let optSide: 'BUY' | 'SELL' = 'BUY';
+  let optQty = 1;
+  let optPrice: number | null = null;
+  let chainRequestId = 0;
+  let optExpiryLoading = false;
+  let optChainLoading = false;
+  let optExpiryError = '';
+  let optChainError = '';
+
+  async function fetchExpiry() {
+    if (optSymbol.trim().length < 2) return;
+    optExpiryLoading = true;
+    optExpiryError = '';
+    optExpiryList = [];
+    optExpiry = '';
+    optChain = [];
+    optSelectedCode = '';
+    try {
+      const r = await fetch(`/api/paper/options/expiry?symbol=${encodeURIComponent(optSymbol.trim())}`);
+      if (!r.ok) throw new Error(r.statusText);
+      const data = await r.json();
+      if (data.error) { optExpiryError = 'Bridge offline'; return; }
+      optExpiryList = data.expiry_dates ?? data ?? [];
+    } catch {
+      optExpiryError = 'Bridge offline';
+    } finally {
+      optExpiryLoading = false;
+    }
+  }
+
+  async function fetchChain() {
+    if (!optExpiry || !optSymbol.trim()) { optChain = []; return; }
+    const reqId = ++chainRequestId;
+    optChainLoading = true;
+    optChainError = '';
+    try {
+      const qs = new URLSearchParams({ symbol: optSymbol, expiry: optExpiry, option_type: optType });
+      const r = await fetch(`/api/paper/options/chain?${qs}`);
+      if (reqId !== chainRequestId) return; // discard stale response
+      if (!r.ok) throw new Error(r.statusText);
+      const data = await r.json();
+      if (reqId !== chainRequestId) return; // check again after json parse
+      if (data.error) throw new Error(data.error);
+      type RawChainRow = { strike: number; bid: number; ask: number; iv: number; option_code: string };
+      const rows: RawChainRow[] = data.chain ?? data ?? [];
+      optChain = rows.map((row) => ({
+        ...row,
+        spread_pct: row.ask > 0 ? (row.ask - row.bid) / row.ask * 100 : 0
+      }));
+      optSelectedCode = '';
+    } catch (e) {
+      if (reqId !== chainRequestId) return;
+      optChainError = e instanceof Error ? e.message : 'Bridge offline';
+      optChain = [];
+    } finally {
+      if (reqId === chainRequestId) optChainLoading = false;
+    }
+  }
+
+  function selectStrike(row: { strike: number; bid: number; ask: number; iv: number; option_code: string; spread_pct: number }) {
+    optSelectedCode = row.option_code;
+    optSelectedBid = row.bid;
+    optSelectedAsk = row.ask;
+    optSelectedStrike = row.strike;
+    optPrice = optSide === 'BUY' ? row.ask : row.bid;
+  }
+
+  function daysToExpiry(expiry: string): number {
+    const now = new Date();
+    const exp = new Date(expiry);
+    return Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Re-fetch chain when expiry or type changes
+  $: optExpiry, optType, fetchChain();
+
+  // Validation / preview state (wired fully in Tasks 7-8)
+  let validationErrors: string[] = [];
+  let previewData: {
+    symbol: string; side: string; qty: number;
+    estimated_value: number;
+    safety_status: 'pass' | 'warn' | 'block';
+    message: string; risk_notes: string[]; warnings: string[];
+    asset_type?: string; order_type?: string; price?: number; option_code?: string;
+  } | null = null;
+  let previewLoading = false;
+
+  function validateOrder(): string[] {
+    const errors: string[] = [];
+    if (activeTab === 'stock') {
+      if (!stockSymbol.trim()) errors.push('Symbol is required');
+      if (!stockQty || stockQty <= 0) errors.push('Quantity is required and must be at least 1');
+      if (stockOrderType === 'limit' && (!stockPrice || stockPrice <= 0)) errors.push('Limit price is required for limit orders');
+    } else {
+      if (!optSymbol.trim()) errors.push('Symbol is required');
+      if (!optSelectedCode) errors.push('Select a strike from the chain table');
+      if (!optQty || optQty <= 0) errors.push('Quantity is required and must be at least 1');
+      if (!optPrice || optPrice <= 0) errors.push('Limit price is required');
+    }
+    return errors;
+  }
+
+  function handlePreviewEnhance() {
+    validationErrors = validateOrder();
+    if (validationErrors.length > 0) {
+      return () => {};
+    }
+    previewLoading = true;
+    localStorage.setItem('paper_last_symbol', activeTab === 'stock' ? stockSymbol : optSymbol);
+    return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
+      previewLoading = false;
+      if (result.type === 'success' && result.data) {
+        previewData = result.data as typeof previewData;
+      } else if (result.type === 'failure') {
+        const msg = (result.data as any)?.message ?? 'Preview failed';
+        const isOffline = (result.data as any)?.bridgeOffline;
+        addToast(isOffline ? 'warn' : 'error', isOffline ? `⚠ Bridge offline — ${msg}` : msg);
+      }
+      await update();
+    };
+  }
+
+  let submitLoading = false;
+
+  function handleSubmitEnhance() {
+    submitLoading = true;
+    return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
+      submitLoading = false;
+      if (result.type === 'success' && result.data?.submitted) {
+        const orderId = result.data.broker_order_id;
+        addToast('success', `✓ Order submitted${orderId ? ` — broker_order_id: ${orderId}` : ''}`);
+        showPositionEstimate(result.data);
+        previewData = null;
+        showOrderForm = false;
+        await invalidateAll();
+      } else if (result.type === 'failure') {
+        const msg = result.data?.message ?? 'Submit failed';
+        const isOffline = result.data?.bridgeOffline;
+        addToast(isOffline ? 'warn' : 'error', isOffline ? `⚠ Bridge offline — ${msg}` : msg);
+      }
+      await update();
+    };
+  }
+
+  let resetLoading = false;
+
+  function handleResetEnhance() {
+    resetLoading = true;
+    return async ({ result, update }: { result: any; update: () => Promise<void> }) => {
+      resetLoading = false;
+      showResetModal = false;
+      if (result.type === 'success' && result.data?.reset) {
+        addToast('success', `Paper account reset — ${result.data.cancelled_orders} orders cancelled, ${result.data.closed_positions} positions closed`);
+        await invalidateAll();
+      } else if (result.type === 'failure') {
+        addToast('error', result.data?.message ?? 'Reset failed');
+      }
+      await update();
+    };
+  }
+
+  let positionEstimate: string | null = null;
+
+  function showPositionEstimate(data: { symbol: string; side: string; qty: number; price: number; asset_type: string }) {
+    if (data.asset_type !== 'stock') { positionEstimate = null; return; }
+    const sym = data.symbol.toUpperCase();
+    const existing = positions.find((p: any) => (p.symbol ?? '').replace(/^US\.|^HK\./, '') === sym);
+    const existingQty = existing?.quantity ?? 0;
+    const existingCost = existing?.average_cost ?? 0;
+    let newQty: number;
+    let newCostBasis: number;
+    if (data.side === 'BUY') {
+      newQty = existingQty + data.qty;
+      const totalCost = existingQty * existingCost + data.qty * data.price;
+      newCostBasis = newQty > 0 ? totalCost / newQty : data.price;
+    } else {
+      newQty = Math.max(0, existingQty - data.qty);
+      newCostBasis = existingCost;
+    }
+    positionEstimate = `${data.side} ${data.qty} ${sym} @ $${data.price.toFixed(2)} → estimated holding: ~${newQty} shares, cost basis ~$${(newQty * newCostBasis).toFixed(2)} (estimate — actual fill may differ)`;
+    setTimeout(() => { positionEstimate = null; }, 6000);
+  }
+
+  onMount(() => {
+    const last = localStorage.getItem('paper_last_symbol');
+    if (last) { stockSymbol = last; optSymbol = last; }
+  });
 
   $: paper = data.paper;
   $: info  = paper.account_info;
@@ -17,6 +248,10 @@
   $: deals     = paper.deals ?? [];
   $: fromAgent = (paper as Record<string, unknown>).from_agent as boolean ?? false;
   $: agentPushedAt = (paper as Record<string, unknown>).agent_pushed_at as string | null ?? null;
+
+  $: if (form && (form as any).bridgeOffline) {
+    addToast('warn', `⚠ Bridge offline — ${ (form as any).message ?? 'moomoo-service unreachable'}`);
+  }
 
   // Update topbar with paper account values
   $: portfolioSummary.set({
@@ -40,8 +275,8 @@
   function statusClass(s: string) {
     const u = s.toUpperCase();
     if (u.includes('FILL')) return 'filled';
-    if (u.includes('CANCEL')) return 'cancelled';
-    if (u.includes('SUBMIT') || u.includes('QUEUE')) return 'pending';
+    if (u.includes('CANCEL') || u.includes('REJECT') || u.includes('FAIL')) return 'cancelled';
+    if (u.includes('PENDING') || u.includes('SUBMIT') || u.includes('QUEUE') || u.includes('WAIT')) return 'pending';
     return 'other';
   }
 
@@ -51,11 +286,326 @@
   }
 </script>
 
+<!-- ── Toasts ─────────────────────────────────────────────────── -->
+<div class="toast-container">
+  {#each toasts as t (t.id)}
+    <div class="toast toast-{t.type}">
+      {t.message}
+    </div>
+  {/each}
+</div>
+
 <PageHeader
   title="Paper Trading"
   subtitle="Moomoo simulate account — live positions, orders and trade history."
   breadcrumb={[{ label: 'Paper Trading' }]}
 />
+
+<!-- ── Header actions ─────────────────────────────────────────── -->
+{#if !paper.error}
+  <div class="header-actions">
+    <button class="btn-new-order" on:click={() => showOrderForm = !showOrderForm}>
+      {showOrderForm ? '✕ Close' : '+ New Order'}
+    </button>
+    <button class="btn-reset" on:click={() => showResetModal = true}>
+      Reset Account
+    </button>
+  </div>
+{/if}
+
+<!-- ── Account balance panel (amber) ─────────────────────────── -->
+{#if !paper.error}
+  <div class="balance-panel">
+    <div class="balance-stat">
+      <div class="balance-label">Cash Available</div>
+      <div class="balance-value">{money(info.cash ?? 0)}</div>
+    </div>
+    <div class="balance-stat">
+      <div class="balance-label">Buying Power</div>
+      <div class="balance-value">{money(info.power ?? 0)}</div>
+    </div>
+    <div class="balance-stat">
+      <div class="balance-label">Used Collateral</div>
+      <div class="balance-value">{money(usedCollateral(info))}</div>
+    </div>
+    <div class="balance-stat">
+      <div class="balance-label">Unrealized P&amp;L</div>
+      <div class="balance-value" class:positive={info.unrealized_pl >= 0} class:negative={info.unrealized_pl < 0}>
+        {fmt(info.unrealized_pl ?? 0)}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ── Inline order form ──────────────────────────────────────── -->
+{#if showOrderForm && !paper.error}
+  <div class="order-form-wrap">
+    <div class="order-form-tabs">
+      <button class="tab-btn" class:active={activeTab === 'stock'} on:click={() => activeTab = 'stock'}>Stock</button>
+      <button class="tab-btn" class:active={activeTab === 'option'} on:click={() => activeTab = 'option'}>Option</button>
+    </div>
+
+    {#if activeTab === 'stock'}
+      <form method="POST" action="?/previewOrder" use:enhance={handlePreviewEnhance}>
+        <input type="hidden" name="asset_type" value="stock" />
+
+        <!-- Side toggle -->
+        <div class="form-field">
+          <label class="field-label">Side</label>
+          <div class="toggle-row">
+            <button type="button" class="toggle-btn" class:buy={stockSide === 'BUY'} on:click={() => stockSide = 'BUY'}>BUY</button>
+            <button type="button" class="toggle-btn" class:sell={stockSide === 'SELL'} on:click={() => stockSide = 'SELL'}>SELL</button>
+          </div>
+          <input type="hidden" name="side" value={stockSide} />
+        </div>
+
+        <!-- Symbol -->
+        <div class="form-field">
+          <label class="field-label" for="stock-symbol">Symbol</label>
+          <input id="stock-symbol" name="symbol" type="text"
+            bind:value={stockSymbol}
+            on:input={() => stockSymbol = stockSymbol.toUpperCase()}
+            placeholder="AAPL"
+            class="form-input" />
+        </div>
+
+        <!-- Order type toggle -->
+        <div class="form-field">
+          <label class="field-label">Order Type</label>
+          <div class="toggle-row">
+            <button type="button" class="toggle-btn" class:active-type={stockOrderType === 'limit'} on:click={() => stockOrderType = 'limit'}>Limit</button>
+            <button type="button" class="toggle-btn" class:active-type={stockOrderType === 'market'} on:click={() => stockOrderType = 'market'}>Market</button>
+          </div>
+          <input type="hidden" name="order_type" value={stockOrderType} />
+        </div>
+
+        <!-- Qty -->
+        <div class="form-field">
+          <label class="field-label" for="stock-qty">Qty (shares)</label>
+          <input id="stock-qty" name="qty" type="number" min="1" step="1"
+            bind:value={stockQty} placeholder="1" class="form-input" />
+        </div>
+
+        <!-- Limit price (hidden when Market) -->
+        {#if stockOrderType === 'limit'}
+          <div class="form-field">
+            <label class="field-label" for="stock-price">Limit Price</label>
+            <input id="stock-price" name="price" type="number" min="0.01" step="0.01"
+              bind:value={stockPrice} placeholder="182.50" class="form-input" />
+          </div>
+        {/if}
+
+        <!-- Validation errors -->
+        {#if validationErrors.length > 0}
+          <div class="validation-errors">
+            {#each validationErrors as err}<div>• {err}</div>{/each}
+          </div>
+        {/if}
+
+        <div class="form-actions">
+          <button type="submit" class="btn-preview" disabled={previewLoading}>
+            {previewLoading ? 'Loading…' : 'Preview Order →'}
+          </button>
+        </div>
+
+        <!-- Paper notice strip -->
+        <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
+      </form>
+    {:else}
+      <!-- OPTION TAB -->
+      <form method="POST" action="?/previewOrder" use:enhance={handlePreviewEnhance}>
+        <input type="hidden" name="asset_type" value="option" />
+        <input type="hidden" name="option_code" value={optSelectedCode} />
+        <input type="hidden" name="side" value={optSide} />
+        <input type="hidden" name="symbol" value={optSymbol} />
+
+        <!-- Step 1: Symbol + expiry + type -->
+        <div class="form-field">
+          <label class="field-label" for="opt-symbol">Underlying Symbol</label>
+          <input id="opt-symbol" type="text"
+            bind:value={optSymbol}
+            on:input={() => optSymbol = optSymbol.toUpperCase()}
+            on:blur={fetchExpiry}
+            placeholder="AAPL"
+            class="form-input" />
+        </div>
+
+        <div class="opt-row">
+          <div class="form-field" style="flex:1">
+            <label class="field-label" for="opt-expiry">Expiry</label>
+            {#if optExpiryLoading}
+              <div class="form-input muted-val">Loading…</div>
+            {:else if optExpiryError}
+              <div class="form-input muted-val danger-text">{optExpiryError}</div>
+            {:else}
+              <select id="opt-expiry" class="form-input" bind:value={optExpiry}>
+                <option value="">Select expiry</option>
+                {#each optExpiryList as d}<option value={d}>{d}</option>{/each}
+              </select>
+            {/if}
+          </div>
+          <div class="form-field" style="flex:0 0 auto">
+            <label class="field-label">Type</label>
+            <div class="toggle-row">
+              <button type="button" class="toggle-btn" class:active-type={optType === 'call'} on:click={() => { optType = 'call'; }}>CALL</button>
+              <button type="button" class="toggle-btn" class:active-type={optType === 'put'}  on:click={() => { optType = 'put'; }}>PUT</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Option chain table -->
+        {#if optExpiry && !optChainLoading && !optChainError && optChain.length > 0}
+          <div class="chain-wrap">
+            <table class="chain-table">
+              <thead>
+                <tr>
+                  <th>Strike</th>
+                  <th class="num">Bid</th>
+                  <th class="num">Ask</th>
+                  <th class="num">IV%</th>
+                  <th class="num">Spread</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each optChain as row}
+                  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+                  <tr
+                    class:chain-selected={optSelectedCode === row.option_code}
+                    on:click={() => selectStrike(row)}
+                  >
+                    <td class="sym">
+                      ${row.strike}
+                      {#if row.spread_pct > 30}<span class="spread-warn" title="Wide spread">⚠</span>{/if}
+                    </td>
+                    <td class="num">{row.bid.toFixed(2)}</td>
+                    <td class="num">{row.ask.toFixed(2)}</td>
+                    <td class="num">{row.iv.toFixed(1)}%</td>
+                    <td class="num">{row.spread_pct.toFixed(1)}%</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else if optChainLoading}
+          <div class="chain-status muted">Loading chain…</div>
+        {:else if optChainError}
+          <div class="chain-status danger-text">{optChainError}</div>
+        {/if}
+
+        <!-- Step 3: After strike selected -->
+        {#if optSelectedCode}
+          <div class="selected-contract">
+            <span class="muted">Selected: </span>
+            <strong style="color:var(--primary)">{optSymbol} {optExpiry} ${optSelectedStrike} {optType.toUpperCase()}</strong>
+            · Ask ${optSelectedAsk.toFixed(2)}
+          </div>
+
+          {#if optExpiry && daysToExpiry(optExpiry) <= 7}
+            <div class="warn-strip">⚠ Expiry in {daysToExpiry(optExpiry)} days — theta decay is accelerating</div>
+          {/if}
+
+          {#if optSelectedAsk > 0 && (optSelectedAsk - optSelectedBid) / optSelectedAsk > 0.30}
+            <div class="warn-strip">⚠ Wide spread (&gt;30%) — you may get a worse fill</div>
+          {/if}
+
+          <div class="form-field">
+            <label class="field-label">Side</label>
+            <div class="toggle-row">
+              <button type="button" class="toggle-btn" class:buy={optSide === 'BUY'} on:click={() => { optSide = 'BUY'; optPrice = optSelectedAsk; }}>BUY</button>
+              <button type="button" class="toggle-btn" class:sell={optSide === 'SELL'} on:click={() => { optSide = 'SELL'; optPrice = optSelectedBid; }}>SELL</button>
+            </div>
+          </div>
+
+          <div class="opt-row">
+            <div class="form-field" style="flex:1">
+              <label class="field-label" for="opt-qty">Contracts</label>
+              <input id="opt-qty" name="qty" type="number" min="1" step="1"
+                bind:value={optQty} class="form-input" />
+            </div>
+            <div class="form-field" style="flex:1">
+              <label class="field-label" for="opt-price">Limit Price</label>
+              <input id="opt-price" name="price" type="number" min="0.01" step="0.01"
+                bind:value={optPrice} class="form-input" />
+            </div>
+          </div>
+        {/if}
+
+        <!-- Validation errors -->
+        {#if validationErrors.length > 0}
+          <div class="validation-errors">
+            {#each validationErrors as err}<div>• {err}</div>{/each}
+          </div>
+        {/if}
+
+        <div class="form-actions">
+          <button type="submit" class="btn-preview" disabled={!optSelectedCode || previewLoading}>
+            {previewLoading ? 'Loading…' : 'Preview Order →'}
+          </button>
+        </div>
+        <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
+      </form>
+    {/if}
+  </div>
+{/if}
+
+<!-- ── Order preview card ──────────────────────────────────────── -->
+{#if previewData}
+  <div class="preview-card" class:preview-warn={previewData.safety_status === 'warn'} class:preview-block={previewData.safety_status === 'block'}>
+    <div class="preview-header">
+      <span class="preview-title">Order Preview</span>
+      <span class="preview-badge {previewData.safety_status}">{previewData.safety_status.toUpperCase()}</span>
+      <button class="preview-close" on:click={() => previewData = null}>✕</button>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Symbol</span><span class="preview-val sym">{previewData.symbol}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Side</span>
+      <span class="preview-val side-badge" class:buy={previewData.side === 'BUY'} class:sell={previewData.side === 'SELL'}>{previewData.side}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Qty</span><span class="preview-val">{previewData.qty}</span>
+    </div>
+    <div class="preview-row">
+      <span class="preview-label">Est. Value</span><span class="preview-val">{money(previewData.estimated_value)}</span>
+    </div>
+    {#if previewData.risk_notes.length > 0}
+      <div class="preview-risk">
+        {#each previewData.risk_notes as note}<div class="risk-note">⚑ {note}</div>{/each}
+      </div>
+    {/if}
+    {#if previewData.warnings.length > 0}
+      <div class="preview-warnings">
+        {#each previewData.warnings as w}<div class="warn-note">{w}</div>{/each}
+      </div>
+    {/if}
+
+    {#if previewData.safety_status !== 'block'}
+      <form method="POST" action="?/submitOrder" use:enhance={handleSubmitEnhance}>
+        <input type="hidden" name="asset_type" value={previewData.asset_type} />
+        <input type="hidden" name="side" value={previewData.side} />
+        <input type="hidden" name="symbol" value={previewData.symbol} />
+        <input type="hidden" name="order_type" value={previewData.order_type ?? 'limit'} />
+        <input type="hidden" name="qty" value={previewData.qty} />
+        <input type="hidden" name="price" value={previewData.price ?? 0} />
+        <input type="hidden" name="option_code" value={previewData.option_code ?? ''} />
+        <button type="submit" class="btn-confirm" disabled={submitLoading}>
+          {submitLoading ? 'Submitting…' : 'Confirm & Submit'}
+        </button>
+      </form>
+    {:else}
+      <div class="preview-blocked">⛔ Order blocked — see risk notes above</div>
+    {/if}
+  </div>
+{/if}
+
+<!-- ── Position simulator banner ─────────────────────────────── -->
+{#if positionEstimate}
+  <div class="position-estimate">
+    <strong>Estimated position after fill:</strong>
+    {positionEstimate}
+  </div>
+{/if}
 
 {#if paper.error}
   {#if isSaas}
@@ -240,11 +790,12 @@ taskkill /PID &lt;pid&gt; /F</pre>
             <th class="num">Price</th>
             <th class="num">Avg Fill</th>
             <th>Status</th>
+            <th>Order ID</th>
             <th>Date</th>
           </tr>
         </thead>
         <tbody>
-          {#each orders.slice(0, 50) as ord}
+          {#each orders.slice(0, 20) as ord}
             <tr>
               <td class="sym">{ord.symbol.replace(/^HK\.|^US\./, '')}</td>
               <td>
@@ -258,6 +809,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
               <td class="num">{ord.price?.toFixed(3) ?? '—'}</td>
               <td class="num">{ord.average_filled_price > 0 ? ord.average_filled_price.toFixed(3) : '—'}</td>
               <td><span class="status-badge {statusClass(ord.status)}">{ord.status}</span></td>
+              <td class="broker-id">{ord.order_id ? String(ord.order_id).slice(0, 8) : '—'}</td>
               <td class="muted date">{formatDate(ord.submitted_at)}</td>
             </tr>
           {/each}
@@ -304,6 +856,27 @@ taskkill /PID &lt;pid&gt; /F</pre>
     </table>
   </div>
 </section>
+{/if}
+
+<!-- ── Reset confirmation modal ───────────────────────────────── -->
+{#if showResetModal}
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <div class="modal-backdrop" on:click={() => showResetModal = false}></div>
+  <div class="modal">
+    <div class="modal-title">Reset paper account?</div>
+    <p class="modal-body">
+      This will cancel all open SIMULATE orders and close all positions via the Moomoo OpenD simulate account reset.
+      This cannot be undone.
+    </p>
+    <div class="modal-actions">
+      <button class="modal-cancel" on:click={() => showResetModal = false}>Cancel</button>
+      <form method="POST" action="?/resetAccount" use:enhance={handleResetEnhance}>
+        <button type="submit" class="modal-confirm" disabled={resetLoading}>
+          {resetLoading ? 'Resetting…' : 'Reset Account'}
+        </button>
+      </form>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -463,4 +1036,208 @@ taskkill /PID &lt;pid&gt; /F</pre>
     font-size: 0.68rem; color: var(--muted);
     margin-bottom: 12px;
   }
+
+  /* ── Account balance panel ───────────────────────────────────── */
+  .balance-panel {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 16px; padding: 14px 16px;
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 10px; background: rgba(245,158,11,0.05);
+  }
+  .balance-stat { display: flex; flex-direction: column; gap: 3px; }
+  .balance-label {
+    font-size: 0.62rem; font-weight: 600; color: rgba(245,158,11,0.7);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .balance-value { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+
+  /* ── Header actions ──────────────────────────────────────────── */
+  .header-actions {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 16px;
+  }
+  .btn-new-order {
+    padding: 7px 16px; border-radius: 7px;
+    background: var(--primary); border: none; color: #fff;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-new-order:hover { opacity: 0.85; }
+  .btn-reset {
+    padding: 7px 14px; border-radius: 7px;
+    background: rgba(var(--danger-rgb),0.1); border: 1px solid rgba(var(--danger-rgb),0.25);
+    color: var(--danger); font-size: 0.75rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-reset:hover { background: rgba(var(--danger-rgb),0.18); }
+
+  /* ── Toasts ──────────────────────────────────────────────────── */
+  .toast-container {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: 8px;
+    font-size: 0.76rem; font-weight: 600;
+    max-width: 360px; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    animation: toast-in 0.2s ease;
+  }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .toast-success { background: rgba(var(--success-rgb),0.15); border: 1px solid rgba(var(--success-rgb),0.4); color: var(--success); }
+  .toast-warn    { background: rgba(245,158,11,0.12);         border: 1px solid rgba(245,158,11,0.35);       color: var(--warning); }
+  .toast-error   { background: rgba(var(--danger-rgb),0.12);  border: 1px solid rgba(var(--danger-rgb),0.35); color: var(--danger); }
+
+  @media (max-width: 900px) { .balance-panel { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .balance-panel { grid-template-columns: 1fr; } }
+
+  /* ── Order form ──────────────────────────────────────────────── */
+  .order-form-wrap {
+    margin-bottom: 20px; padding: 18px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card);
+  }
+  .order-form-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab-btn {
+    padding: 5px 16px; border-radius: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.72rem; font-weight: 600; color: var(--muted); cursor: pointer;
+  }
+  .tab-btn.active {
+    background: rgba(var(--primary-rgb),0.12); border-color: rgba(var(--primary-rgb),0.4);
+    color: var(--primary);
+  }
+  .form-field { margin-bottom: 12px; }
+  .field-label { display: block; font-size: 0.62rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .form-input {
+    width: 100%; padding: 7px 10px; border-radius: 7px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.8rem; box-sizing: border-box;
+  }
+  .form-input:focus { outline: none; border-color: rgba(var(--primary-rgb),0.5); }
+  .toggle-row { display: flex; gap: 4px; }
+  .toggle-btn {
+    flex: 1; padding: 5px 10px; border-radius: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.7rem; font-weight: 700; color: var(--muted); cursor: pointer;
+  }
+  .toggle-btn.buy  { background: rgba(var(--success-rgb),0.15); border-color: rgba(var(--success-rgb),0.4); color: var(--success); }
+  .toggle-btn.sell { background: rgba(var(--danger-rgb),0.15);  border-color: rgba(var(--danger-rgb),0.4);  color: var(--danger); }
+  .toggle-btn.active-type { background: rgba(var(--primary-rgb),0.12); border-color: rgba(var(--primary-rgb),0.4); color: var(--primary); }
+  .form-actions { margin-top: 14px; }
+  .btn-preview {
+    width: 100%; padding: 9px; border-radius: 8px;
+    background: var(--primary); border: none; color: #fff;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  }
+  .btn-preview:disabled { opacity: 0.6; cursor: not-allowed; }
+  .paper-notice {
+    margin-top: 10px; padding: 6px 10px; border-radius: 6px;
+    background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
+    font-size: 0.7rem; color: var(--warning);
+  }
+  .validation-errors {
+    margin-bottom: 10px; padding: 8px 12px; border-radius: 7px;
+    background: rgba(var(--danger-rgb),0.08); border: 1px solid rgba(var(--danger-rgb),0.25);
+    color: var(--danger); font-size: 0.72rem; line-height: 1.6;
+  }
+
+  /* ── Option chain table ──────────────────────────────────────── */
+  .opt-row { display: flex; gap: 10px; align-items: flex-end; }
+  .chain-wrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow-y: auto;
+    max-height: 280px; margin-bottom: 12px;
+  }
+  .chain-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+  .chain-table thead { background: var(--surface-1); }
+  .chain-table th {
+    padding: 6px 10px; text-align: left;
+    font-size: 0.6rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+  }
+  .chain-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .chain-table tr:last-child td { border-bottom: none; }
+  .chain-table tr:hover td { background: rgba(var(--primary-rgb),0.05); }
+  .chain-selected td { background: rgba(var(--primary-rgb),0.12) !important; color: var(--primary); font-weight: 700; }
+  .spread-warn { color: var(--warning); margin-left: 4px; font-size: 0.65rem; }
+  .chain-status { padding: 12px; font-size: 0.74rem; text-align: center; }
+  .muted-val { color: var(--muted); }
+  .danger-text { color: var(--danger); }
+  .selected-contract {
+    padding: 8px 10px; border-radius: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 0.74rem; margin-bottom: 12px;
+  }
+  .warn-strip {
+    padding: 6px 10px; border-radius: 6px; margin-bottom: 10px;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+    font-size: 0.72rem; color: var(--warning);
+  }
+
+  /* ── Preview card ────────────────────────────────────────────── */
+  .preview-card {
+    margin-bottom: 20px; padding: 16px 18px;
+    border: 1px solid rgba(var(--primary-rgb),0.3); border-radius: 12px;
+    background: var(--card);
+  }
+  .preview-card.preview-warn { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.04); }
+  .preview-card.preview-block { border-color: rgba(var(--danger-rgb),0.4); background: rgba(var(--danger-rgb),0.04); }
+  .preview-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .preview-title { font-size: 0.8rem; font-weight: 700; color: var(--text); flex: 1; }
+  .preview-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+  .preview-badge {
+    font-size: 0.58rem; font-weight: 800; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.06em;
+  }
+  .preview-badge.pass { background: rgba(var(--success-rgb),0.12); color: var(--success); }
+  .preview-badge.warn { background: rgba(245,158,11,0.12); color: var(--warning); }
+  .preview-badge.block { background: rgba(var(--danger-rgb),0.12); color: var(--danger); }
+  .preview-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.78rem; }
+  .preview-label { color: var(--muted); min-width: 80px; }
+  .preview-val { color: var(--text); font-weight: 600; }
+  .preview-risk { margin: 10px 0; }
+  .risk-note { font-size: 0.72rem; color: var(--warning); margin-bottom: 4px; }
+  .preview-warnings { margin: 8px 0; }
+  .warn-note { font-size: 0.72rem; color: var(--warning); margin-bottom: 4px; }
+  .btn-confirm {
+    width: 100%; margin-top: 12px; padding: 9px;
+    background: var(--success); border: none; border-radius: 8px;
+    color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  }
+  .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+  .preview-blocked {
+    margin-top: 10px; padding: 8px 12px; border-radius: 7px;
+    background: rgba(var(--danger-rgb),0.08); color: var(--danger);
+    font-size: 0.74rem; font-weight: 600;
+  }
+
+  /* ── Position estimate banner ────────────────────────────────── */
+  .position-estimate {
+    margin-bottom: 16px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(var(--primary-rgb),0.08); border: 1px solid rgba(var(--primary-rgb),0.25);
+    font-size: 0.76rem; color: var(--text); line-height: 1.5;
+  }
+
+  /* ── Broker order ID ─────────────────────────────────────────── */
+  .broker-id { font-family: monospace; font-size: 0.68rem; color: var(--muted); }
+
+  /* ── Reset modal ─────────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
+  }
+  .modal {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 101; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px 28px; min-width: 340px; max-width: 480px;
+  }
+  .modal-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .modal-body { font-size: 0.78rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-cancel {
+    padding: 8px 18px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-size: 0.78rem; cursor: pointer;
+  }
+  .modal-confirm {
+    padding: 8px 18px; border-radius: 7px; border: none;
+    background: var(--danger); color: #fff; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  }
+  .modal-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
