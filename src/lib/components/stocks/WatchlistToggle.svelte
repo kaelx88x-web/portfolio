@@ -29,22 +29,28 @@
   }
 </script>
 
-<button
-  class="wl-btn"
-  class:active={watchlisted}
-  class:pulse={pulsing}
-  on:click|stopPropagation={toggle}
-  title={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
-  aria-label={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
->
-  {watchlisted ? '★' : '☆'}
-</button>
-
-{#if error}
-  <span class="wl-error">Failed</span>
-{/if}
+<div class="wl-wrap">
+  <button
+    class="wl-btn"
+    class:active={watchlisted}
+    class:pulse={pulsing}
+    on:click|stopPropagation={toggle}
+    title={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+    aria-label={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+  >
+    {watchlisted ? '★' : '☆'}
+  </button>
+  {#if error}
+    <span class="wl-error">Failed</span>
+  {/if}
+</div>
 
 <style>
+  .wl-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
   .wl-btn {
     background: none;
     border: none;
