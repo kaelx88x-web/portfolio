@@ -49,10 +49,11 @@
   }));
 
   $: polylineStr = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  // Close the fill polygon at bottom-right and bottom-left
+  // Close the fill polygon at bottom-right and bottom-left (guard against empty pts)
   $: polygonStr =
-    polylineStr +
-    ` ${pts[pts.length - 1].x.toFixed(1)},${H} 0,${H}`;
+    pts.length < 1
+      ? ''
+      : polylineStr + ` ${pts[pts.length - 1].x.toFixed(1)},${H} 0,${H}`;
 
   // Hover state
   let hoveredIdx: number | null = null;
