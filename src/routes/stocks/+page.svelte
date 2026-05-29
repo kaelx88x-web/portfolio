@@ -194,6 +194,7 @@
             meta={getStockMeta(asset.symbol, asset.sector)}
             owned={data.ownedMap[asset.id]}
             watchlisted={watchlistSet.has(asset.id)}
+            priceData={data.priceMap[asset.symbol] ?? null}
             onAdd={() => openDrawer(asset)}
             onWatchlist={(val) => {
               if (val) watchlistSet.add(asset.id);
