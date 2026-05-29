@@ -18,8 +18,18 @@
     HKD: 'HK$',
   };
 
+  function normalizeRaw(values: number[]): number[] {
+    if (values.length === 0) return [];
+    if (values.length === 1) return [0.5];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    if (range === 0) return values.map(() => 0.5);
+    return values.map(v => (v - min) / range);
+  }
+
   // Use real sparkline points if provided, otherwise fall back to mock
-  $: rawPoints = sparkline ? sparkline.points : mockSparkline(symbol, trend);
+  $: rawPoints = sparkline ? sparkline.points : normalizeRaw(mockSparkline(symbol, trend));
   $: activeTrend = sparkline ? sparkline.trend : trend;
 
   $: color =
