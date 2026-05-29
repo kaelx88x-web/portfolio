@@ -17,13 +17,6 @@
   $: ownedGain = owned && price > 0 ? (price - owned.avgCost) * owned.qty : 0;
   $: ownedPct  = owned && owned.avgCost > 0 ? ((price - owned.avgCost) / owned.avgCost) * 100 : 0;
   $: displayTags = meta.tags.slice(0, 2);
-
-  function fmt(n: number | null, currency = '') {
-    if (n === null) return '—';
-    return currency
-      ? n.toLocaleString('en-US', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : n.toFixed(2);
-  }
 </script>
 
 <div class="stock-card">
