@@ -35,12 +35,13 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') close();
+    if (open && selectedAsset && e.key === 'Escape') close();
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if open && selectedAsset}
-  <svelte:window on:keydown={handleKeydown} />
   <!-- Backdrop -->
   <div class="backdrop" on:click={close} aria-hidden="true"></div>
 
