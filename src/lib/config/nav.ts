@@ -30,10 +30,11 @@ export const NAV_SECTIONS: NavSection[] = [
     id: 'portfolio',
     icon: '💼',
     label: 'Portfolio',
-    matchPaths: ['/holdings', '/transactions', '/accounts', '/watchlist', '/snapshots'],
+    matchPaths: ['/holdings', '/transactions', '/accounts', '/watchlist', '/snapshots', '/stocks'],
     children: [
       { label: 'Holdings',     href: '/holdings',     icon: '📋' },
       { label: 'Transactions', href: '/transactions', icon: '💱' },
+      { label: 'Stocks',       href: '/stocks',       icon: '🏪' },
       { label: 'Watchlist',    href: '/watchlist',    icon: '👁️' },
       { label: 'Accounts',     href: '/accounts',     icon: '🏦' },
       { label: 'Snapshots',    href: '/snapshots',    icon: '📸' },
