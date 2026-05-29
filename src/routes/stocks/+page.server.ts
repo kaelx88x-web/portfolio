@@ -57,8 +57,10 @@ export const actions: Actions = {
 
     if (!assetId)            return fail(400, { error: 'Asset is required' });
     if (!type || !['BUY','SELL'].includes(type)) return fail(400, { error: 'Type must be BUY or SELL' });
-    if (!qtyRaw || parseFloat(qtyRaw) <= 0)      return fail(400, { error: 'Quantity must be greater than 0' });
-    if (!priceRaw || parseFloat(priceRaw) <= 0)  return fail(400, { error: 'Price must be greater than 0' });
+    const qty = parseFloat(qtyRaw ?? '');
+    const px  = parseFloat(priceRaw ?? '');
+    if (!qtyRaw || isNaN(qty) || qty <= 0)   return fail(400, { error: 'Quantity must be a positive number' });
+    if (!priceRaw || isNaN(px) || px <= 0)   return fail(400, { error: 'Price must be a positive number' });
     if (!dateRaw)            return fail(400, { error: 'Trade date is required' });
 
     const account = await prisma.account.findFirst({ where: { userId: user.id } });
@@ -70,10 +72,10 @@ export const actions: Actions = {
         accountId: account.id,
         assetId,
         type:      type.toLowerCase(),
-        quantity:  parseFloat(qtyRaw),
-        price:     parseFloat(priceRaw),
+        quantity:  qty,
+        price:     px,
         tradeDate: new Date(dateRaw),
-        fee:       feeRaw ? parseFloat(feeRaw) : 0,
+        fee:       feeRaw ? (parseFloat(feeRaw) || 0) : 0,
         currency:  'USD',
       },
     });

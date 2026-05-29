@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher<{ toggle: boolean }>();
+
   export let assetId: string;
   export let watchlisted: boolean;
 
@@ -8,6 +11,7 @@
   async function toggle() {
     const previous = watchlisted;
     watchlisted = !watchlisted;
+    dispatch('toggle', watchlisted);
     pulsing = true;
     setTimeout(() => pulsing = false, 200);
 
@@ -18,11 +22,13 @@
       const res = await fetch('?/toggleWatchlist', { method: 'POST', body });
       if (!res.ok) {
         watchlisted = previous;
+        dispatch('toggle', watchlisted);
         error = true;
         setTimeout(() => error = false, 2000);
       }
     } catch {
       watchlisted = previous;
+      dispatch('toggle', watchlisted);
       error = true;
       setTimeout(() => error = false, 2000);
     }

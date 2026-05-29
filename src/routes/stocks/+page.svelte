@@ -41,6 +41,14 @@
     return true;
   });
 
+  $: tabCounts = {
+    all:          data.assets.length,
+    'us-stocks':  data.assets.filter(a => a.country === 'US' && a.assetType === 'stock').length,
+    'us-etfs':    data.assets.filter(a => a.country === 'US' && a.assetType === 'etf').length,
+    my:           data.assets.filter(a => a.country === 'MY').length,
+    hk:           data.assets.filter(a => a.country === 'HK').length,
+  };
+
   // Debounced search
   $: {
     clearTimeout(searchTimer);
@@ -167,13 +175,7 @@
         on:click={() => activeTab = t.id}
       >
         {t.label}
-        <span class="tab-count">
-          {t.id === 'all' ? data.assets.length
-            : t.id === 'us-stocks' ? data.assets.filter(a => a.country === 'US' && a.assetType === 'stock').length
-            : t.id === 'us-etfs'   ? data.assets.filter(a => a.country === 'US' && a.assetType === 'etf').length
-            : t.id === 'my'        ? data.assets.filter(a => a.country === 'MY').length
-            :                        data.assets.filter(a => a.country === 'HK').length}
-        </span>
+        <span class="tab-count">{tabCounts[t.id as keyof typeof tabCounts] ?? 0}</span>
       </button>
     {/each}
   </div>
@@ -193,6 +195,11 @@
             owned={data.ownedMap[asset.id]}
             watchlisted={watchlistSet.has(asset.id)}
             onAdd={() => openDrawer(asset)}
+            onWatchlist={(val) => {
+              if (val) watchlistSet.add(asset.id);
+              else watchlistSet.delete(asset.id);
+              watchlistSet = watchlistSet;
+            }}
           />
         </div>
       {/each}
