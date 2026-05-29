@@ -10,6 +10,7 @@ interface SearchResult {
 
 const cache = new Map<string, { results: SearchResult[]; expiresAt: number }>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const MAX_CACHE_SIZE = 500;
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   if (!locals.user) throw error(401, 'Unauthorized');
@@ -17,7 +18,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   if (q.length < 2) return json({ results: [] });
 
   const cached = cache.get(q);
-  if (cached && cached.expiresAt > Date.now()) return json({ results: cached.results });
+  if (cached) {
+    if (cached.expiresAt > Date.now()) return json({ results: cached.results });
+    cache.delete(q); // Clean up expired entry
+  }
 
   try {
     const res = await fetch(
@@ -35,6 +39,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         exchange: item.exchange ?? '',
         type:     (item.quoteType ?? 'EQUITY').toLowerCase(),
       }));
+    // Evict all if cache is too large (simple protection against unbounded growth)
+    if (cache.size >= MAX_CACHE_SIZE) cache.clear();
     cache.set(q, { results, expiresAt: Date.now() + CACHE_TTL });
     return json({ results });
   } catch {
