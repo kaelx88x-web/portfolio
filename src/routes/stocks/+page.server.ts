@@ -1,6 +1,7 @@
 // src/routes/stocks/+page.server.ts
 import { fail } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
+import { fetchPrices } from '$lib/server/price-source';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -39,7 +40,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const watchlistSet = watchlistItems.map(w => w.assetId);
 
-  return { assets, ownedMap, watchlistSet };
+  // Fetch real prices — falls back gracefully if all sources fail
+  const priceMap = await fetchPrices(assets);
+
+  return {
+    assets,
+    ownedMap,
+    watchlistSet,
+    priceMap: Object.fromEntries(priceMap),
+  };
 };
 
 export const actions: Actions = {
