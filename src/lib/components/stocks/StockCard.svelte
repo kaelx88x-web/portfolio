@@ -2,6 +2,7 @@
 <script lang="ts">
   import type { Asset } from '@prisma/client';
   import type { StockMeta } from '$lib/data/stock-metadata';
+  import type { PriceData } from '$lib/types/prices';
   import MiniSparkline from './MiniSparkline.svelte';
   import InvestmentTag from './InvestmentTag.svelte';
   import WatchlistToggle from './WatchlistToggle.svelte';
@@ -12,10 +13,27 @@
   export let watchlisted: boolean;
   export let onAdd: () => void;
   export let onWatchlist: ((val: boolean) => void) | undefined = undefined;
+  /** Real-time price data from price-source; null falls back to asset.latestPrice */
+  export let priceData: PriceData | null = null;
 
-  $: price = asset.latestPrice;
-  $: ownedGain = owned && price > 0 ? (price - owned.avgCost) * owned.qty : 0;
-  $: ownedPct  = owned && owned.avgCost > 0 ? ((price - owned.avgCost) / owned.avgCost) * 100 : 0;
+  $: displayPrice = priceData?.price ?? asset.latestPrice;
+  $: displayChange = priceData?.changePercent ?? null;
+  $: priceColor =
+    displayChange === null
+      ? 'var(--text)'
+      : displayChange > 0
+      ? 'var(--success)'
+      : displayChange < 0
+      ? 'var(--danger)'
+      : 'var(--text)';
+  $: changeArrow = (displayChange ?? 0) >= 0 ? '▲' : '▼';
+
+  $: ownedGain =
+    owned && displayPrice > 0 ? (displayPrice - owned.avgCost) * owned.qty : 0;
+  $: ownedPct =
+    owned && owned.avgCost > 0
+      ? ((displayPrice - owned.avgCost) / owned.avgCost) * 100
+      : 0;
   $: displayTags = meta.tags.slice(0, 2);
 </script>
 
@@ -27,7 +45,12 @@
         <WatchlistToggle assetId={asset.id} bind:watchlisted on:toggle={(e) => onWatchlist?.(e.detail)} />
       </div>
     </div>
-    <MiniSparkline symbol={asset.symbol} trend={meta.sparkTrend} />
+    <MiniSparkline
+      symbol={asset.symbol}
+      trend={priceData?.sparkline?.trend ?? meta.sparkTrend}
+      sparkline={priceData?.sparkline ?? undefined}
+      currency={asset.currency ?? 'USD'}
+    />
   </div>
 
   <div class="card-name">{asset.name}</div>
@@ -37,10 +60,19 @@
   </div>
 
   <div class="card-price-row">
-    <span class="price">
-      {price > 0 ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-      {#if asset.currency && asset.currency !== 'USD'}<span class="currency">{asset.currency}</span>{/if}
-    </span>
+    <div class="price-block">
+      <span class="price" style="color:{priceColor}">
+        {displayPrice > 0
+          ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : '—'}
+        {#if asset.currency && asset.currency !== 'USD'}<span class="currency">{asset.currency}</span>{/if}
+      </span>
+      {#if displayChange !== null}
+        <span class="change" style="color:{priceColor}">
+          {changeArrow} {Math.abs(displayChange).toFixed(2)}%
+        </span>
+      {/if}
+    </div>
     {#if owned && owned.qty > 0}
       <span class="owned-badge" class:gain={ownedGain >= 0} class:loss={ownedGain < 0}>
         {owned.qty.toFixed(owned.qty % 1 === 0 ? 0 : 2)} sh
@@ -129,6 +161,15 @@
     font-size: 0.85rem;
     font-weight: 700;
     color: var(--text);
+  }
+  .price-block {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .change {
+    font-size: 0.68rem;
+    font-weight: 600;
   }
   .currency { font-size: 0.65rem; color: var(--muted); margin-left: 2px; }
   .owned-badge {
