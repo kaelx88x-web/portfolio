@@ -17,7 +17,7 @@
   $: dayChange       = paperSummary ? 0                         : $portfolioSummary.dayChange;
   $: dayChangePct    = paperSummary ? 0                         : $portfolioSummary.dayChangePct;
   $: accountMode     = isPaperRoute ? 'SANDBOX'                 : $portfolioSummary.accountMode;
-  $: accountName     = isPaperRoute ? 'Paper Trading'           : accountMode === 'SANDBOX' ? 'Moomoo Simulate' : $portfolioSummary.accountName;
+  $: accountName     = isPaperRoute ? 'Paper Trading'           : $portfolioSummary.accountName;
 
   const dispatch = createEventDispatcher();
 
@@ -31,9 +31,9 @@
     goto('/ai/copilot');
   }
 
-  function switchToPaper() {
+  function manageConnection() {
     showAccountMenu = false;
-    goto('/paper-trading');
+    goto('/onboarding/connect-broker?reconnect=1');
   }
 
   // Broker account selector
@@ -92,7 +92,7 @@
 </script>
 
 <div class="topbar-root">
-  <div class="tb" class:paper={isPaperRoute}>
+  <div class="tb" class:paper={isPaperRoute || accountMode === 'SANDBOX'}>
     <!-- Left: logo mark + value hero + account -->
     <div class="tb-left">
       <button class="tb-logo-btn" on:click={() => dispatch('toggleSidebar')} title="Toggle sidebar">
@@ -119,7 +119,7 @@
           <span class="tb-acc-dot" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}></span>
           <span class="tb-acc-name">{accountName}</span>
           <span class="tb-acc-badge" class:live={accountMode === 'LIVE'} class:sandbox={accountMode === 'SANDBOX'}>
-            {accountMode === 'LIVE' ? 'LIVE' : 'SIMULATE'}
+            {accountMode === 'LIVE' ? 'LIVE' : 'PAPER'}
           </span>
           <ChevronDown size={13} />
         </button>
@@ -158,9 +158,9 @@
             {/if}
 
             <div class="tb-acc-divider"></div>
-            <button class="tb-acc-option" on:click={switchToPaper}>
-              <span class="tb-acc-symbol">⚗</span>
-              <span class="tb-acc-opt-label">Paper Trading</span>
+            <button class="tb-acc-option" on:click={manageConnection}>
+              <span class="tb-acc-symbol">⚙</span>
+              <span class="tb-acc-opt-label">Manage Broker Connection</span>
             </button>
           </div>
         {/if}
@@ -218,10 +218,10 @@
       </button>
     </div>
   </div>
-  {#if isPaperRoute}
+  {#if isPaperRoute || accountMode === 'SANDBOX'}
     <div class="paper-banner">
       <span class="paper-banner-icon">⚠</span>
-      <span>You are in paper trading mode — no real money is at risk</span>
+      <span>Paper trading mode — no real money is at risk</span>
     </div>
   {/if}
 </div>
