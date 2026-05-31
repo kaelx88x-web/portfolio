@@ -13,7 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "workers": "tsx workers/index.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run workers\""
+    "moomoo": "powershell -ExecutionPolicy Bypass -File moomoo-service/start.ps1",
+    "dev:all": "concurrently \"npm run dev\" \"npm run workers\" \"npm run moomoo\""
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
