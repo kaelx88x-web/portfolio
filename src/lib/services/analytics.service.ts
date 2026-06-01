@@ -39,6 +39,7 @@ type TransactionRow = {
   price: number;
   fee: number;
   tradeDate: Date;
+  currency: string;
 };
 
 type ExternalFlows = {
@@ -227,18 +228,26 @@ export async function getAnalyticsDashboard(
   const first = periodSnapshots[0] ?? latest;
   const previous = periodSnapshots.length > 1 ? (periodSnapshots.at(-2) ?? null) : null;
   const latestHoldings = await enrichHoldings(parseHoldings(latest?.holdingsJson));
-  const valueSeries = buildValueSeries(periodSnapshots, transactions);
-  const dailyReturns = buildDailyReturns(periodSnapshots, transactions);
+  // Deposits/withdrawals only count toward returns when in the portfolio's
+  // display currency — a foreign-currency flow (e.g. MYR funding a USD account)
+  // can't be summed at face value. FX of foreign flows is deferred. Non-flow
+  // transactions (buy/sell/dividend) are always retained.
+  const baseCurrency = uniformCurrency(latestHoldings.map((holding) => holding.currency));
+  const flowTransactions = transactions.filter(
+    (t) => !['deposit', 'withdrawal'].includes(t.type) || t.currency === baseCurrency
+  );
+  const valueSeries = buildValueSeries(periodSnapshots, flowTransactions);
+  const dailyReturns = buildDailyReturns(periodSnapshots, flowTransactions);
   const weeklyReturns = aggregateReturns(dailyReturns, 'week');
   const monthlyReturns = aggregateReturns(dailyReturns, 'month');
   const drawdownSeries = buildDrawdownSeries(periodSnapshots);
   const income = buildIncome(transactions.filter((transaction) => ['dividend', 'interest'].includes(transaction.type)));
-  const benchmarkAnalysis = await buildBenchmark(benchmark, first, latest, transactions, dailyReturns, drawdownSeries);
+  const benchmarkAnalysis = await buildBenchmark(benchmark, first, latest, flowTransactions, dailyReturns, drawdownSeries);
   const risk = buildRisk(periodSnapshots, latestHoldings, dailyReturns, drawdownSeries, benchmarkAnalysis);
   const exposure = buildExposure(latestHoldings);
   const correlation = buildCorrelation(latestHoldings, benchmarkAnalysis);
   const health = buildPortfolioHealth(risk, exposure, correlation, periodSnapshots.length);
-  const currency = uniformCurrency(latestHoldings.map((holding) => holding.currency));
+  const currency = baseCurrency;
 
   const dashboard: AnalyticsDashboard = {
     currency,
@@ -249,7 +258,7 @@ export async function getAnalyticsDashboard(
       previous,
       snapshots: periodSnapshots,
       latestHoldings,
-      transactions,
+      transactions: flowTransactions,
       incomeTotal: income.total,
       weeklyReturns,
       monthlyReturns
@@ -323,6 +332,9 @@ function buildSummary(input: {
   const investedValue = Math.max(portfolioValue - cashBalance, 0);
   const firstValue = first?.totalValue ?? 0;
   const unrealizedPnl = latestHoldings.reduce((sum, holding) => sum + holding.unrealizedPnl, 0);
+  // `transactions` here is already filtered to base-currency external flows by
+  // getAnalyticsDashboard (foreign-currency deposits/withdrawals excluded until
+  // FX conversion lands — see multi-currency limitation).
   const periodFlows = externalFlows(transactions, first?.snapshotDate ?? null, latest?.snapshotDate ?? null);
   const netContribution = latest ? netExternalContribution(transactions, latest.snapshotDate, portfolioValue) : 0;
   const totalReturnPct =

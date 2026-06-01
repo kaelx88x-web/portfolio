@@ -1180,8 +1180,8 @@ def cashflow(days: int = 30, prefer_real: bool = True):
 
 
 @app.get("/positions")
-def positions(prefer_real: bool = True):
-    bundle = _fetch_account_bundle(prefer_real=prefer_real, include_orders=False, include_deals=False)
+def positions(prefer_real: bool = True, base_currency: str = "USD"):
+    bundle = _fetch_account_bundle(prefer_real=prefer_real, include_orders=False, include_deals=False, base_currency=base_currency)
     return {
         "account": bundle["account"],
         "account_info": bundle["account_info"],
@@ -1457,8 +1457,8 @@ def paper_dashboard():
 
 
 @app.post("/sync")
-def sync(prefer_real: bool = True, acc_id: str | None = None):
-    bundle = _fetch_account_bundle(prefer_real=prefer_real, acc_id=acc_id)
+def sync(prefer_real: bool = True, acc_id: str | None = None, base_currency: str = "USD"):
+    bundle = _fetch_account_bundle(prefer_real=prefer_real, acc_id=acc_id, base_currency=base_currency)
     return {
         "account_label": bundle["account"]["account_label"],
         "account_number": bundle["account"]["account_number"],
@@ -1488,6 +1488,7 @@ def _fetch_account_bundle(
     include_deals: bool = True,
     include_history: bool = True,
     acc_id: str | None = None,
+    base_currency: str = "USD",
 ):
     try:
         from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm, TrdEnv
@@ -1536,7 +1537,7 @@ def _fetch_account_bundle(
                     trd_env=trd_env,
                     acc_id=int(account.get("acc_id")),
                     refresh_cache=True,
-                    currency="USD",
+                    currency=base_currency,
                 )
 
                 positions = []
@@ -1558,7 +1559,7 @@ def _fetch_account_bundle(
                 if include_deals:
                     deals = _fetch_deals(ctx, trd_env, int(account.get("acc_id")), include_history)
 
-                account_info = _parse_acc_info(acc_info if ret == RET_OK else None)
+                account_info = _parse_acc_info(acc_info if ret == RET_OK else None, base_currency)
 
                 uni_card_num = str(account.get("uni_card_num") or account.get("card_num") or "")
                 is_real = trd_env == TrdEnv.REAL
@@ -1741,13 +1742,16 @@ def _parse_deals(deals) -> list[dict[str, Any]]:
     return rows
 
 
-def _parse_acc_info(acc_info) -> dict[str, Any]:
+def _parse_acc_info(acc_info, base_currency: str = "USD") -> dict[str, Any]:
     if acc_info is None or len(acc_info) == 0:
         return {}
     row = acc_info.iloc[0].to_dict()
-    # USD_cash is the currency-specific field; fall back to generic cash (deprecated)
-    cash = _f(row.get("USD_cash")) or _f(row.get("cash"))
+    # Aggregate fields (total_assets, market_val, cash) are already converted to
+    # the requested base_currency by moomoo for universal/futures accounts. Prefer
+    # the base-specific cash field, falling back to the converted aggregate.
+    cash = _f(row.get(f"{base_currency}_cash")) or _f(row.get("cash"))
     return {
+        "currency": base_currency,
         "total_assets": _f(row.get("total_assets")),
         "securities_assets": _f(row.get("securities_assets")),
         "cash": cash,
