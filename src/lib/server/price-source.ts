@@ -22,20 +22,31 @@ async function isMoomooAvailable(): Promise<boolean> {
 /**
  * Convert a DB symbol to Moomoo format.
  * US.AAPL, HK.00700 (5-digit padded). MY → null (unsupported).
+ *
+ * Idempotent: symbols may be stored bare (AAPL) or already exchange-prefixed
+ * (US.SPYT, HK.00005 — e.g. when synced from moomoo). Prefixing blindly would
+ * produce "US.US.SPYT", which the bridge cannot resolve, so we detect and keep
+ * an existing prefix as-is.
  */
-function toMoomooCode(symbol: string, country: string): string | null {
-  if (country === 'US') return `US.${symbol}`;
+export function toMoomooCode(symbol: string, country: string): string | null {
+  const s = symbol.trim().toUpperCase();
+  // Already in moomoo format (US./HK./SH./SZ.) — use verbatim.
+  if (/^(US|HK|SH|SZ)\./.test(s)) return s;
+  if (country === 'US') return `US.${s}`;
   if (country === 'HK') {
-    const base = symbol.replace(/\.HK$/i, '').padStart(5, '0');
+    const base = s.replace(/\.HK$/i, '').padStart(5, '0');
     return `HK.${base}`;
   }
   return null;
 }
 
 async function fetchFromMoomoo(assets: Asset[]): Promise<Map<string, PriceData>> {
-  // Build a lookup map: moomooCode → dbSymbol
+  // Build a lookup map: moomooCode → dbSymbol.
+  // Options are excluded — /quotes/snapshot needs separate option-quote
+  // permission and a single unpermitted code makes moomoo fail the whole batch.
   const codeMap = new Map<string, string>();
   for (const a of assets) {
+    if (a.assetType === 'option') continue;
     const code = toMoomooCode(a.symbol, a.country ?? '');
     if (code) codeMap.set(code, a.symbol);
   }
@@ -44,24 +55,43 @@ async function fetchFromMoomoo(assets: Asset[]): Promise<Map<string, PriceData>>
   const codes = [...codeMap.keys()];
 
   try {
-    // 1. Batch snapshot — current price + % change for all codes in one call
-    const snapRes = await fetch(
-      `${BRIDGE_URL}/quotes/snapshot?codes=${codes.join(',')}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!snapRes.ok) return new Map();
-    const snap = await snapRes.json();
-    const quotes: Array<{ code: string; last_price: number; change_rate: number }> =
-      snap.quotes ?? [];
-
+    // 1. Snapshot — current price + % change. Chunked so that one bad/unpermitted
+    //    code only loses its own chunk rather than every quote in the request.
     const priceBySymbol = new Map<string, { price: number; changePercent: number }>();
-    for (const q of quotes) {
-      const dbSym = codeMap.get(q.code);
-      if (dbSym && q.last_price > 0) {
-        priceBySymbol.set(dbSym, {
-          price: q.last_price,
-          changePercent: q.change_rate ?? 0,
-        });
+    const SNAPSHOT_CHUNK = 30;
+    for (let i = 0; i < codes.length; i += SNAPSHOT_CHUNK) {
+      const chunk = codes.slice(i, i + SNAPSHOT_CHUNK);
+      let quotes: Array<{
+        code: string;
+        last_price: number;
+        change_rate: number | null;
+        prev_close_price?: number | null;
+      }> = [];
+      try {
+        const snapRes = await fetch(
+          `${BRIDGE_URL}/quotes/snapshot?codes=${chunk.join(',')}`,
+          { signal: AbortSignal.timeout(8000) }
+        );
+        if (!snapRes.ok) continue;
+        const snap = await snapRes.json();
+        quotes = snap.quotes ?? [];
+      } catch {
+        continue; // skip this chunk, keep the rest
+      }
+
+      for (const q of quotes) {
+        const dbSym = codeMap.get(q.code);
+        if (dbSym && q.last_price > 0) {
+          // moomoo often returns change_rate=null (e.g. outside market hours);
+          // fall back to computing it from the previous close.
+          const changePercent =
+            q.change_rate != null
+              ? q.change_rate
+              : q.prev_close_price && q.prev_close_price > 0
+                ? ((q.last_price - q.prev_close_price) / q.prev_close_price) * 100
+                : 0;
+          priceBySymbol.set(dbSym, { price: q.last_price, changePercent });
+        }
       }
     }
 

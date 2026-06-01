@@ -11,6 +11,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { randomUUID } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import { assembleBriefing, generateBriefHeadline } from '$lib/services/briefing.service';
+import { uniformCurrency } from '$lib/format';
 
 export const actions: Actions = {
   dismissOnboarding: async ({ locals }) => {
@@ -38,10 +39,11 @@ export const actions: Actions = {
         console.warn('[dashboard/refresh] Failed to fetch activeBrokerAccId from DB:', (err as Error).message);
         return null;
       });
-      const result = await syncMoomoo(true, dbUser?.activeBrokerAccId ?? undefined);
+      const activeBrokerAccId = dbUser?.activeBrokerAccId ?? undefined;
+      const result = await syncMoomoo(true, activeBrokerAccId);
       const accounts = await listAccounts(user.id);
-      const account = accounts[0];
-      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
+      const account = accounts.find(a => a.brokerAccId === (activeBrokerAccId ?? null)) ?? accounts[0];
+      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined, activeBrokerAccId);
       // Fire deal sync in background — don't block the UI refresh
       if (account && result.deals.length > 0) {
         syncDealsToTransactions(user.id, account.id, result.deals)
@@ -152,10 +154,16 @@ export const actions: Actions = {
 export const load: PageServerLoad = async ({ locals }) => {
   const user = locals.user!;
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { onboardingCompleted: true, activeBrokerAccId: true },
+  }).catch(() => null);
+  const activeBrokerAccId = dbUser?.activeBrokerAccId ?? null;
+
   const [accounts, transactionHoldings, snapshot, watchlists, allTransactions] = await Promise.all([
     listAccounts(user.id),
     getHoldings(user.id),
-    getLatestSnapshot(user.id),
+    getLatestSnapshot(user.id, activeBrokerAccId),
     prisma.watchlist.findMany({
       where: { userId: user.id },
       include: { items: { include: { asset: true }, orderBy: { createdAt: 'desc' }, take: 6 } },
@@ -242,9 +250,9 @@ export const load: PageServerLoad = async ({ locals }) => {
     percentage: totalValue > 0 ? (Math.abs(h.marketValue) / totalValue) * 100 : 0,
   }));
 
-  // Snapshots for growth chart (ordered by snapshotDate asc)
+  // Snapshots for growth chart (ordered by snapshotDate asc), scoped to active account
   const snapshots = await prisma.portfolioSnapshot.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, brokerAccId: activeBrokerAccId },
     orderBy: { snapshotDate: 'asc' },
     select: { snapshotDate: true, totalValue: true },
     take: 365,
@@ -255,13 +263,19 @@ export const load: PageServerLoad = async ({ locals }) => {
     totalValue: s.totalValue,
   }));
 
+  // Display currency for totals/cards. Prefer the snapshot holdings' shared
+  // currency (broker account base currency may be a stale 'USD' default),
+  // falling back to the account record, then USD.
+  const activeAccount = (activeBrokerAccId
+    ? accounts.find((a) => a.brokerAccId === activeBrokerAccId)
+    : null) ?? accounts[0];
+  const currency = uniformCurrency(
+    snapshotRows.map((h) => h.currency),
+    activeAccount?.currency ?? 'USD',
+  );
+
   // Onboarding checklist data
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { onboardingCompleted: true, activeBrokerAccId: true },
-  }).catch(() => null);
   const onboardingCompleted = dbUser?.onboardingCompleted ?? false;
-  const activeBrokerAccId = dbUser?.activeBrokerAccId ?? null;
   const hasCash = (snapshot?.cashBalance ?? 0) > 0 || accounts.some((a) => (a.cashBalance ?? 0) > 0);
   const hasBroker = accounts.some(a => a.brokerName !== 'paper');
 
@@ -313,6 +327,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     snapshot,
     dataSource,
     snapshotDate,
+    currency,
     onboarding: {
       show: !(onboardingCompleted || autoCompleteOnboarding),
       hasCash,

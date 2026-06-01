@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 import { getCashBalance, getHoldings } from '$lib/services/portfolio.service';
 import type { AllocationSlice, Holding, SnapshotHolding } from '$lib/types/portfolio';
+import { uniformCurrency } from '$lib/format';
 
 export const PORTFOLIO_METRIC_PERIODS = ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y', 'MAX'] as const;
 export type PortfolioMetricPeriod = (typeof PORTFOLIO_METRIC_PERIODS)[number];
@@ -87,10 +88,11 @@ export type PortfolioMetricsDashboard = {
 
 export async function getPortfolioMetricsDashboard(
   userId: string,
+  brokerAccId: string | null = null,
   period: PortfolioMetricPeriod = 'MAX',
   forceRefresh = false
 ): Promise<PortfolioMetricsDashboard> {
-  const cacheKey = `phase3a:v2:portfolio_metrics:${userId}:${period}`;
+  const cacheKey = `phase3a:v4:portfolio_metrics:${userId}:${brokerAccId ?? 'all'}:${period}`;
   if (!forceRefresh) {
     const cached = await readPortfolioMetricsCache(cacheKey);
     if (cached) return cached;
@@ -98,7 +100,7 @@ export async function getPortfolioMetricsDashboard(
 
   const [snapshots, transactions, user] = await Promise.all([
     prisma.portfolioSnapshot.findMany({
-      where: { userId },
+      where: { userId, ...(brokerAccId !== null ? { brokerAccId } : {}) },
       orderBy: { snapshotDate: 'asc' }
     }),
     prisma.transaction.findMany({
@@ -161,7 +163,7 @@ export async function getPortfolioMetricsDashboard(
       weeklyReturn: returnFromBoundary(filteredSnapshots, latestSnapshot, daysAgo(latestSnapshot?.snapshotDate, 7), transactions),
       monthlyReturn: returnFromBoundary(filteredSnapshots, latestSnapshot, startOfMonth(latestSnapshot?.snapshotDate), transactions),
       ytdReturn: returnFromBoundary(filteredSnapshots, latestSnapshot, startOfYear(latestSnapshot?.snapshotDate), transactions),
-      currency: user?.baseCurrency ?? holdings[0]?.currency ?? 'USD',
+      currency: uniformCurrency(holdings.map((holding) => holding.currency), user?.baseCurrency ?? 'USD'),
       holdingsCount: holdings.length,
       dataSource: latestSnapshot ? 'snapshot' : 'transactions'
     },
@@ -183,14 +185,18 @@ export async function getPortfolioMetricsDashboard(
   return dashboard;
 }
 
-export async function refreshPortfolioMetrics(userId: string, period: PortfolioMetricPeriod = 'MAX') {
+export async function refreshPortfolioMetrics(
+  userId: string,
+  brokerAccId: string | null = null,
+  period: PortfolioMetricPeriod = 'MAX'
+) {
   const [holdings, cashBalance] = await Promise.all([getHoldings(userId), getCashBalance(userId)]);
   if (holdings.length > 0 || cashBalance > 0) {
     const { takeSnapshotFromHoldings } = await import('$lib/services/snapshot.service');
     await takeSnapshotFromHoldings(userId, holdings, cashBalance);
   }
 
-  return getPortfolioMetricsDashboard(userId, period, true);
+  return getPortfolioMetricsDashboard(userId, brokerAccId, period, true);
 }
 
 function filterSnapshotsByPeriod(snapshots: SnapshotRow[], period: PortfolioMetricPeriod) {

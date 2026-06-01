@@ -7,106 +7,167 @@ function bridgeBase(): string {
   return env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
 }
 
+const OPTION_RE = /\d{6}[CP]\d+$/i;
+
+/** Canonical "MARKET:CODE" key so the same security matches across formats. */
+function canonical(symbol: string): string {
+  const s = (symbol || '').trim().toUpperCase();
+  const prefix = s.match(/^(US|HK|SH|SZ|SG|MY|CN)\.(.+)$/);
+  const suffix = s.match(/^(.+)\.(HK|KL|SI|SS|SZ)$/);
+  let market: string;
+  let code: string;
+  if (prefix) { market = prefix[1]; code = prefix[2]; }
+  else if (suffix) { code = suffix[1]; market = { HK: 'HK', KL: 'MY', SI: 'SG', SS: 'SH', SZ: 'SZ' }[suffix[2]] ?? suffix[2]; }
+  else { market = 'US'; code = s; }
+  if (/^\d+$/.test(code)) code = String(parseInt(code, 10));
+  return `${market}:${code}`;
+}
+
+/** Convert any stored symbol to moomoo code form (e.g. 0005.HK -> HK.00005). */
+function toMoomooCode(symbol: string): string {
+  const s = (symbol || '').trim().toUpperCase();
+  if (/^(US|HK|SH|SZ|SG|MY|CN)\./.test(s)) return s;
+  const suffix = s.match(/^(.+)\.(HK|KL|SS|SZ|SI)$/);
+  if (suffix) {
+    const mk = { HK: 'HK', KL: 'MY', SS: 'SH', SZ: 'SZ', SI: 'SG' }[suffix[2]] ?? suffix[2];
+    let code = suffix[1];
+    if (mk === 'HK' && /^\d+$/.test(code)) code = code.padStart(5, '0');
+    return `${mk}.${code}`;
+  }
+  return `US.${s}`;
+}
+
+function isOption(symbol: string): boolean {
+  return OPTION_RE.test(symbol.split('.').pop() ?? '');
+}
+function countryForMarket(market: string): string {
+  return { US: 'US', HK: 'HK', SH: 'CN', SZ: 'CN', MY: 'MY', SG: 'SG' }[market] ?? 'US';
+}
+function currencyForMarket(market: string): string {
+  return { US: 'USD', HK: 'HKD', SH: 'CNY', SZ: 'CNY', MY: 'MYR', SG: 'SGD' }[market] ?? 'USD';
+}
+
 export const POST: RequestHandler = async ({ locals }) => {
-  const assets = await prisma.asset.findMany();
+  if (!locals.user) return json({ updated: 0, error: 'Unauthorized' }, { status: 401 });
+  const userId = locals.user.id;
 
-  if (assets.length === 0) {
-    return json({ updated: 0, message: 'No assets found.' });
-  }
+  const assets = await prisma.asset.findMany({ select: { id: true, symbol: true, sector: true } });
 
-  // Map moomoo-format code -> assetId
-  // Symbols stored as "US.AAPL" already have prefix; bare "AAPL" → assume "US.AAPL"
-  const codeMap = new Map<string, string>();
-  for (const asset of assets) {
-    const code = asset.symbol.includes('.') ? asset.symbol : `US.${asset.symbol}`;
-    codeMap.set(code, asset.id);
-  }
+  // Canonical -> existing asset, so moomoo results write back regardless of the
+  // stored symbol format (0005.HK vs HK.00005).
+  const canonToAsset = new Map<string, { id: string; sector: string | null }>();
+  for (const a of assets) canonToAsset.set(canonical(a.symbol), { id: a.id, sector: a.sector });
 
-  const codes = [...codeMap.keys()].join(',');
-
-  let sectorData: { code: string; sector: string | null }[] = [];
-  try {
-    const res = await fetch(
-      `${bridgeBase()}/quotes/owner-plate?codes=${encodeURIComponent(codes)}`,
-      { signal: AbortSignal.timeout(15000) }
-    );
-    if (!res.ok) {
-      const detail = await res.json().catch(() => ({}));
-      return json({ updated: 0, error: detail?.detail ?? res.statusText }, { status: 502 });
+  // Only query the GAPS the user actually holds — owner-plate rate-limits and
+  // returns null for an entire chunk if any code in it is unsupported, so keep
+  // the batch small and clean (just held securities that aren't classified yet).
+  const codeSet = new Set<string>();
+  const snaps = await prisma.portfolioSnapshot.findMany({
+    where: { userId },
+    orderBy: { snapshotDate: 'desc' },
+    distinct: ['brokerAccId'],
+    select: { brokerAccId: true, holdingsJson: true }
+  });
+  for (const snap of snaps) {
+    let rows: Array<{ symbol?: string }> = [];
+    try { rows = JSON.parse(snap.holdingsJson); } catch { rows = []; }
+    for (const h of rows) {
+      const sym = (h.symbol ?? '').trim();
+      if (!sym || isOption(sym)) continue;
+      const existing = canonToAsset.get(canonical(sym));
+      if (existing?.sector) continue; // already classified
+      codeSet.add(toMoomooCode(sym));
     }
-    const body = await res.json();
-    sectorData = body.sectors ?? [];
-  } catch (err) {
-    return json(
-      { updated: 0, error: err instanceof Error ? err.message : 'Moomoo service unreachable' },
-      { status: 502 }
-    );
   }
 
-  // Fetch snapshot to identify ETFs — exclude options (no quote permission)
-  const optionPattern = /\d{6}[CP]\d+$/;
-  const nonOptionCodes = [...codeMap.keys()].filter(
-    (c) => !optionPattern.test(c.split('.').pop() ?? '')
-  );
+  if (codeSet.size === 0) {
+    return json({ updated: 0, created: 0, message: 'No assets found.' });
+  }
 
-  let snapshotTypes: Record<string, string> = {};
-  try {
-    const snapRes = await fetch(
-      `${bridgeBase()}/quotes/snapshot?codes=${encodeURIComponent(nonOptionCodes.join(','))}`,
-      { signal: AbortSignal.timeout(15000) }
-    );
-    if (snapRes.ok) {
+  const codes = [...codeSet];
+  // moomoo owner-plate silently returns null for most codes in a large batch,
+  // so query in small chunks and merge.
+  const CHUNK = 20;
+  const chunks: string[][] = [];
+  for (let i = 0; i < codes.length; i += CHUNK) chunks.push(codes.slice(i, i + CHUNK));
+
+  const sectorData: { code: string; sector: string | null }[] = [];
+  for (const group of chunks) {
+    try {
+      const res = await fetch(
+        `${bridgeBase()}/quotes/owner-plate?codes=${encodeURIComponent(group.join(','))}`,
+        { signal: AbortSignal.timeout(15000) }
+      );
+      if (!res.ok) continue; // skip a bad chunk, keep the rest
+      const body = await res.json();
+      for (const s of body.sectors ?? []) sectorData.push(s);
+    } catch {
+      continue;
+    }
+  }
+  if (sectorData.length === 0) {
+    return json({ updated: 0, error: 'Moomoo owner-plate returned no data' }, { status: 502 });
+  }
+
+  // ETF/Index detection for codes owner-plate can't classify (US ETFs etc.).
+  const snapshotTypes: Record<string, string> = {};
+  for (const group of chunks) {
+    try {
+      const snapRes = await fetch(
+        `${bridgeBase()}/quotes/snapshot?codes=${encodeURIComponent(group.join(','))}`,
+        { signal: AbortSignal.timeout(15000) }
+      );
+      if (!snapRes.ok) continue;
       const snapBody = await snapRes.json();
       for (const q of snapBody.quotes ?? []) {
         const c = (q.code as string).toUpperCase();
-        // Moomoo uses trust_valid=true for trust/ETF-like instruments on some markets.
-        // For US ETFs trust_valid is usually false but equity_valid is true — we check
-        // the asset_type returned by the snapshot endpoint (which uses _asset_type heuristic).
-        // We use a best-effort: if owner-plate returned no sector AND no trust/index flags,
-        // label by the known ETF list or mark as ETF if trust_valid is true.
         if (q.trust_valid) snapshotTypes[c] = 'ETF';
         else if (q.index_valid) snapshotTypes[c] = 'Index';
       }
-    }
-  } catch { /* ignore — sector from owner-plate is enough */ }
+    } catch { /* sector from owner-plate is enough */ }
+  }
 
   let updated = 0;
-  await Promise.all(
-    sectorData.map(async (s) => {
-      const assetId = codeMap.get(s.code);
-      if (!assetId) return;
+  let created = 0;
+  for (const item of sectorData) {
+    const code = (item.code ?? '').toUpperCase();
+    const sector = item.sector || snapshotTypes[code];
+    if (!sector) continue; // leave unresolved ones as-is
 
-      let sector = s.sector;
+    const canon = canonical(code);
+    const existing = canonToAsset.get(canon);
+    if (existing) {
+      await prisma.asset.update({ where: { id: existing.id }, data: { sector } });
+      updated++;
+    } else {
+      const market = code.split('.')[0];
+      await prisma.asset.upsert({
+        where: { symbol: code },
+        create: {
+          symbol: code,
+          name: code,
+          assetType: 'stock',
+          sector,
+          country: countryForMarket(market),
+          currency: currencyForMarket(market)
+        },
+        update: { sector }
+      });
+      created++;
+    }
+  }
 
-      // For codes with no sector from Moomoo, apply fallback labels
-      if (!sector) {
-        const asset = assets.find((a) => a.id === assetId);
-        if (!asset) return;
-        const sym = asset.symbol;
-        // Options — skip, no sector needed
-        if (/\d{6}[CP]\d+$/.test(sym.split('.').pop() ?? '')) return;
-        // ETF / Trust identified by Moomoo snapshot trust_valid flag
-        if (snapshotTypes[s.code]) {
-          sector = snapshotTypes[s.code];
-        } else {
-          return; // Unknown — leave as-is, don't guess
-        }
-      }
-
-      if (sector) {
-        await prisma.asset.update({ where: { id: assetId }, data: { sector } });
-        updated++;
-      }
-    })
-  );
-
-  // Bust risk-exposure cache so the page picks up new sectors immediately
+  // Bust risk-exposure cache so the page reflects new sectors on reload.
   try {
-    const user = locals.user!;
     await prisma.analyticsCache.deleteMany({
-      where: { userId: user.id, cacheKey: { contains: 'risk_exposure' } }
+      where: { userId, cacheKey: { contains: 'risk_exposure' } }
     });
   } catch { /* cache table may not exist — ignore */ }
 
-  return json({ updated, total: assets.length, message: 'Done. Reload page to see updated sectors.' });
-}
+  return json({
+    updated,
+    created,
+    total: assets.length,
+    message: 'Done. Reload page to see updated sectors.'
+  });
+};

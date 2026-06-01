@@ -6,7 +6,11 @@ import { prisma } from '$lib/server/db';
 import { getRecommendedStrategy } from '$lib/services/behavioral-profile.service';
 import { requiresBrokerGate, BROKER_ONBOARDING_PATHS } from '$lib/server/broker-gate';
 
-const PUBLIC_PATHS = ['/login', '/register', '/api/auth'];
+const PUBLIC_PATHS = ['/', '/login', '/register', '/api/auth'];
+
+function matchesPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
   // 1. Validate session and set locals
@@ -21,7 +25,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   // 3. Require auth for all non-public routes
-  const isPublic = PUBLIC_PATHS.some((p) => event.url.pathname.startsWith(p));
+  const isPublic = PUBLIC_PATHS.some((p) => matchesPathPrefix(event.url.pathname, p));
   if (!event.locals.user && !isPublic) {
     throw redirect(303, '/login');
   }

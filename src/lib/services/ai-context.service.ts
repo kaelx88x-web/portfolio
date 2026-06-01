@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { env } from '$env/dynamic/private';
 import { prisma } from '$lib/server/db';
+import { getActiveBrokerAccId } from '$lib/server/active-account';
 import {
   BENCHMARKS,
   ANALYTICS_PERIODS,
@@ -165,6 +166,13 @@ export type AiMoomooMarketContext = {
 type BuildOptions = {
   period?: AnalyticsPeriod;
   benchmark?: AnalyticsBenchmark;
+  /**
+   * Broker account to scope the context to. Omit (undefined) to resolve the
+   * user's active topbar account automatically; pass null for all accounts.
+   * Scoping is critical: mixing accounts (and currencies) corrupts the value
+   * series, volatility, and drawdown the AI then reports as fact.
+   */
+  brokerAccId?: string | null;
 };
 
 type CachedAiContextRow = {
@@ -204,7 +212,9 @@ export async function getCachedAiContextPayload(userId: string, options: AiConte
   const benchmark = options.benchmark ?? 'SPY';
   const scope = options.scope ?? 'full';
   const cacheEnabled = env.AI_CONTEXT_CACHE_ENABLED !== 'false';
-  const cacheKey = aiContextCacheKey(userId, period, benchmark, scope);
+  const brokerAccId =
+    options.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : options.brokerAccId;
+  const cacheKey = aiContextCacheKey(userId, period, benchmark, scope, brokerAccId);
 
   if (cacheEnabled && !options.forceRefresh) {
     const cached = await readAiContextCache(cacheKey);
@@ -224,7 +234,7 @@ export async function getCachedAiContextPayload(userId: string, options: AiConte
     }
   }
 
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const payload = buildStandardAiContextPayload(context, scope);
   const generatedAt = new Date();
   const expiresAt = new Date(generatedAt.getTime() + aiContextCacheTtlSeconds() * 1000);
@@ -253,13 +263,17 @@ export async function buildAiPortfolioContext(
 ): Promise<AiPortfolioContext> {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
+  // Resolve the active topbar account unless an explicit scope was passed.
+  // Without this the dashboard/snapshot mix every account's snapshots together.
+  const brokerAccId =
+    options.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : options.brokerAccId;
   const [analytics, user] = await Promise.all([
-    getAnalyticsDashboard(userId, period, benchmark),
+    getAnalyticsDashboard(userId, brokerAccId, period, benchmark),
     prisma.user.findUnique({ where: { id: userId }, select: { baseCurrency: true } })
   ]);
 
   const latestSnapshot = await prisma.portfolioSnapshot.findFirst({
-    where: { userId },
+    where: { userId, ...(brokerAccId !== null ? { brokerAccId } : {}) },
     orderBy: { snapshotDate: 'desc' }
   });
   const holdings = parseHoldings(latestSnapshot?.holdingsJson);
@@ -553,8 +567,14 @@ export function parseAiScope(value: string | null): AiContextScope {
   return 'full';
 }
 
-function aiContextCacheKey(userId: string, period: AnalyticsPeriod, benchmark: AnalyticsBenchmark, scope: AiContextScope) {
-  return `ai:${userId}:context:${scope}:${period}:${benchmark}`;
+function aiContextCacheKey(
+  userId: string,
+  period: AnalyticsPeriod,
+  benchmark: AnalyticsBenchmark,
+  scope: AiContextScope,
+  brokerAccId: string | null
+) {
+  return `ai:v2:${userId}:${brokerAccId ?? 'all'}:context:${scope}:${period}:${benchmark}`;
 }
 
 function aiContextCacheTtlSeconds() {

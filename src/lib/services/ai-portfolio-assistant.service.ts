@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '$lib/server/db';
+import { getActiveBrokerAccId } from '$lib/server/active-account';
 import {
   buildAiPortfolioContext,
   parseAiBenchmark,
@@ -104,20 +105,22 @@ type CacheRow = {
 
 export async function getPortfolioAssistantOverview(
   userId: string,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean; brokerAccId?: string | null } = {}
 ): Promise<PortfolioAssistantOverview> {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
+  const brokerAccId =
+    options.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : options.brokerAccId;
   const [summary, allocation, diversification, performance, holdings, recentExplanations] = await Promise.all([
-    getPortfolioAssistantSection(userId, 'portfolio', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getPortfolioAssistantSection(userId, 'allocation', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getPortfolioAssistantSection(userId, 'diversification', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getPortfolioAssistantSection(userId, 'performance', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getPortfolioAssistantSection(userId, 'holdings', { period, benchmark, forceRefresh: options.forceRefresh }),
+    getPortfolioAssistantSection(userId, 'portfolio', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getPortfolioAssistantSection(userId, 'allocation', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getPortfolioAssistantSection(userId, 'diversification', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getPortfolioAssistantSection(userId, 'performance', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getPortfolioAssistantSection(userId, 'holdings', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
     listPortfolioExplanations(userId, 8)
   ]);
 
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const narrative = await getOrCreatePortfolioNarrative(userId, context, options.forceRefresh ?? false);
 
   return {
@@ -137,18 +140,20 @@ export async function getPortfolioAssistantOverview(
 export async function getPortfolioAssistantSection(
   userId: string,
   type: PortfolioExplanationType,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean; brokerAccId?: string | null } = {}
 ) {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
-  const cacheKey = portfolioAssistantCacheKey(userId, type, period, benchmark);
+  const brokerAccId =
+    options.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : options.brokerAccId;
+  const cacheKey = portfolioAssistantCacheKey(userId, type, period, benchmark, brokerAccId);
 
   if (!options.forceRefresh) {
     const cached = await readAssistantCache(cacheKey);
     if (cached) return parseJson<PortfolioAssistantResponse>(cached.payloadJson, fallbackResponse(type));
   }
 
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const response = buildAssistantResponse(type, context);
   await Promise.all([
     writeAssistantCache(userId, cacheKey, type, response),
@@ -159,12 +164,14 @@ export async function getPortfolioAssistantSection(
 
 export async function explainPortfolioAssistantQuestion(
   userId: string,
-  payload: { question: string; type?: PortfolioExplanationType; period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark }
+  payload: { question: string; type?: PortfolioExplanationType; period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; brokerAccId?: string | null }
 ) {
   assertQuestion(payload.question);
   const period = payload.period ?? 'MAX';
   const benchmark = payload.benchmark ?? 'SPY';
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const brokerAccId =
+    payload.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : payload.brokerAccId;
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const type = payload.type ?? inferExplanationType(payload.question);
   const base = buildAssistantResponse(type, context);
   const response: PortfolioAssistantResponse = {
@@ -258,7 +265,7 @@ function buildPortfolioExplanation(context: AiPortfolioContext): PortfolioAssist
   const topHolding = largestHolding(context);
   return responseShell('portfolio', context, {
     title: 'Portfolio Structure',
-    summary: `Your portfolio has ${context.portfolio.holdingsCount} visible holdings, ${formatMoney(context.portfolio.value)} total value, and ${formatPct(context.portfolio.cashRatio)} cash.`,
+    summary: `Your portfolio has ${context.portfolio.holdingsCount} visible holdings, ${formatMoney(context.portfolio.value, context.metadata.baseCurrency)} total value, and ${formatPct(context.portfolio.cashRatio)} cash.`,
     key_observations: [
       topHolding
         ? `${topHolding.symbol} is the largest visible position by market value at ${formatPct(topHolding.allocationPct)} allocation.`
@@ -320,10 +327,10 @@ function buildPerformanceExplanation(context: AiPortfolioContext): PortfolioAssi
     summary: `Selected-period return is ${formatPct(context.performance.totalReturnPct)} versus ${context.metadata.benchmark} at ${formatPct(context.benchmark.benchmarkReturnPct)}, producing ${formatPct(context.benchmark.alphaPct)} alpha.`,
     key_observations: [
       `Daily return is ${formatPct(context.performance.dailyReturnPct)} and YTD return is ${formatPct(context.performance.ytdReturnPct)}.`,
-      `Unrealized P/L is ${formatMoney(context.performance.unrealizedPnl)}.`,
+      `Unrealized P/L is ${formatMoney(context.performance.unrealizedPnl, context.metadata.baseCurrency)}.`,
       `Benchmark status is ${context.benchmark.status}.`,
-      ...context.topContributors.gainers.slice(0, 2).map((row) => `${row.symbol} is a top visible gainer with ${formatMoney(row.unrealizedPnl)} unrealized P/L.`),
-      ...context.topContributors.losers.slice(0, 2).map((row) => `${row.symbol} is a top visible laggard with ${formatMoney(row.unrealizedPnl)} unrealized P/L.`)
+      ...context.topContributors.gainers.slice(0, 2).map((row) => `${row.symbol} is a top visible gainer with ${formatMoney(row.unrealizedPnl, context.metadata.baseCurrency)} unrealized P/L.`),
+      ...context.topContributors.losers.slice(0, 2).map((row) => `${row.symbol} is a top visible laggard with ${formatMoney(row.unrealizedPnl, context.metadata.baseCurrency)} unrealized P/L.`)
     ].slice(0, 6),
     risk_considerations: [
       `Volatility is ${formatPct(context.risk.volatilityPct)} and max drawdown is ${formatPct(context.risk.maxDrawdownPct)} for the available data.`,
@@ -378,7 +385,7 @@ function buildPortfolioNarrative(context: AiPortfolioContext): PortfolioNarrativ
     title: 'Portfolio Story',
     summary: `A ${context.risk.healthLabel.replaceAll('_', ' ')} portfolio with ${context.portfolio.holdingsCount} holdings and ${formatPct(context.portfolio.cashRatio)} cash.`,
     narrative: [
-      `Your portfolio currently holds ${context.portfolio.holdingsCount} visible position(s) with total value of ${formatMoney(context.portfolio.value)}.`,
+      `Your portfolio currently holds ${context.portfolio.holdingsCount} visible position(s) with total value of ${formatMoney(context.portfolio.value, context.metadata.baseCurrency)}.`,
       top ? `The largest visible position by market value is ${top.symbol}, which gives the portfolio a clear center of gravity.` : 'No largest holding can be identified from the current context.',
       `The selected-period return is ${formatPct(context.performance.totalReturnPct)}, while benchmark alpha versus ${context.metadata.benchmark} is ${formatPct(context.benchmark.alphaPct)}.`,
       riskLine,
@@ -430,7 +437,7 @@ function buildPortfolioStoryTimeline(context: AiPortfolioContext): StoryTimeline
     {
       label: 'Structure',
       title: `${context.portfolio.holdingsCount} holdings`,
-      detail: `${formatMoney(context.portfolio.value)} total value with ${formatPct(context.portfolio.cashRatio)} cash.`
+      detail: `${formatMoney(context.portfolio.value, context.metadata.baseCurrency)} total value with ${formatPct(context.portfolio.cashRatio)} cash.`
     },
     {
       label: 'Allocation',
@@ -592,8 +599,14 @@ function suggestedPortfolioAssistantQuestions(context: AiPortfolioContext) {
   ];
 }
 
-function portfolioAssistantCacheKey(userId: string, type: PortfolioExplanationType, period: AnalyticsPeriod, benchmark: AnalyticsBenchmark) {
-  return `ai:portfolio-assistant:${userId}:${type}:${period}:${benchmark}`;
+function portfolioAssistantCacheKey(
+  userId: string,
+  type: PortfolioExplanationType,
+  period: AnalyticsPeriod,
+  benchmark: AnalyticsBenchmark,
+  brokerAccId: string | null
+) {
+  return `ai:portfolio-assistant:v2:${userId}:${brokerAccId ?? 'all'}:${type}:${period}:${benchmark}`;
 }
 
 function assistantCacheTtlSeconds() {
@@ -622,8 +635,12 @@ function assertQuestion(question: string) {
   if (question.length > 800) throw new Error('Keep the question under 800 characters.');
 }
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
+function formatMoney(value: number, currency = 'USD') {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+  } catch {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
+  }
 }
 
 function formatPct(value: number) {

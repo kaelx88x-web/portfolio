@@ -5,15 +5,14 @@
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
   import StatCard from '$lib/components/portfolioai/StatCard.svelte';
+  import { money, uniformCurrency } from '$lib/format';
 
   export let data: PageData;
   export let form: ActionData;
 
   let refreshing = false;
 
-  function money(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-  }
+  $: displayCurrency = uniformCurrency(data.holdings.map((h: { currency?: string }) => h.currency));
 
   $: totalMarket = data.holdings.reduce((s: number, h: { marketValue: number }) => s + h.marketValue, 0);
   $: openPositions = data.holdings.length;
@@ -58,8 +57,8 @@
 {/if}
 
 <div class="stat-row">
-  <StatCard label="Market Value"   value={money(totalMarket)}        tint="primary" />
-  <StatCard label="Cash Balance"   value={money(data.cashBalance)}   tint="success" />
+  <StatCard label="Market Value"   value={money(totalMarket, displayCurrency)}      tint="primary" />
+  <StatCard label="Cash Balance"   value={money(data.cashBalance, displayCurrency)} tint="success" />
   <StatCard label="Open Positions" value={String(openPositions)}     tint="primary" />
 </div>
 

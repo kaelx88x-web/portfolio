@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '$lib/server/db';
 import { getHistoricalCandles, type HistoricalCandle } from '$lib/services/broker.service';
 import type { AllocationSlice, SnapshotHolding } from '$lib/types/portfolio';
+import { uniformCurrency } from '$lib/format';
 
 export const ANALYTICS_PERIODS = ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '3Y', '5Y', 'MAX'] as const;
 export type AnalyticsPeriod = (typeof ANALYTICS_PERIODS)[number];
@@ -164,6 +165,8 @@ export type TopContributor = {
 };
 
 export type AnalyticsDashboard = {
+  /** Display currency for monetary values (shared currency of the scoped holdings). */
+  currency: string;
   summary: AnalyticsSummary;
   risk: RiskMetrics;
   benchmark: BenchmarkComparison;
@@ -198,16 +201,19 @@ export type AnalyticsDashboard = {
 
 export async function getAnalyticsDashboard(
   userId: string,
+  brokerAccId: string | null = null,
   period: AnalyticsPeriod = 'MAX',
   benchmark: AnalyticsBenchmark = 'SPY'
 ): Promise<AnalyticsDashboard> {
-  const cacheKey = `phase3a:v3:${userId}:${period}:${benchmark}`;
+  // Scope to a single broker account when provided; mixing snapshots across
+  // accounts (and currencies) corrupts the value series / volatility / drawdown.
+  const cacheKey = `phase3a:v5:${userId}:${brokerAccId ?? 'all'}:${period}:${benchmark}`;
   const cached = await readAnalyticsCache(cacheKey);
   if (cached) return cached;
 
   const [snapshots, transactions] = await Promise.all([
     prisma.portfolioSnapshot.findMany({
-      where: { userId },
+      where: { userId, ...(brokerAccId !== null ? { brokerAccId } : {}) },
       orderBy: { snapshotDate: 'asc' }
     }),
     prisma.transaction.findMany({
@@ -232,8 +238,10 @@ export async function getAnalyticsDashboard(
   const exposure = buildExposure(latestHoldings);
   const correlation = buildCorrelation(latestHoldings, benchmarkAnalysis);
   const health = buildPortfolioHealth(risk, exposure, correlation, periodSnapshots.length);
+  const currency = uniformCurrency(latestHoldings.map((holding) => holding.currency));
 
   const dashboard: AnalyticsDashboard = {
+    currency,
     summary: buildSummary({
       period,
       first,

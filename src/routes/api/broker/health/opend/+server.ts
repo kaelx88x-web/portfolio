@@ -5,13 +5,17 @@ const BRIDGE = process.env.MOOMOO_SERVICE_URL ?? 'http://127.0.0.1:8001';
 
 export const GET: RequestHandler = async () => {
   try {
-    const res = await fetch(`${BRIDGE}/health/opend`, {
-      signal: AbortSignal.timeout(3000),
+    const res = await fetch(`${BRIDGE}/status`, {
+      signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { detail?: string };
+    const body = await res.json().catch(() => ({})) as {
+      connected?: boolean;
+      message?: string;
+      detail?: string;
+    };
+    if (!res.ok || !body.connected) {
       return json(
-        { ok: false, error: body.detail ?? 'OpenD is not connected' },
+        { ok: false, error: body.message ?? body.detail ?? 'OpenD is not connected' },
         { status: 503 },
       );
     }

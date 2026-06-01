@@ -18,13 +18,15 @@
 
   // Seed the store from layout data so every page has a value, not just /dashboard.
   // The dashboard page will overwrite this with more precise data (including day P&L %).
-  $: if (data?.portfolioSummary && $portfolioSummary.totalValue === 0) {
+  $: if (data?.portfolioSummary) {
     portfolioSummary.set({
-      totalValue:   data.portfolioSummary.totalValue,
-      dayChange:    data.portfolioSummary.dayPl,
-      dayChangePct: data.portfolioSummary.dayChangePct,
-      accountName:  data.portfolioSummary.accountName,
-      accountMode:  'LIVE',
+      totalValue:        data.portfolioSummary.totalValue,
+      dayChange:         data.portfolioSummary.dayPl,
+      dayChangePct:      data.portfolioSummary.dayChangePct,
+      accountName:       data.portfolioSummary.accountName,
+      accountMode:       data.portfolioSummary.accountMode ?? 'LIVE',
+      activeBrokerAccId: data.portfolioSummary.activeBrokerAccId ?? null,
+      currency:          data.portfolioSummary.currency ?? 'USD',
     });
   }
 

@@ -5,6 +5,7 @@
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import { RefreshCw, MonitorCheck, Terminal, Wifi, RotateCcw, ServerCrash, Radio } from 'lucide-svelte';
   import { PUBLIC_APP_MODE } from '$env/static/public';
+  import { money, uniformCurrency } from '$lib/format';
 
   const isSaas = PUBLIC_APP_MODE === 'saas';
 
@@ -74,9 +75,8 @@
   let syncing = false;
   $: liveStatus = status;  // will be overwritten reactively by polling
 
-  function fmt(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-  }
+  // Account base currency for the synced positions (broker holdings carry their own).
+  $: brokerCurrency = uniformCurrency((holdings as Array<{ currency?: string }>).map((h) => h.currency));
 
   function relativeTime(date: string) {
     const diff = Date.now() - new Date(date).getTime();
@@ -172,9 +172,9 @@
 
   <div class="card stat-card">
     <div class="stat-label">Total Assets</div>
-    <span class="stat-val">{accountInfo?.total_assets ? fmt(accountInfo.total_assets) : '—'}</span>
+    <span class="stat-val">{accountInfo?.total_assets ? money(accountInfo.total_assets, brokerCurrency) : '—'}</span>
     {#if accountInfo?.cash}
-      <p class="stat-sub">Cash: {fmt(accountInfo.cash)}</p>
+      <p class="stat-sub">Cash: {money(accountInfo.cash, brokerCurrency)}</p>
     {/if}
   </div>
 
@@ -285,10 +285,10 @@ taskkill /PID &lt;pid&gt; /F</pre>
               <td class="td-symbol">{h.symbol}</td>
               <td class="td-muted">{h.name ?? '—'}</td>
               <td class="td-r">{h.quantity}</td>
-              <td class="td-r">{fmt(h.average_cost)}</td>
-              <td class="td-r">{fmt(h.market_value)}</td>
+              <td class="td-r">{money(h.average_cost, h.currency)}</td>
+              <td class="td-r">{money(h.market_value, h.currency)}</td>
               <td class="td-r" class:positive={h.unrealized_pl >= 0} class:negative={h.unrealized_pl < 0}>
-                {fmt(h.unrealized_pl)}
+                {money(h.unrealized_pl, h.currency)}
               </td>
             </tr>
           {/each}

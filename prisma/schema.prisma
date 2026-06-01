@@ -236,6 +236,7 @@ model PortfolioSnapshot {
   id             String   @id @default(cuid())
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerAccId    String?  @db.VarChar(64)
   snapshotDate   DateTime
   totalValue     Float
   cashBalance    Float    @default(0)
@@ -244,8 +245,8 @@ model PortfolioSnapshot {
   allocationJson String   @db.LongText
   createdAt      DateTime @default(now())
 
-  @@unique([userId, snapshotDate])
-  @@index([userId, snapshotDate])
+  @@unique([userId, brokerAccId, snapshotDate])
+  @@index([userId, brokerAccId, snapshotDate])
 }
 
 model BrokerSyncLog {

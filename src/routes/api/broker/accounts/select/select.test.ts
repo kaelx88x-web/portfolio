@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAccountName, buildAccountType } from './+server.js';
+import { buildAccountName, buildAccountType } from './select.utils.js';
 
 describe('account helpers', () => {
   it('builds REAL account name', () => {

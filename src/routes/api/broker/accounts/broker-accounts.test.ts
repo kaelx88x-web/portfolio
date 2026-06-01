@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapBridgeAccount } from './+server.js';
+import { mapBridgeAccount } from './accounts.utils.js';
 
 describe('mapBridgeAccount', () => {
   it('maps REAL account', () => {
@@ -11,6 +11,6 @@ describe('mapBridgeAccount', () => {
   it('maps SIMULATE account', () => {
     const result = mapBridgeAccount({ acc_id: '5678', trd_env: 'SIMULATE', acc_status: 'ACTIVE', trdmarket_auth: [] });
     expect(result.is_real).toBe(false);
-    expect(result.name).toBe('Simulate Account (5678)');
+    expect(result.name).toBe('Paper (5678)');
   });
 });

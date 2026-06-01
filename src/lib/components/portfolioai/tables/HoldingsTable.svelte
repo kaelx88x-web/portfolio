@@ -2,6 +2,7 @@
   import type { Holding } from '$lib/types/portfolio';
   import LoadingSkeleton from '../LoadingSkeleton.svelte';
   import EmptyState from '../EmptyState.svelte';
+  import { money as formatMoney } from '$lib/format';
 
   export let holdings: Holding[] = [];
   export let loading = false;
@@ -44,8 +45,8 @@
     else { sortKey = key; sortAsc = false; }
   }
 
-  function money(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  function money(n: number, currency: string = 'USD') {
+    return formatMoney(n, currency);
   }
 </script>
 
@@ -88,10 +89,10 @@
             </td>
             <td class="td-muted">{h.name}</td>
             <td class="td-r">{h.quantity.toFixed(4)}</td>
-            <td class="td-r">{money(h.averageCost)}</td>
-            <td class="td-r">{money(h.marketValue)}</td>
+            <td class="td-r">{money(h.averageCost, h.currency)}</td>
+            <td class="td-r">{money(h.marketValue, h.currency)}</td>
             <td class="td-r" class:positive={h.unrealizedPnl >= 0} class:negative={h.unrealizedPnl < 0}>
-              {money(h.unrealizedPnl)}
+              {money(h.unrealizedPnl, h.currency)}
             </td>
             <td class="td-r">{h.allocationPercentage.toFixed(1)}%</td>
             <td class="td-r td-sm">

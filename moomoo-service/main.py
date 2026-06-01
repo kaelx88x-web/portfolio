@@ -124,7 +124,7 @@ def status():
 @app.get("/accounts")
 def accounts():
     try:
-        from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm
+        from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm, TrdMarket
     except ImportError:
         raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
 
@@ -137,40 +137,55 @@ def accounts():
         SecurityFirm.FUTUCA,
         SecurityFirm.FUTUJP,
     ]
+    # Query with no filter + each market so firm-specific accounts (MYR/SGD/HKD) surface
+    trade_markets = [None, TrdMarket.US, TrdMarket.HK]
 
+    seen: set[str] = set()
     all_accounts = []
+
     for firm in firms:
-        ctx = None
-        try:
-            ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
-            ret, acc_list = ctx.get_acc_list()
-            if ret != RET_OK or acc_list is None or acc_list.empty:
+        for trd_market in trade_markets:
+            ctx = None
+            try:
+                if trd_market is None:
+                    ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+                else:
+                    ctx = OpenSecTradeContext(filter_trdmarket=trd_market, host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+                ret, acc_list = ctx.get_acc_list()
+                if ret != RET_OK or acc_list is None or acc_list.empty:
+                    continue
+                for row in acc_list.to_dict("records"):
+                    trd_env = str(row.get("trd_env", ""))
+                    sim_acc_type = str(row.get("sim_acc_type") or "")
+                    acc_id = str(row.get("acc_id"))
+                    # Deduplicate: same account surfaces through multiple firm+market combos
+                    dedup_key = f"{acc_id}:{trd_env}:{sim_acc_type}"
+                    if dedup_key in seen:
+                        continue
+                    seen.add(dedup_key)
+                    acc_status = str(row.get("acc_status", ""))
+                    uni_card_num = str(row.get("uni_card_num") or row.get("card_num") or "")
+                    trdmarket_auth = row.get("trdmarket_auth") or []
+                    markets = [str(m) for m in trdmarket_auth] if isinstance(trdmarket_auth, list) else []
+                    all_accounts.append({
+                        "firm": str(firm),
+                        "acc_id": acc_id,
+                        "trd_env": trd_env,
+                        "acc_type": str(row.get("acc_type") or ""),
+                        "acc_status": acc_status,
+                        "acc_role": str(row.get("acc_role") or ""),
+                        "uni_card_num": uni_card_num,
+                        "card_num": str(row.get("card_num") or ""),
+                        "sim_acc_type": sim_acc_type,
+                        "trdmarket_auth": markets,
+                        "is_real": trd_env == "REAL",
+                        "is_active": acc_status == "ACTIVE",
+                    })
+            except Exception:
                 continue
-            for row in acc_list.to_dict("records"):
-                trd_env = str(row.get("trd_env", ""))
-                acc_status = str(row.get("acc_status", ""))
-                uni_card_num = str(row.get("uni_card_num") or row.get("card_num") or "")
-                trdmarket_auth = row.get("trdmarket_auth") or []
-                markets = [str(m) for m in trdmarket_auth] if isinstance(trdmarket_auth, list) else []
-                all_accounts.append({
-                    "firm": str(firm),
-                    "acc_id": str(row.get("acc_id")),
-                    "trd_env": trd_env,
-                    "acc_type": str(row.get("acc_type") or ""),
-                    "acc_status": acc_status,
-                    "acc_role": str(row.get("acc_role") or ""),
-                    "uni_card_num": uni_card_num,
-                    "card_num": str(row.get("card_num") or ""),
-                    "sim_acc_type": str(row.get("sim_acc_type") or ""),
-                    "trdmarket_auth": markets,
-                    "is_real": trd_env == "REAL",
-                    "is_active": acc_status == "ACTIVE",
-                })
-        except Exception:
-            continue
-        finally:
-            if ctx is not None:
-                ctx.close()
+            finally:
+                if ctx is not None:
+                    ctx.close()
 
     return {"count": len(all_accounts), "accounts": all_accounts}
 
@@ -1352,6 +1367,81 @@ def execution_cancel_order(order_id: str, req: CancelOrderRequest):
     raise HTTPException(status_code=400, detail="Unable to cancel order through active Moomoo account.")
 
 
+@app.get("/account-balance")
+def account_balance(acc_id: str, trd_env: str = "SIMULATE"):
+    """Return account balance (total assets, cash, market value) for a specific account."""
+    try:
+        from moomoo import OpenSecTradeContext, RET_OK, SecurityFirm, TrdEnv, TrdMarket
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    is_real = trd_env.upper() == "REAL"
+    env = TrdEnv.REAL if is_real else TrdEnv.SIMULATE
+    firms = [
+        SecurityFirm.FUTUINC, SecurityFirm.FUTUMY, SecurityFirm.FUTUSG,
+        SecurityFirm.FUTUSECURITIES, SecurityFirm.FUTUAU, SecurityFirm.FUTUCA, SecurityFirm.FUTUJP,
+    ]
+    trade_markets = [None, TrdMarket.US, TrdMarket.HK]
+
+    for firm in firms:
+        for trd_market in trade_markets:
+            ctx = None
+            try:
+                kwargs = {"host": OPEND_HOST, "port": OPEND_PORT, "security_firm": firm}
+                if trd_market is not None:
+                    kwargs["filter_trdmarket"] = trd_market
+                ctx = OpenSecTradeContext(**kwargs)
+                ret, accounts = ctx.get_acc_list()
+                if ret != RET_OK or accounts is None or accounts.empty:
+                    continue
+                matches = accounts[accounts["acc_id"].astype(str) == str(acc_id)]
+                if matches.empty:
+                    continue
+                currencies = ["USD", "MYR", "SGD", "HKD", "JPY"]
+                balances = []
+                for currency in currencies:
+                    try:
+                        ret2, info = ctx.accinfo_query(
+                            trd_env=env, acc_id=int(acc_id), refresh_cache=True, currency=currency
+                        )
+                        if ret2 != RET_OK or info is None or len(info) == 0:
+                            continue
+                        row = info.iloc[0].to_dict()
+                        cash_key = f"{currency}_cash"
+                        cash = _f(row.get(cash_key)) or _f(row.get("cash"))
+                        total = _f(row.get("total_assets"))
+                        if total > 0 or cash > 0:
+                            balances.append({
+                                "currency": currency,
+                                "total_assets": total or None,
+                                "cash": cash or None,
+                                "market_val": _f(row.get("market_val")) or None,
+                                "unrealized_pl": _f(row.get("unrealized_pl")) or None,
+                            })
+                    except Exception:
+                        continue
+                if not balances:
+                    continue
+                return {
+                    "acc_id": str(acc_id),
+                    "trd_env": trd_env.upper(),
+                    "balances": balances,
+                    # convenience: primary balance (first non-zero)
+                    "currency": balances[0]["currency"],
+                    "total_assets": balances[0]["total_assets"],
+                    "cash": balances[0]["cash"],
+                    "market_val": balances[0]["market_val"],
+                    "unrealized_pl": balances[0]["unrealized_pl"],
+                }
+            except Exception:
+                continue
+            finally:
+                if ctx is not None:
+                    ctx.close()
+
+    raise HTTPException(status_code=404, detail="Account not found or balance unavailable.")
+
+
 @app.get("/paper/dashboard")
 def paper_dashboard():
     """Return balance, positions, orders and deals for the simulate (paper) account."""
@@ -1414,86 +1504,93 @@ def _fetch_account_bundle(
         SecurityFirm.FUTUJP,
     ]
 
+    from moomoo import TrdMarket
+    trade_markets = [None, TrdMarket.US, TrdMarket.HK, TrdMarket.SG]
+
     for firm in firms:
-        ctx = None
-        try:
-            ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
-            ret, accounts = ctx.get_acc_list()
-            if ret != RET_OK:
-                continue
-            if acc_id is not None:
-                # explicit account requested — find by acc_id, skip prefer_real filter
-                matches = accounts[accounts["acc_id"].astype(str) == str(acc_id)]
-                if matches.empty:
+        for trd_market in trade_markets:
+            ctx = None
+            try:
+                if trd_market is None:
+                    ctx = OpenSecTradeContext(host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+                else:
+                    ctx = OpenSecTradeContext(filter_trdmarket=trd_market, host=OPEND_HOST, port=OPEND_PORT, security_firm=firm)
+                ret, accounts = ctx.get_acc_list()
+                if ret != RET_OK:
                     continue
-                account = matches.iloc[0].to_dict()
-            else:
-                account = _select_account(accounts, prefer_real)
-                if account is None:
-                    continue
-                if prefer_real and str(account.get("trd_env")) != "REAL":
-                    continue
+                if acc_id is not None:
+                    # explicit account requested — find by acc_id, skip prefer_real filter
+                    matches = accounts[accounts["acc_id"].astype(str) == str(acc_id)]
+                    if matches.empty:
+                        continue
+                    account = matches.iloc[0].to_dict()
+                else:
+                    account = _select_account(accounts, prefer_real)
+                    if account is None:
+                        continue
+                    if prefer_real and str(account.get("trd_env")) != "REAL":
+                        continue
 
-            trd_env = TrdEnv.REAL if str(account.get("trd_env")) == "REAL" else TrdEnv.SIMULATE
-            ret, acc_info = ctx.accinfo_query(
-                trd_env=trd_env,
-                acc_id=int(account.get("acc_id")),
-                refresh_cache=True,
-                currency="USD",
-            )
-
-            positions = []
-            if include_positions:
-                ret_positions, positions_data = ctx.position_list_query(
+                trd_env = TrdEnv.REAL if str(account.get("trd_env")) == "REAL" else TrdEnv.SIMULATE
+                ret, acc_info = ctx.accinfo_query(
                     trd_env=trd_env,
                     acc_id=int(account.get("acc_id")),
                     refresh_cache=True,
+                    currency="USD",
                 )
-                if ret_positions != RET_OK:
-                    continue
-                positions = _parse_positions(positions_data)
 
-            orders = []
-            if include_orders:
-                orders = _fetch_orders(ctx, trd_env, int(account.get("acc_id")), include_history)
+                positions = []
+                if include_positions:
+                    ret_positions, positions_data = ctx.position_list_query(
+                        trd_env=trd_env,
+                        acc_id=int(account.get("acc_id")),
+                        refresh_cache=True,
+                    )
+                    if ret_positions != RET_OK:
+                        continue
+                    positions = _parse_positions(positions_data)
 
-            deals = []
-            if include_deals:
-                deals = _fetch_deals(ctx, trd_env, int(account.get("acc_id")), include_history)
+                orders = []
+                if include_orders:
+                    orders = _fetch_orders(ctx, trd_env, int(account.get("acc_id")), include_history)
 
-            account_info = _parse_acc_info(acc_info if ret == RET_OK else None)
+                deals = []
+                if include_deals:
+                    deals = _fetch_deals(ctx, trd_env, int(account.get("acc_id")), include_history)
 
-            uni_card_num = str(account.get("uni_card_num") or account.get("card_num") or "")
-            is_real = trd_env == TrdEnv.REAL
-            label = f"Moomoo {'Live' if is_real else 'Simulated'}"
-            if uni_card_num:
-                label += f" ({uni_card_num})"
-            trdmarket_auth = account.get("trdmarket_auth") or []
-            markets = [str(m) for m in trdmarket_auth] if isinstance(trdmarket_auth, list) else []
-            broker_account_id = str(account.get("acc_id") or uni_card_num or f"{firm}-{account.get('trd_env')}")
-            return {
-                "account": {
-                    "account_label": label,
-                    "account_number": uni_card_num,
-                    "broker_account_id": broker_account_id,
-                    "acc_role": str(account.get("acc_role") or ""),
-                    "account_type": str(account.get("acc_type") or account.get("sim_acc_type") or ""),
-                    "trade_environment": "REAL" if is_real else "SIMULATE",
-                    "security_firm": str(firm),
-                    "trdmarket_auth": markets,
-                    "status": str(account.get("acc_status") or ""),
-                },
-                "synced_at": datetime.now(timezone.utc).isoformat(),
-                "positions": positions,
-                "orders": orders,
-                "deals": deals,
-                "account_info": account_info,
-            }
-        except Exception:
-            continue
-        finally:
-            if ctx is not None:
-                ctx.close()
+                account_info = _parse_acc_info(acc_info if ret == RET_OK else None)
+
+                uni_card_num = str(account.get("uni_card_num") or account.get("card_num") or "")
+                is_real = trd_env == TrdEnv.REAL
+                label = f"Moomoo {'Live' if is_real else 'Simulated'}"
+                if uni_card_num:
+                    label += f" ({uni_card_num})"
+                trdmarket_auth = account.get("trdmarket_auth") or []
+                markets = [str(m) for m in trdmarket_auth] if isinstance(trdmarket_auth, list) else []
+                broker_account_id = str(account.get("acc_id") or uni_card_num or f"{firm}-{account.get('trd_env')}")
+                return {
+                    "account": {
+                        "account_label": label,
+                        "account_number": uni_card_num,
+                        "broker_account_id": broker_account_id,
+                        "acc_role": str(account.get("acc_role") or ""),
+                        "account_type": str(account.get("acc_type") or account.get("sim_acc_type") or ""),
+                        "trade_environment": "REAL" if is_real else "SIMULATE",
+                        "security_firm": str(firm),
+                        "trdmarket_auth": markets,
+                        "status": str(account.get("acc_status") or ""),
+                    },
+                    "synced_at": datetime.now(timezone.utc).isoformat(),
+                    "positions": positions,
+                    "orders": orders,
+                    "deals": deals,
+                    "account_info": account_info,
+                }
+            except Exception:
+                continue
+            finally:
+                if ctx is not None:
+                    ctx.close()
 
     raise HTTPException(status_code=400, detail="No active Moomoo account available from OpenD.")
 

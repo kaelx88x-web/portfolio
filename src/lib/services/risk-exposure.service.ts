@@ -8,6 +8,7 @@ import {
   type ReturnPoint
 } from '$lib/services/analytics.service';
 import type { SnapshotHolding } from '$lib/types/portfolio';
+import { uniformCurrency } from '$lib/format';
 
 export const RISK_EXPOSURE_PERIODS = ANALYTICS_PERIODS;
 export type RiskExposurePeriod = AnalyticsPeriod;
@@ -102,6 +103,8 @@ export type RiskExposureDashboard = {
   status: 'ready' | 'insufficient_data';
   period: RiskExposurePeriod;
   snapshotDate: string | null;
+  /** Display currency for monetary values (shared currency of the scoped holdings). */
+  currency: string;
   risk: {
     riskScore: number;
     riskLevel: 'low' | 'moderate' | 'high';
@@ -132,39 +135,52 @@ const TRADING_DAYS = 252;
 
 export async function getRiskExposureDashboard(
   userId: string,
+  brokerAccId: string | null = null,
   period: RiskExposurePeriod = 'MAX',
   forceRefresh = false
 ): Promise<RiskExposureDashboard> {
-  const cacheKey = `phase3b:risk_exposure:v1:${userId}:${period}`;
+  const cacheKey = `phase3b:risk_exposure:v6:${userId}:${brokerAccId ?? 'all'}:${period}`;
   if (!forceRefresh) {
     const cached = await readRiskExposureCache(cacheKey);
     if (cached) return cached;
   }
 
   const [analytics, snapshots] = await Promise.all([
-    getAnalyticsDashboard(userId, period, 'SPY'),
+    getAnalyticsDashboard(userId, brokerAccId, period, 'SPY'),
     prisma.portfolioSnapshot.findMany({
-      where: { userId },
+      where: { userId, ...(brokerAccId !== null ? { brokerAccId } : {}) },
       orderBy: { snapshotDate: 'asc' }
     })
   ]);
   const latest = snapshots.at(-1) ?? null;
   const rawHoldings = parseHoldings(latest?.holdingsJson);
 
-  // Enrich holdings with sector/country from asset table (snapshot JSON may be stale)
-  const symbols = rawHoldings.map((h) => h.symbol);
-  const assetMeta = symbols.length
-    ? await prisma.asset.findMany({
-        where: { symbol: { in: symbols } },
-        select: { symbol: true, sector: true, country: true }
-      })
+  // Enrich holdings with sector/country from the asset table. Match on a
+  // canonical key because synced holdings use moomoo format (HK.00005) while
+  // seeded assets use Yahoo format (0005.HK) — the same security, different string.
+  const assetMeta = rawHoldings.length
+    ? await prisma.asset.findMany({ select: { symbol: true, sector: true, country: true } })
     : [];
-  const metaMap = new Map(assetMeta.map((a) => [a.symbol, a]));
-  const holdings = rawHoldings.map((h) => ({
-    ...h,
-    sector: h.sector || metaMap.get(h.symbol)?.sector || null,
-    country: h.country || metaMap.get(h.symbol)?.country || null,
-  }));
+  // Merge duplicates that canonicalise to the same key (e.g. bare "SCHG" and
+  // "US.SCHG"), preferring populated sector/country so a null-field duplicate
+  // can't clobber a good one.
+  const metaMap = new Map<string, { sector: string | null; country: string | null }>();
+  for (const a of assetMeta) {
+    const key = canonicalSymbol(a.symbol);
+    const prev = metaMap.get(key);
+    metaMap.set(key, {
+      sector: a.sector ?? prev?.sector ?? null,
+      country: a.country ?? prev?.country ?? null,
+    });
+  }
+  const holdings = rawHoldings.map((h) => {
+    const meta = metaMap.get(canonicalSymbol(h.symbol));
+    return {
+      ...h,
+      sector: h.sector || meta?.sector || null,
+      country: h.country || meta?.country || null,
+    };
+  });
 
   const exposure = buildExposure(holdings, latest?.cashBalance ?? 0);
   const volatility = buildVolatility(analytics.dailyReturns);
@@ -185,6 +201,7 @@ export async function getRiskExposureDashboard(
     status: latest ? 'ready' : 'insufficient_data',
     period,
     snapshotDate: latest ? isoDate(latest.snapshotDate) : null,
+    currency: uniformCurrency(holdings.map((holding) => holding.currency)),
     risk: {
       riskScore: health.riskScore,
       riskLevel: health.riskLevel,
@@ -207,8 +224,12 @@ export async function getRiskExposureDashboard(
   return dashboard;
 }
 
-export async function refreshRiskExposure(userId: string, period: RiskExposurePeriod = 'MAX') {
-  return getRiskExposureDashboard(userId, period, true);
+export async function refreshRiskExposure(
+  userId: string,
+  brokerAccId: string | null = null,
+  period: RiskExposurePeriod = 'MAX'
+) {
+  return getRiskExposureDashboard(userId, brokerAccId, period, true);
 }
 
 export function parseRiskExposurePeriod(value: string | null): RiskExposurePeriod {
@@ -282,8 +303,8 @@ function buildExposure(holdings: SnapshotHolding[], cashBalance: number): RiskEx
     marketValue: holding.marketValue,
     grossValue: Math.abs(holding.marketValue),
     direction: holding.marketValue < 0 ? 'short' : 'long',
-    sector: holding.sector || 'Unknown sector',
-    country: holding.country || countryFromSymbol(holding.symbol),
+    sector: holding.sector || sectorFallback(holding.symbol, holding.assetType),
+    country: normalizeCountry(holding.country) || countryFromSymbol(holding.symbol),
     currency: holding.currency || 'USD',
     broker: holding.brokerName || holding.accountName || 'Manual',
     account: holding.accountName || 'Default account',
@@ -623,11 +644,67 @@ function countryFromSymbol(symbol: string) {
   if (market === 'HK') return 'Hong Kong';
   if (market === 'MY') return 'Malaysia';
   if (market === 'SG') return 'Singapore';
+  if (market === 'SH' || market === 'SZ' || market === 'CN') return 'China';
   return 'Unknown country';
+}
+
+/**
+ * Normalise stored country values (often ISO codes like "US"/"HK") to the same
+ * full-name form `countryFromSymbol` produces, so e.g. an ETF stored as "US"
+ * and an option derived as "United States" collapse into one exposure bucket.
+ * Returns null for empty input so callers can fall back to the symbol.
+ */
+function normalizeCountry(country: string | null | undefined): string | null {
+  if (!country) return null;
+  const c = country.trim().toUpperCase();
+  if (c === 'US' || c === 'USA' || c === 'UNITED STATES') return 'United States';
+  if (c === 'HK' || c === 'HONG KONG') return 'Hong Kong';
+  if (c === 'MY' || c === 'MALAYSIA') return 'Malaysia';
+  if (c === 'SG' || c === 'SINGAPORE') return 'Singapore';
+  if (c === 'SH' || c === 'SZ' || c === 'CN' || c === 'CHINA') return 'China';
+  return country;
 }
 
 function assetTypeFromSymbol(symbol: string) {
   return /\d{6}[CP]\d+$/i.test(symbol.split('.').at(-1) ?? '') ? 'option' : 'stock';
+}
+
+/**
+ * Canonical "MARKET:CODE" key so the same security matches across symbol
+ * formats — moomoo prefix (HK.00005, US.AAPL) vs Yahoo suffix (0005.HK) vs bare
+ * (AAPL). Numeric codes are stripped of leading zeros (HK 00005 ↔ 0005).
+ */
+function canonicalSymbol(symbol: string): string {
+  const s = (symbol || '').trim().toUpperCase();
+  let market = '';
+  let code = '';
+  const prefix = s.match(/^(US|HK|SH|SZ|SG|MY|CN)\.(.+)$/);
+  const suffix = s.match(/^(.+)\.(HK|KL|SI|SS|SZ)$/);
+  if (prefix) {
+    market = prefix[1];
+    code = prefix[2];
+  } else if (suffix) {
+    code = suffix[1];
+    market = { HK: 'HK', KL: 'MY', SI: 'SG', SS: 'SH', SZ: 'SZ' }[suffix[2]] ?? suffix[2];
+  } else {
+    market = 'US';
+    code = s;
+  }
+  if (/^\d+$/.test(code)) code = String(parseInt(code, 10));
+  return `${market}:${code}`;
+}
+
+/**
+ * Sector label when a holding has no equity sector (ETFs, options, etc.).
+ * Buckets by asset type so option contracts show as "Options" rather than the
+ * meaningless "Unknown sector".
+ */
+function sectorFallback(symbol: string, assetType: string | null | undefined): string {
+  const type = (assetType || assetTypeFromSymbol(symbol)).toLowerCase();
+  if (type === 'option') return 'Options';
+  if (type === 'etf') return 'ETF';
+  if (type === 'cash') return 'Cash';
+  return 'Unknown sector';
 }
 
 async function readRiskExposureCache(cacheKey: string): Promise<RiskExposureDashboard | null> {

@@ -1,11 +1,44 @@
 import { prisma } from '$lib/server/db';
 import type { BrokerHolding, Holding, SnapshotHolding } from '$lib/types/portfolio';
 
+async function upsertSnapshot(data: {
+  userId: string;
+  brokerAccId: string | null;
+  snapshotDate: Date;
+  totalValue: number;
+  cashBalance: number;
+  holdingsCount: number;
+  holdingsJson: string;
+  allocationJson: string;
+}) {
+  const { userId, brokerAccId, snapshotDate, ...rest } = data;
+
+  if (brokerAccId) {
+    await prisma.portfolioSnapshot.upsert({
+      where: { userId_brokerAccId_snapshotDate: { userId, brokerAccId, snapshotDate } },
+      create: { userId, brokerAccId, snapshotDate, ...rest },
+      update: rest,
+    });
+  } else {
+    // Nullable brokerAccId — Prisma compound unique doesn't accept null; use findFirst+upsert
+    const existing = await prisma.portfolioSnapshot.findFirst({
+      where: { userId, brokerAccId: null, snapshotDate },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.portfolioSnapshot.update({ where: { id: existing.id }, data: rest });
+    } else {
+      await prisma.portfolioSnapshot.create({ data: { userId, brokerAccId: null, snapshotDate, ...rest } });
+    }
+  }
+}
+
 export async function takeSnapshot(
   userId: string,
   holdings: BrokerHolding[],
   cashBalance: number,
-  totalValueOverride?: number
+  totalValueOverride?: number,
+  brokerAccId?: string
 ): Promise<void> {
   const snapshotDate = new Date();
   snapshotDate.setUTCHours(0, 0, 0, 0);
@@ -36,24 +69,15 @@ export async function takeSnapshot(
       totalValue > 0 ? Math.round((h.marketValue / totalValue) * 10000) / 100 : 0;
   }
 
-  await prisma.portfolioSnapshot.upsert({
-    where: { userId_snapshotDate: { userId, snapshotDate } },
-    create: {
-      userId,
-      snapshotDate,
-      totalValue,
-      cashBalance,
-      holdingsCount: holdings.length,
-      holdingsJson: JSON.stringify(holdingRows),
-      allocationJson: JSON.stringify(allocationBySymbol)
-    },
-    update: {
-      totalValue,
-      cashBalance,
-      holdingsCount: holdings.length,
-      holdingsJson: JSON.stringify(holdingRows),
-      allocationJson: JSON.stringify(allocationBySymbol)
-    }
+  await upsertSnapshot({
+    userId,
+    brokerAccId: brokerAccId ?? null,
+    snapshotDate,
+    totalValue,
+    cashBalance,
+    holdingsCount: holdings.length,
+    holdingsJson: JSON.stringify(holdingRows),
+    allocationJson: JSON.stringify(allocationBySymbol),
   });
 }
 
@@ -94,38 +118,29 @@ export async function takeSnapshotFromHoldings(
       totalValue > 0 ? Math.round((holding.marketValue / totalValue) * 10000) / 100 : 0;
   }
 
-  await prisma.portfolioSnapshot.upsert({
-    where: { userId_snapshotDate: { userId, snapshotDate: datedSnapshot } },
-    create: {
-      userId,
-      snapshotDate: datedSnapshot,
-      totalValue,
-      cashBalance,
-      holdingsCount: holdingRows.length,
-      holdingsJson: JSON.stringify(holdingRows),
-      allocationJson: JSON.stringify(allocationBySymbol)
-    },
-    update: {
-      totalValue,
-      cashBalance,
-      holdingsCount: holdingRows.length,
-      holdingsJson: JSON.stringify(holdingRows),
-      allocationJson: JSON.stringify(allocationBySymbol)
-    }
+  await upsertSnapshot({
+    userId,
+    brokerAccId: null,
+    snapshotDate: datedSnapshot,
+    totalValue,
+    cashBalance,
+    holdingsCount: holdingRows.length,
+    holdingsJson: JSON.stringify(holdingRows),
+    allocationJson: JSON.stringify(allocationBySymbol),
   });
 }
 
-export async function listSnapshots(userId: string, limit = 30) {
+export async function listSnapshots(userId: string, brokerAccId?: string | null, limit = 30) {
   return prisma.portfolioSnapshot.findMany({
-    where: { userId },
+    where: { userId, brokerAccId: brokerAccId ?? null },
     orderBy: { snapshotDate: 'desc' },
     take: limit
   });
 }
 
-export async function getLatestSnapshot(userId: string) {
+export async function getLatestSnapshot(userId: string, brokerAccId?: string | null) {
   return prisma.portfolioSnapshot.findFirst({
-    where: { userId },
+    where: { userId, brokerAccId: brokerAccId ?? null },
     orderBy: { snapshotDate: 'desc' }
   });
 }

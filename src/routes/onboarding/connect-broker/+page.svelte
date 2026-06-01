@@ -18,12 +18,35 @@
     { label: 'Fetching accounts', status: 'idle', error: '' },
   ];
 
-  type BrokerAccount = { acc_id: string; trd_env: 'REAL' | 'SIMULATE'; is_real: boolean; name: string };
+  type BrokerAccount = { acc_id: string; card_num: string; trd_env: 'REAL' | 'SIMULATE'; is_real: boolean; name: string; sim_acc_type: string };
+  type CurrencyBalance = { currency: string; total_assets?: number; cash?: number; market_val?: number; unrealized_pl?: number };
+  type BalanceInfo = { currency?: string; total_assets?: number; cash?: number; market_val?: number; unrealized_pl?: number; balances?: CurrencyBalance[] };
+
   let accounts: BrokerAccount[] = [];
+  let balanceMap: Record<string, BalanceInfo | 'loading' | 'error'> = {};
 
   let selectedAccId = '';
   let submitting = false;
   let submitError = '';
+
+  async function fetchBalance(acc: BrokerAccount) {
+    if (balanceMap[acc.acc_id]) return;
+    balanceMap[acc.acc_id] = 'loading';
+    balanceMap = { ...balanceMap };
+    try {
+      const r = await fetch(`/api/broker/accounts/balance?acc_id=${encodeURIComponent(acc.acc_id)}&trd_env=${acc.trd_env}`);
+      const d = await r.json();
+      balanceMap[acc.acc_id] = r.ok ? (d as BalanceInfo) : 'error';
+    } catch {
+      balanceMap[acc.acc_id] = 'error';
+    }
+    balanceMap = { ...balanceMap };
+  }
+
+  function fmt(v?: number) {
+    if (v == null) return '—';
+    return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
   function resetChecks() {
     checks = checks.map(c => ({ ...c, status: 'idle' as CheckStatus, error: '' }));
@@ -68,9 +91,11 @@
     checks[2] = { ...checks[2], status: 'checking' };
     try {
       const r = await fetch('/api/broker/accounts');
-      const d = await r.json() as BrokerAccount[] | { error: string };
-      if (!r.ok || 'error' in d) {
-        checks[2] = { ...checks[2], status: 'error', error: ('error' in d ? d.error : null) ?? 'Failed to load accounts' };
+      const d = await r.json().catch(() => null) as BrokerAccount[] | { error?: string; message?: string } | null;
+      if (!r.ok || !d || 'error' in (d as object) || 'message' in (d as object)) {
+        const errBody = d as { error?: string; message?: string } | null;
+        const errMsg = errBody?.error ?? errBody?.message ?? `HTTP ${r.status}`;
+        checks[2] = { ...checks[2], status: 'error', error: `Failed to load accounts: ${errMsg}` };
         return;
       }
       accounts = d;
@@ -136,7 +161,7 @@
       <div class="ob-section">
         <p class="ob-section-label">Select your broker</p>
         <div class="broker-grid">
-          <button class="broker-tile" on:click={() => { step = 2; runChecks(); }}>
+          <button class="broker-tile" onclick={() => { step = 2; runChecks(); }}>
             <span class="broker-name">Moomoo</span>
             <span class="broker-avail">Available</span>
           </button>
@@ -181,7 +206,7 @@
         {#if anyError && firstError}
           <div class="ob-error-msg">{firstError.error}</div>
 
-          <button class="btn-primary" on:click={runChecks} disabled={allChecking}>
+          <button class="btn-primary" onclick={() => runChecks()} disabled={allChecking}>
             Retry Connection
           </button>
 
@@ -197,7 +222,7 @@ python main.py</pre>
         {/if}
 
         {#if !anyError && checks[0].status === 'idle'}
-          <button class="btn-primary" on:click={runChecks}>Start Check</button>
+          <button class="btn-primary" onclick={() => runChecks()}>Start Check</button>
         {/if}
       </div>
     {/if}
@@ -210,14 +235,39 @@ python main.py</pre>
         <div class="account-list">
           {#each accounts as acc}
             <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-            <label class="account-row" class:selected={selectedAccId === acc.acc_id} on:click={() => selectedAccId = acc.acc_id}>
+            <label class="account-row" class:selected={selectedAccId === acc.acc_id}
+              onclick={() => { selectedAccId = acc.acc_id; fetchBalance(acc); }}>
               <input type="radio" bind:group={selectedAccId} value={acc.acc_id} class="sr-only" />
-              <span class="acc-dot" class:live={acc.is_real} class:paper={!acc.is_real}></span>
-              <span class="acc-name">{acc.name}</span>
-              <span class="acc-type-badge" class:live={acc.is_real} class:paper={!acc.is_real}>
-                {acc.is_real ? 'LIVE' : 'PAPER'}
-              </span>
-              <span class="acc-id-chip">···{acc.acc_id.slice(-6)}</span>
+              <div class="acc-main">
+                <span class="acc-dot" class:live={acc.is_real} class:paper={!acc.is_real}></span>
+                <span class="acc-name">{acc.name}</span>
+                <span class="acc-type-badge" class:live={acc.is_real} class:paper={!acc.is_real}>
+                  {acc.is_real ? 'LIVE' : 'PAPER'}
+                </span>
+                <span class="acc-id-chip">···{(acc.card_num || acc.acc_id).slice(-4)}</span>
+              </div>
+              {#if selectedAccId === acc.acc_id}
+                <div class="acc-balance">
+                  {#if balanceMap[acc.acc_id] === 'loading'}
+                    <span class="bal-loading">Loading balance…</span>
+                  {:else if balanceMap[acc.acc_id] === 'error'}
+                    <span class="bal-error">Balance unavailable</span>
+                  {:else if balanceMap[acc.acc_id]}
+                    {@const b = balanceMap[acc.acc_id] as BalanceInfo}
+                    {#each (b.balances ?? [{ currency: b.currency ?? 'USD', total_assets: b.total_assets, cash: b.cash, market_val: b.market_val, unrealized_pl: b.unrealized_pl }]) as bal}
+                      <div class="bal-block">
+                        <div class="bal-currency">{bal.currency}</div>
+                        <div class="bal-grid">
+                          <div class="bal-item"><span class="bal-label">Total Assets</span><span class="bal-val">{fmt(bal.total_assets)}</span></div>
+                          <div class="bal-item"><span class="bal-label">Cash</span><span class="bal-val">{fmt(bal.cash)}</span></div>
+                          {#if bal.market_val != null && bal.market_val !== 0}<div class="bal-item"><span class="bal-label">Positions</span><span class="bal-val">{fmt(bal.market_val)}</span></div>{/if}
+                          {#if bal.unrealized_pl != null && bal.unrealized_pl !== 0}<div class="bal-item"><span class="bal-label">P&L</span><span class="bal-val" class:pos={bal.unrealized_pl > 0} class:neg={bal.unrealized_pl < 0}>{fmt(bal.unrealized_pl)}</span></div>{/if}
+                        </div>
+                      </div>
+                    {/each}
+                  {/if}
+                </div>
+              {/if}
             </label>
           {/each}
         </div>
@@ -226,7 +276,7 @@ python main.py</pre>
           <div class="ob-error-msg">{submitError}</div>
         {/if}
 
-        <button class="btn-primary" disabled={!selectedAccId || submitting} on:click={selectAccount}>
+        <button class="btn-primary" disabled={!selectedAccId || submitting} onclick={() => selectAccount()}>
           {submitting ? 'Connecting…' : 'Start Trading →'}
         </button>
       </div>
@@ -298,9 +348,10 @@ python main.py</pre>
   .dev-hint { font-size: 0.7rem; color: var(--muted); margin: 0; }
   pre { background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 0.7rem; font-family: monospace; color: var(--text); white-space: pre; overflow-x: auto; margin: 0; }
   .account-list { display: flex; flex-direction: column; gap: 8px; }
-  .account-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 9px; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface-1); transition: border-color 0.15s, background 0.15s; }
+  .account-row { display: flex; flex-direction: column; gap: 0; padding: 12px 14px; border-radius: 9px; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface-1); transition: border-color 0.15s, background 0.15s; }
   .account-row:hover { border-color: rgba(var(--primary-rgb),0.4); }
   .account-row.selected { border-color: rgba(var(--primary-rgb),0.6); background: rgba(var(--primary-rgb),0.07); }
+  .acc-main { display: flex; align-items: center; gap: 10px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
   .acc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .acc-dot.live { background: var(--success); }
@@ -310,6 +361,18 @@ python main.py</pre>
   .acc-type-badge.live { background: rgba(var(--success-rgb),0.12); color: var(--success); }
   .acc-type-badge.paper { background: rgba(99,102,241,0.15); color: #a5b4fc; }
   .acc-id-chip { font-size: 0.62rem; font-family: monospace; color: var(--muted); background: var(--surface-1); border-radius: 4px; padding: 1px 5px; border: 1px solid var(--border); }
+  .acc-balance { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(var(--primary-rgb),0.15); }
+  .bal-loading { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+  .bal-error { font-size: 0.7rem; color: var(--danger); }
+  .bal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .bal-item { display: flex; flex-direction: column; gap: 1px; }
+  .bal-block { display: flex; flex-direction: column; gap: 6px; }
+  .bal-block + .bal-block { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(var(--border-rgb, 255,255,255),0.08); }
+  .bal-currency { font-size: 0.6rem; font-weight: 700; color: var(--primary); letter-spacing: 0.08em; }
+  .bal-label { font-size: 0.6rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .bal-val { font-size: 0.78rem; font-weight: 700; color: var(--text); font-family: monospace; }
+  .bal-val.pos { color: var(--success); }
+  .bal-val.neg { color: var(--danger); }
   .btn-primary { width: 100%; padding: 10px; border-radius: 8px; background: var(--primary); border: none; color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; }
   .btn-primary:hover:not(:disabled) { opacity: 0.88; }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }

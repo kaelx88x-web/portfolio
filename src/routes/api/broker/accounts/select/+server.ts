@@ -1,14 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
 import type { RequestHandler } from './$types';
-
-export function buildAccountName(trd_env: string, acc_id: string): string {
-  return trd_env === 'REAL' ? `Live Account (${acc_id})` : `Simulate Account (${acc_id})`;
-}
-
-export function buildAccountType(trd_env: string): string {
-  return trd_env === 'REAL' ? 'live' : 'paper';
-}
+import { buildAccountName, buildAccountType } from './select.utils.js';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) throw error(401, 'Unauthorized');
@@ -23,7 +16,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   // Save selection on User
   await prisma.user.update({
     where: { id: locals.user.id },
-    data: { activeBrokerAccId: acc_id },
+    data: { activeBrokerAccId: acc_id, onboardingCompleted: true },
   });
 
   // Auto-create portfolio Account if none exists for this brokerAccId

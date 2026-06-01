@@ -1,5 +1,6 @@
 <script lang="ts">
   import EmptyState from '../EmptyState.svelte';
+  import { money, uniformCurrency } from '$lib/format';
 
   // Matches PortfolioSnapshot from Prisma schema:
   // snapshotDate (not createdAt), totalValue, holdingsJson, cashBalance, holdingsCount
@@ -15,9 +16,6 @@
   export let snapshots: Snapshot[] = [];
   export let loading = false;
 
-  function money(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-  }
   function fmtDate(d: Date | string) {
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   }
@@ -25,6 +23,15 @@
     // Prefer the persisted holdingsCount if available, fall back to parsing holdingsJson
     if (s.holdingsCount != null) return s.holdingsCount;
     try { return JSON.parse(s.holdingsJson).length; } catch { return 0; }
+  }
+  function snapCurrency(s: Snapshot): string {
+    // Derive the snapshot's display currency from its holdings' shared currency.
+    try {
+      const rows = JSON.parse(s.holdingsJson) as Array<{ currency?: string }>;
+      return uniformCurrency(rows.map((h) => h.currency));
+    } catch {
+      return 'USD';
+    }
   }
 </script>
 
@@ -52,11 +59,12 @@
       </thead>
       <tbody>
         {#each snapshots as s}
+          {@const cur = snapCurrency(s)}
           <tr>
             <td>{fmtDate(s.snapshotDate)}</td>
-            <td style="text-align:right;font-weight:700">{money(s.totalValue)}</td>
+            <td style="text-align:right;font-weight:700">{money(s.totalValue, cur)}</td>
             <td style="text-align:right">{holdingCount(s)}</td>
-            <td style="text-align:right">{s.cashBalance != null ? money(s.cashBalance) : '—'}</td>
+            <td style="text-align:right">{s.cashBalance != null ? money(s.cashBalance, cur) : '—'}</td>
             <td>
               <a href="/snapshots/{s.id}" class="action-link">View</a>
             </td>

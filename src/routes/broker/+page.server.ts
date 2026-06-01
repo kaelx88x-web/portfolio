@@ -27,8 +27,9 @@ export const actions: Actions = {
         console.warn('[broker/sync] Failed to fetch activeBrokerAccId from DB:', (err as Error).message);
         return null;
       });
-      const result = await syncMoomoo(true, dbUser?.activeBrokerAccId ?? undefined);
-      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
+      const activeBrokerAccId = dbUser?.activeBrokerAccId ?? undefined;
+      const result = await syncMoomoo(true, activeBrokerAccId);
+      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined, activeBrokerAccId);
       await writeSyncLog(user.id, 'success', result.holdings_count);
 
       // Enqueue option alert scan after successful sync

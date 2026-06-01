@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '$lib/server/db';
+import { getActiveBrokerAccId } from '$lib/server/active-account';
 import {
   buildAiPortfolioContext,
   parseAiBenchmark,
@@ -99,20 +100,22 @@ type CacheRow = {
 
 export async function getRiskAdvisorOverview(
   userId: string,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean; brokerAccId?: string | null } = {}
 ) {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
+  const brokerAccId =
+    options.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : options.brokerAccId;
   const [summary, volatility, concentration, drawdown, exposure, stressAnalysis, recentExplanations] = await Promise.all([
-    getRiskAdvisorSection(userId, 'risk', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getRiskAdvisorSection(userId, 'volatility', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getRiskAdvisorSection(userId, 'concentration', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getRiskAdvisorSection(userId, 'drawdown', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getRiskAdvisorSection(userId, 'exposure', { period, benchmark, forceRefresh: options.forceRefresh }),
-    getRiskAdvisorSection(userId, 'stress_analysis', { period, benchmark, forceRefresh: options.forceRefresh }),
+    getRiskAdvisorSection(userId, 'risk', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getRiskAdvisorSection(userId, 'volatility', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getRiskAdvisorSection(userId, 'concentration', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getRiskAdvisorSection(userId, 'drawdown', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getRiskAdvisorSection(userId, 'exposure', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
+    getRiskAdvisorSection(userId, 'stress_analysis', { period, benchmark, brokerAccId, forceRefresh: options.forceRefresh }),
     listRiskExplanations(userId, 8)
   ]);
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const alerts = await generateAndStoreRiskAlerts(userId, context, options.forceRefresh ?? false);
   const narrative = await getOrCreateRiskNarrative(userId, context, alerts, options.forceRefresh ?? false);
 
@@ -137,18 +140,20 @@ export async function getRiskAdvisorOverview(
 export async function getRiskAdvisorSection(
   userId: string,
   type: RiskExplanationType,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean; brokerAccId?: string | null } = {}
 ) {
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
-  const cacheKey = riskAdvisorCacheKey(userId, type, period, benchmark);
+  const brokerAccId =
+    options.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : options.brokerAccId;
+  const cacheKey = riskAdvisorCacheKey(userId, type, period, benchmark, brokerAccId);
 
   if (!options.forceRefresh) {
     const cached = await readRiskAdvisorCache(cacheKey);
     if (cached) return parseJson<RiskAdvisorResponse>(cached.payloadJson, fallbackRiskResponse(type));
   }
 
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const response = buildRiskResponse(type, context);
   await Promise.all([
     writeRiskAdvisorCache(userId, cacheKey, type, response),
@@ -159,12 +164,14 @@ export async function getRiskAdvisorSection(
 
 export async function explainRiskAdvisorQuestion(
   userId: string,
-  payload: { question: string; type?: RiskExplanationType; period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark }
+  payload: { question: string; type?: RiskExplanationType; period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; brokerAccId?: string | null }
 ) {
   assertQuestion(payload.question);
   const period = payload.period ?? 'MAX';
   const benchmark = payload.benchmark ?? 'SPY';
-  const context = await buildAiPortfolioContext(userId, { period, benchmark });
+  const brokerAccId =
+    payload.brokerAccId === undefined ? await getActiveBrokerAccId(userId) : payload.brokerAccId;
+  const context = await buildAiPortfolioContext(userId, { period, benchmark, brokerAccId });
   const type = payload.type ?? inferRiskExplanationType(payload.question);
   const base = buildRiskResponse(type, context);
   const response: RiskAdvisorResponse = {
@@ -703,8 +710,14 @@ function suggestedRiskQuestions(context: AiPortfolioContext) {
   ];
 }
 
-function riskAdvisorCacheKey(userId: string, type: RiskExplanationType, period: AnalyticsPeriod, benchmark: AnalyticsBenchmark) {
-  return `ai:risk-advisor:${userId}:${type}:${period}:${benchmark}`;
+function riskAdvisorCacheKey(
+  userId: string,
+  type: RiskExplanationType,
+  period: AnalyticsPeriod,
+  benchmark: AnalyticsBenchmark,
+  brokerAccId: string | null
+) {
+  return `ai:risk-advisor:v2:${userId}:${brokerAccId ?? 'all'}:${type}:${period}:${benchmark}`;
 }
 
 function riskAdvisorCacheTtlSeconds() {

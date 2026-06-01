@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Account } from '@prisma/client';
   import AccountModeBadge from './badges/AccountModeBadge.svelte';
+  import { money } from '$lib/format';
 
   export let account: Account;
   export let balance = 0;
@@ -10,9 +11,6 @@
   let showCash = false;
   let cashInput: number = (account as any).cashBalance ?? 0;
 
-  function money(n: number, currency = 'USD') {
-    return n.toLocaleString('en-US', { style: 'currency', currency, minimumFractionDigits: 2 });
-  }
   function timeAgo(d: Date) {
     const mins = Math.floor((Date.now() - d.getTime()) / 60000);
     if (mins < 1) return 'just now';

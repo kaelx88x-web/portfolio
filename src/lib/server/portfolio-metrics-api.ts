@@ -8,14 +8,14 @@ import {
 
 export async function loadPortfolioMetricsFromUrl(userId: string, url: URL) {
   const period = parsePortfolioMetricPeriod(url.searchParams.get('period'));
-  const metrics = await getPortfolioMetricsDashboard(userId, period);
+  const metrics = await getPortfolioMetricsDashboard(userId, null, period);
 
   return { period, metrics };
 }
 
 export async function refreshPortfolioMetricsFromUrl(userId: string, url: URL) {
   const period = parsePortfolioMetricPeriod(url.searchParams.get('period'));
-  const metrics = await refreshPortfolioMetrics(userId, period);
+  const metrics = await refreshPortfolioMetrics(userId, null, period);
 
   return { period, metrics };
 }

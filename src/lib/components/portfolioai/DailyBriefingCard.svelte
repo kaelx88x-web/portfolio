@@ -2,18 +2,15 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { DailyBriefing } from '$lib/types/briefing';
+  import { money as formatMoney } from '$lib/format';
 
   export let briefing: DailyBriefing;
+  export let currency: string = 'USD';
 
   let generating = false;
 
   function money(n: number): string {
-    return Math.abs(n).toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    return formatMoney(Math.abs(n), currency);
   }
 
   function signedMoney(n: number): string {

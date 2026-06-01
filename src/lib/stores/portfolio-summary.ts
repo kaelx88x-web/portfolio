@@ -7,6 +7,7 @@ export interface PortfolioSummary {
   accountName: string;
   accountMode: 'LIVE' | 'SANDBOX';
   activeBrokerAccId: string | null;
+  currency: string;
 }
 
 export const portfolioSummary = writable<PortfolioSummary>({
@@ -16,4 +17,5 @@ export const portfolioSummary = writable<PortfolioSummary>({
   accountName: 'Portfolio',
   accountMode: 'LIVE',
   activeBrokerAccId: null,
+  currency: 'USD',
 });

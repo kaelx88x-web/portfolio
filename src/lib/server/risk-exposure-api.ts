@@ -7,14 +7,14 @@ import {
 
 export async function loadRiskExposureFromUrl(userId: string, url: URL) {
   const period = parseRiskExposurePeriod(url.searchParams.get('period'));
-  const riskExposure = await getRiskExposureDashboard(userId, period);
+  const riskExposure = await getRiskExposureDashboard(userId, null, period);
 
   return { period, riskExposure };
 }
 
 export async function refreshRiskExposureFromUrl(userId: string, url: URL) {
   const period = parseRiskExposurePeriod(url.searchParams.get('period'));
-  const riskExposure = await refreshRiskExposure(userId, period);
+  const riskExposure = await refreshRiskExposure(userId, null, period);
 
   return { period, riskExposure };
 }

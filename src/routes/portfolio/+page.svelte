@@ -5,15 +5,16 @@
   import StatCard from '$lib/components/portfolioai/StatCard.svelte';
   import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
   import EmptyState from '$lib/components/portfolioai/EmptyState.svelte';
+  import { money, uniformCurrency } from '$lib/format';
 
   export let data: PageData;
 
-  function money(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-  }
-
   $: holdings = (data.holdings ?? []) as Holding[];
-  $: totalValue = holdings.reduce((s, h) => s + h.marketValue, 0);
+  $: displayCurrency = uniformCurrency(holdings.map((h) => h.currency));
+  $: securitiesValue = holdings.reduce((s, h) => s + h.marketValue, 0);
+  $: cashBalance = data.cashBalance ?? 0;
+  // Total assets = securities + cash; matches the topbar / dashboard total.
+  $: totalAssets = data.totalAssets ?? securitiesValue;
   $: totalUnrealised = holdings.reduce((s, h) => s + h.unrealizedPnl, 0);
   $: totalCost = holdings.reduce((s, h) => s + h.costBasis, 0);
   $: totalReturnPct = totalCost > 0 ? (totalUnrealised / totalCost) * 100 : 0;
@@ -23,7 +24,7 @@
     : 'From transaction records';
 
   $: pnlTint = totalUnrealised >= 0 ? ('success' as const) : ('danger' as const);
-  $: pnlValue = `${totalUnrealised >= 0 ? '+' : ''}${money(totalUnrealised)}`;
+  $: pnlValue = `${totalUnrealised >= 0 ? '+' : ''}${money(totalUnrealised, displayCurrency)}`;
   $: returnValue = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`;
 </script>
 
@@ -40,8 +41,9 @@
 
 {#if holdings.length > 0}
   <div class="stat-row">
-    <StatCard label="Market Value"   value={money(totalValue)}   tint="primary" />
-    <StatCard label="Cost Basis"     value={money(totalCost)}    tint="primary" />
+    <StatCard label="Total Assets"   value={money(totalAssets, displayCurrency)}     tint="primary" />
+    <StatCard label="Securities"     value={money(securitiesValue, displayCurrency)} tint="primary" />
+    <StatCard label="Cash"           value={money(cashBalance, displayCurrency)}     tint="primary" />
     <StatCard label="Unrealised P&L" value={pnlValue}            tint={pnlTint} />
     <StatCard label="Return"         value={returnValue}         tint={pnlTint} />
     <StatCard label="Positions"      value={String(holdings.length)} tint="primary" />

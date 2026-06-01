@@ -13,6 +13,7 @@
   import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
   import WatchlistTable from '$lib/components/portfolioai/tables/WatchlistTable.svelte';
   import OnboardingChecklist from '$lib/components/portfolioai/OnboardingChecklist.svelte';
+  import { money as formatMoney } from '$lib/format';
 
   export let data: PageData;
   export let form: ActionData;
@@ -24,9 +25,7 @@
     beginnerMode = localStorage.getItem('portfolioai_mode') !== 'advanced';
   });
 
-  function money(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-  }
+  $: money = (n: number) => formatMoney(n, data.currency);
 
   // Day P&L — from broker todayPl per holding (null = not available in transaction-only mode)
   $: dayPl = data.dayPl;
@@ -45,14 +44,22 @@
   // Dominant sector (first allocation by value)
   $: topSector = data.allocations[0];
 
+  // Active account = the one matching activeBrokerAccId, fallback to first
+  $: activeAccount = (data.activeBrokerAccId
+    ? data.accounts.find(a => a.brokerAccId === data.activeBrokerAccId)
+    : null) ?? data.accounts[0];
+
+  $: activeAccountMode = (activeAccount?.accountType === 'live' ? 'LIVE' : 'SANDBOX') as 'LIVE' | 'SANDBOX';
+
   // Set portfolio summary store so Topbar reflects real data
   $: portfolioSummary.set({
     totalValue:  data.totalValue,
     dayChange:   dayPl ?? 0,
     dayChangePct: dayPlPct ?? 0,
-    accountName: data.accounts?.[0]?.name ?? 'Portfolio',
-    accountMode: 'LIVE',
+    accountName: activeAccount?.name ?? 'Portfolio',
+    accountMode: activeAccountMode,
     activeBrokerAccId: data.activeBrokerAccId ?? null,
+    currency: data.currency ?? 'USD',
   });
 </script>
 
@@ -118,7 +125,7 @@
 {/if}
 
 <!-- AI Banner -->
-<DailyBriefingCard briefing={data.briefing} />
+<DailyBriefingCard briefing={data.briefing} currency={data.currency} />
 
 <!-- Stat row -->
 <div class="stat-row">

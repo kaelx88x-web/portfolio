@@ -14,7 +14,11 @@ export function requiresBrokerGate(
   publicPaths: string[],
   onboardingPaths: string[],
 ): boolean {
-  if (publicPaths.some((p) => pathname.startsWith(p))) return false;
-  if (onboardingPaths.some((p) => pathname.startsWith(p))) return false;
+  if (publicPaths.some((p) => matchesPathPrefix(pathname, p))) return false;
+  if (onboardingPaths.some((p) => matchesPathPrefix(pathname, p))) return false;
   return true;
+}
+
+function matchesPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }

@@ -1,12 +1,15 @@
 import { getCashBalance, getHoldings, snapshotToHoldings } from '$lib/services/portfolio.service';
 import { syncMoomoo, getCapitalFlow } from '$lib/services/broker.service';
 import { getLatestSnapshot, takeSnapshot } from '$lib/services/snapshot.service';
+import { prisma } from '$lib/server/db';
 import type { SnapshotHolding } from '$lib/types/portfolio';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const user = locals.user!;
-  const snapshot = await getLatestSnapshot(user.id);
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { activeBrokerAccId: true } }).catch(() => null);
+  const activeBrokerAccId = dbUser?.activeBrokerAccId ?? null;
+  const snapshot = await getLatestSnapshot(user.id, activeBrokerAccId);
 
   let holdings;
   let cashBalance;
@@ -40,8 +43,10 @@ export const actions: Actions = {
   refreshPrices: async ({ locals }) => {
     const user = locals.user!;
     try {
-      const result = await syncMoomoo();
-      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined);
+      const dbU = await prisma.user.findUnique({ where: { id: user.id }, select: { activeBrokerAccId: true } }).catch(() => null);
+      const accId = dbU?.activeBrokerAccId ?? undefined;
+      const result = await syncMoomoo(undefined, accId);
+      await takeSnapshot(user.id, result.holdings, result.account_info?.cash ?? 0, result.account_info?.total_assets || undefined, accId);
       return {
         refreshResult: {
           updated: result.holdings_count,

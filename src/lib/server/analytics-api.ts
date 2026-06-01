@@ -12,7 +12,7 @@ import {
 export async function loadAnalyticsFromUrl(userId: string, url: URL) {
   const period = parsePeriod(url.searchParams.get('period'));
   const benchmark = parseBenchmark(url.searchParams.get('benchmark'));
-  const analytics = await getAnalyticsDashboard(userId, period, benchmark);
+  const analytics = await getAnalyticsDashboard(userId, null, period, benchmark);
 
   return { analytics, period, benchmark };
 }
@@ -26,7 +26,7 @@ export async function recalculateAnalyticsSnapshot(userId: string) {
   await takeSnapshotFromHoldings(userId, holdings, cashBalance);
 
   return {
-    analytics: await getAnalyticsDashboard(userId, 'MAX', 'SPY')
+    analytics: await getAnalyticsDashboard(userId, null, 'MAX', 'SPY')
   };
 }
 

@@ -113,12 +113,13 @@ export type BenchmarkPerformanceDashboard = {
 
 export async function getBenchmarkPerformanceDashboard(
   userId: string,
+  brokerAccId: string | null = null,
   period: AnalyticsPeriod = 'MAX',
   benchmark: AnalyticsBenchmark = 'SPY'
 ): Promise<BenchmarkPerformanceDashboard> {
   const benchmarkList = uniqueBenchmarks([benchmark, ...PRIMARY_BENCHMARKS]);
   const analyticsList = await Promise.all(
-    benchmarkList.map((symbol) => getAnalyticsDashboard(userId, period, symbol))
+    benchmarkList.map((symbol) => getAnalyticsDashboard(userId, brokerAccId, period, symbol))
   );
   const selectedAnalytics = analyticsList.find((item) => item.benchmark.benchmark === benchmark) ?? analyticsList[0];
   const selected = selectedAnalytics.benchmark;

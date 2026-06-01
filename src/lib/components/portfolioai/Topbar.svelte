@@ -1,10 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Bell, ChevronDown, LayoutGrid, Sparkles, Sun, Moon } from 'lucide-svelte';
+  import { Bell, ChevronDown, LayoutGrid, Sparkles, Sun, Moon, Settings, LogOut } from 'lucide-svelte';
+  import { createAuthClient } from 'better-auth/client';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
   import { theme } from '$lib/stores/ui';
+  import { money as formatMoney } from '$lib/format';
 
   export let sidebarCollapsed = false;
   export let aiPanelOpen = false;
@@ -18,13 +20,28 @@
   $: dayChangePct    = paperSummary ? 0                         : $portfolioSummary.dayChangePct;
   $: accountMode     = isPaperRoute ? 'SANDBOX'                 : $portfolioSummary.accountMode;
   $: accountName     = isPaperRoute ? 'Paper Trading'           : $portfolioSummary.accountName;
+  $: displayCurrency = isPaperRoute ? 'USD'                     : ($portfolioSummary.currency ?? 'USD');
 
   const dispatch = createEventDispatcher();
 
   let showAccountMenu = false;
+  let showUserMenu = false;
 
-  function formatMoney(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  const authClient = createAuthClient({
+    baseURL: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
+  });
+
+  $: userEmail = $page.data?.user?.email ?? '';
+  $: userInitials = (userEmail ? userEmail[0] : 'P').toUpperCase() + (userEmail ? userEmail[1] ?? '' : 'A').toUpperCase();
+
+  async function logout() {
+    showUserMenu = false;
+    try {
+      await authClient.signOut();
+    } catch {
+      // ignore — fall through to redirect regardless
+    }
+    await goto('/login');
   }
 
   function askAI() {
@@ -104,9 +121,9 @@
       <div class="tb-value-hero">
         <div class="tb-value-label">Total Portfolio</div>
         <div class="tb-value-row">
-          <span class="tb-value">{formatMoney(portfolioValue)}</span>
+          <span class="tb-value">{formatMoney(portfolioValue, displayCurrency)}</span>
           <span class="tb-change" class:positive={dayChange >= 0} class:negative={dayChange < 0}>
-            {dayChange >= 0 ? '+' : ''}{formatMoney(dayChange)} ({dayChangePct >= 0 ? '+' : ''}{dayChangePct.toFixed(2)}%)
+            {dayChange >= 0 ? '+' : ''}{formatMoney(dayChange, displayCurrency)} ({dayChangePct >= 0 ? '+' : ''}{dayChangePct.toFixed(2)}%)
           </span>
         </div>
       </div>
@@ -179,9 +196,31 @@
         <span class="tb-notif-dot"></span>
       </button>
 
-      <button class="tb-avatar" title="Profile">
-        PA
-      </button>
+      <div class="tb-user-wrap">
+        <button class="tb-avatar" class:open={showUserMenu} title="Account" on:click={() => showUserMenu = !showUserMenu}>
+          {userInitials}
+        </button>
+
+        {#if showUserMenu}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="tb-acc-backdrop" on:click={() => showUserMenu = false}></div>
+          <div class="tb-acc-menu tb-user-menu">
+            {#if userEmail}
+              <div class="tb-user-email" title={userEmail}>{userEmail}</div>
+              <div class="tb-acc-divider"></div>
+            {/if}
+            <a class="tb-acc-option" href="/settings" on:click={() => showUserMenu = false}>
+              <Settings size={14} />
+              <span class="tb-acc-opt-label">Settings</span>
+            </a>
+            <button class="tb-acc-option" on:click={logout}>
+              <LogOut size={14} />
+              <span class="tb-acc-opt-label">Log out</span>
+            </button>
+          </div>
+        {/if}
+      </div>
 
       <div class="tb-sep"></div>
 
@@ -346,13 +385,25 @@
     background: var(--danger); border: 1px solid var(--sidebar-bg);
   }
 
+  .tb-user-wrap { position: relative; }
+
   .tb-avatar {
     width: 32px; height: 32px; border-radius: 50%;
     background: linear-gradient(135deg, var(--primary), #4a5fff);
     font-size: 0.6rem; font-weight: 700; color: #fff;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; border: none;
+    cursor: pointer; border: 1px solid transparent;
+    transition: box-shadow 0.15s;
   }
+  .tb-avatar:hover, .tb-avatar.open { box-shadow: 0 0 0 2px rgba(var(--primary-rgb),0.35); }
+
+  .tb-user-menu { left: auto; right: 0; min-width: 200px; }
+  .tb-user-email {
+    font-size: 0.7rem; color: var(--muted); font-weight: 600;
+    padding: 6px 10px 4px; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tb-acc-option { text-decoration: none; }
 
   /* ── Mobile ── */
   @media (max-width: 767px) {

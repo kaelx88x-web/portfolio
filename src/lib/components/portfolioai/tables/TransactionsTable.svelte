@@ -2,6 +2,7 @@
   import type { TransactionWithRelations } from '$lib/types/portfolio';
   import LoadingSkeleton from '../LoadingSkeleton.svelte';
   import EmptyState from '../EmptyState.svelte';
+  import { money } from '$lib/format';
 
   export let transactions: TransactionWithRelations[] = [];
   export let loading = false;
@@ -23,9 +24,6 @@
   $: paged = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
   $: pages = Math.ceil(filtered.length / PER_PAGE);
 
-  function money(n: number) {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-  }
   // Transaction uses tradeDate (not date) per Prisma schema
   function fmtDate(d: Date | string) {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
@@ -65,6 +63,7 @@
       <tbody>
         {#each paged as tx}
           {@const style = typeStyles[tx.type] ?? typeStyles.FEE}
+          {@const cur = tx.account?.currency ?? 'USD'}
           <tr>
             <td class="td-date">{fmtDate(tx.tradeDate)}</td>
             <td>
@@ -72,8 +71,8 @@
             </td>
             <td class="td-symbol">{tx.asset?.symbol ?? '—'}</td>
             <td class="td-r">{tx.quantity}</td>
-            <td class="td-r">{money(tx.price)}</td>
-            <td class="td-r td-bold">{money(tx.quantity * tx.price)}</td>
+            <td class="td-r">{money(tx.price, cur)}</td>
+            <td class="td-r td-bold">{money(tx.quantity * tx.price, cur)}</td>
             <td class="td-account">{tx.account.name}</td>
           </tr>
         {/each}
