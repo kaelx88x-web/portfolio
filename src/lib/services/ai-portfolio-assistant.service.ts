@@ -263,19 +263,23 @@ function buildAssistantResponse(type: PortfolioExplanationType, context: AiPortf
 
 function buildPortfolioExplanation(context: AiPortfolioContext): PortfolioAssistantResponse {
   const topHolding = largestHolding(context);
+  const cur = context.metadata.baseCurrency;
   return responseShell('portfolio', context, {
     title: 'Portfolio Structure',
-    summary: `Your portfolio has ${context.portfolio.holdingsCount} visible holdings, ${formatMoney(context.portfolio.value, context.metadata.baseCurrency)} total value, and ${formatPct(context.portfolio.cashRatio)} cash.`,
+    summary: `Your portfolio is worth ${formatMoney(context.portfolio.value, cur)} across ${context.portfolio.holdingsCount} holdings, with ${formatPct(context.portfolio.cashRatio)} sitting in cash. Based on your latest broker snapshot.`,
     key_observations: [
       topHolding
-        ? `${topHolding.symbol} is the largest visible position by market value at ${formatPct(topHolding.allocationPct)} allocation.`
+        ? `${topHolding.symbol} is your biggest position at ${formatPct(topHolding.allocationPct)} of the portfolio (its allocation — the share of your money in it), so its moves matter most.`
         : 'No holding-level allocation is available yet.',
-      `Portfolio health is ${context.risk.healthLabel} with a ${context.risk.healthScore}/100 score.`,
-      `Selected-period return is ${formatPct(context.performance.totalReturnPct)}.`,
-      `Market data status is ${context.marketData.status}.`
+      `Overall health looks ${context.risk.healthLabel.replaceAll('_', ' ')} (${context.risk.healthScore}/100), which blends how spread out and how steady the portfolio is.`,
+      `Since the start of the period it has returned ${formatPct(context.performance.totalReturnPct)}.`,
+      topHolding && topHolding.allocationPct >= 25
+        ? `This week, consider whether you are comfortable with so much riding on ${topHolding.symbol}.`
+        : 'This week, a quick check that nothing has drifted too far is enough.'
     ],
     risk_considerations: riskConsiderations(context),
-    educational_note: 'A portfolio overview helps separate what you own, how concentrated it is, and which data is fresh enough to trust.'
+    educational_note:
+      'A portfolio overview helps you see what you own, how much rides on any one holding (concentration), and whether the data is fresh enough to trust. It is education, not advice.'
   });
 }
 
@@ -385,11 +389,11 @@ function buildPortfolioNarrative(context: AiPortfolioContext): PortfolioNarrativ
     title: 'Portfolio Story',
     summary: `A ${context.risk.healthLabel.replaceAll('_', ' ')} portfolio with ${context.portfolio.holdingsCount} holdings and ${formatPct(context.portfolio.cashRatio)} cash.`,
     narrative: [
-      `Your portfolio currently holds ${context.portfolio.holdingsCount} visible position(s) with total value of ${formatMoney(context.portfolio.value, context.metadata.baseCurrency)}.`,
-      top ? `The largest visible position by market value is ${top.symbol}, which gives the portfolio a clear center of gravity.` : 'No largest holding can be identified from the current context.',
-      `The selected-period return is ${formatPct(context.performance.totalReturnPct)}, while benchmark alpha versus ${context.metadata.benchmark} is ${formatPct(context.benchmark.alphaPct)}.`,
+      `Your portfolio holds ${context.portfolio.holdingsCount} position(s) worth ${formatMoney(context.portfolio.value, context.metadata.baseCurrency)} in total.`,
+      top ? `Its center of gravity is ${top.symbol}, your largest position, so how it performs shapes most of the story.` : 'No largest holding can be identified from the current data yet.',
+      `Since the start of the period it has returned ${formatPct(context.performance.totalReturnPct)}, which is ${formatPct(context.benchmark.alphaPct)} versus the ${context.metadata.benchmark} benchmark (that gap is called alpha).`,
       riskLine,
-      `This assistant is operating in ${accountMode(context) === 'read_only_real' ? 'read-only analytics mode' : 'sandbox simulation mode'} and will not execute trades.`
+      `This is ${accountMode(context) === 'read_only_real' ? 'read-only analysis of your real broker data' : 'a sandbox simulation'}; it will not execute trades.`
     ].join(' '),
     riskLevel: context.risk.healthLabel,
     metadata: {

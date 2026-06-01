@@ -223,18 +223,20 @@ function buildRiskResponse(type: RiskExplanationType, context: AiPortfolioContex
 }
 
 function buildPortfolioRiskExplanation(context: AiPortfolioContext): RiskAdvisorResponse {
+  const top = context.risk.largestHoldingSymbol || 'your largest position';
   return riskShell('risk', context, {
     title: 'Portfolio Risk Summary',
-    summary: `Portfolio risk is ${riskLevel(context)} with a ${context.risk.healthScore}/100 health score, ${formatPct(context.risk.concentrationRiskPct)} concentration risk, and ${formatPct(context.risk.volatilityPct)} volatility.`,
+    summary: `Your portfolio risk looks ${riskLevel(context).replaceAll('_', ' ')} with a ${context.risk.healthScore}/100 health score. This is mainly because ${formatPct(context.risk.concentrationRiskPct)} sits in your biggest holding (concentration risk — how much rides on one position), and the value has moved about ${formatPct(context.risk.volatilityPct)} (volatility — how much it swings up and down). Based on your broker position snapshots.`,
     main_risk_drivers: [
-      `Largest holding concentration is ${formatPct(context.risk.concentrationRiskPct)} in ${context.risk.largestHoldingSymbol || 'the largest visible position'}.`,
-      `Volatility is ${formatPct(context.risk.volatilityPct)} for the available return history.`,
-      `Max drawdown is ${formatPct(context.risk.maxDrawdownPct)} for the available period.`,
+      `Your biggest holding, ${top}, is ${formatPct(context.risk.concentrationRiskPct)} of the portfolio, so its moves matter most.`,
+      `The value has swung about ${formatPct(context.risk.volatilityPct)} (volatility) over the history we have.`,
+      `The deepest dip so far is ${formatPct(context.risk.maxDrawdownPct)} (drawdown — the largest drop from a recent high).`,
       ...context.risk.flags.map((flag) => flag.detail)
     ].slice(0, 6),
     warnings: buildRiskWarnings(context),
     safer_considerations: saferRiskConsiderations(context),
-    educational_note: 'Risk level summarizes concentration, volatility, drawdown, diversification, and missing data; it is not a trade instruction.'
+    educational_note:
+      'This summary blends concentration (how much sits in one holding), volatility (how much value swings), and drawdown (the biggest drop from a peak). It is education, not a trade instruction.'
   });
 }
 
@@ -242,7 +244,7 @@ function buildVolatilityExplanation(context: AiPortfolioContext): RiskAdvisorRes
   const relative = context.benchmark.relativeVolatilityPct || 0;
   return riskShell('volatility', context, {
     title: 'Volatility Intelligence',
-    summary: `Portfolio volatility is ${formatPct(context.risk.volatilityPct)}; benchmark-relative volatility is ${formatPct(relative)} when enough benchmark data exists.`,
+    summary: `Portfolio volatility is ${formatPct(context.risk.volatilityPct)} — that is how much the value swings up and down. Versus the benchmark it is ${formatPct(relative)} when enough data exists.`,
     main_risk_drivers: [
       `Largest visible exposure is ${context.risk.largestHoldingSymbol || 'not available'}.`,
       `Options exposure count is ${optionCount(context)}, which can make behavior less linear.`,
@@ -262,7 +264,7 @@ function buildConcentrationExplanation(context: AiPortfolioContext): RiskAdvisor
   const table = buildConcentrationTable(context);
   return riskShell('concentration', context, {
     title: 'Concentration Risk',
-    summary: `Concentration risk is ${formatPct(context.risk.concentrationRiskPct)}; ${table.filter((row) => row.severity === 'high' || row.severity === 'critical').length} concentration item(s) need attention.`,
+    summary: `Concentration risk is ${formatPct(context.risk.concentrationRiskPct)} — that is how much of your money rides on your biggest holding; ${table.filter((row) => row.severity === 'high' || row.severity === 'critical').length} item(s) need attention.`,
     main_risk_drivers: table.slice(0, 5).map((row) => `${row.label}: ${row.explanation}`),
     warnings: [
       context.risk.concentrationRiskPct >= 50 ? 'A single large exposure can dominate downside and upside outcomes.' : 'Concentration is present but below the highest warning threshold.',
@@ -276,7 +278,7 @@ function buildConcentrationExplanation(context: AiPortfolioContext): RiskAdvisor
 function buildDrawdownExplanation(context: AiPortfolioContext): RiskAdvisorResponse {
   return riskShell('drawdown', context, {
     title: 'Drawdown & Downside',
-    summary: `Max drawdown is ${formatPct(context.risk.maxDrawdownPct)} in the available data; downside interpretation is ${context.metadata.snapshotCount >= 3 ? 'usable' : 'limited'} because snapshot history count is ${context.metadata.snapshotCount}.`,
+    summary: `Max drawdown is ${formatPct(context.risk.maxDrawdownPct)} — that is the biggest drop from a recent high. This read is ${context.metadata.snapshotCount >= 3 ? 'usable' : 'limited'} because we only have ${context.metadata.snapshotCount} snapshot(s) of history so far.`,
     main_risk_drivers: [
       `Concentration risk can amplify drawdown if ${context.risk.largestHoldingSymbol || 'the largest exposure'} moves sharply.`,
       `Volatility is ${formatPct(context.risk.volatilityPct)}, which can widen peak-to-trough movement.`,
@@ -370,12 +372,14 @@ async function getOrCreateRiskNarrative(userId: string, context: AiPortfolioCont
 
   const id = randomUUID();
   const now = new Date();
-  const summary = `Risk is ${riskLevel(context)} with ${alerts.length} active AI warning(s).`;
+  const top = context.risk.largestHoldingSymbol || 'your largest holding';
+  const summary = `Risk is ${riskLevel(context).replaceAll('_', ' ')} with ${alerts.length} active warning(s).`;
   const narrative = [
-    `Your portfolio risk profile is currently ${riskLevel(context)}.`,
-    `The clearest risk driver is ${context.risk.largestHoldingSymbol || 'the largest visible exposure'}, with concentration risk at ${formatPct(context.risk.concentrationRiskPct)}.`,
-    `Volatility is ${formatPct(context.risk.volatilityPct)} and max drawdown is ${formatPct(context.risk.maxDrawdownPct)} for available history.`,
-    `This advisor uses calm, read-only risk education and will not place trades or trigger liquidation.`
+    `Your portfolio risk profile is currently ${riskLevel(context).replaceAll('_', ' ')}.`,
+    `The clearest driver is ${top}, because ${formatPct(context.risk.concentrationRiskPct)} of your money rides on it (concentration risk).`,
+    `Day to day the value has swung about ${formatPct(context.risk.volatilityPct)} (volatility), and the biggest drop from a high was ${formatPct(context.risk.maxDrawdownPct)} (drawdown).`,
+    `This week, it is worth checking whether you are comfortable holding that much in one position.`,
+    `This is read-only education based on your broker position data; it will not place trades or trigger liquidation.`
   ].join(' ');
   const metadata = {
     contextHash: context.metadata.contextHash,
