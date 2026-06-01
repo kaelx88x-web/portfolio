@@ -15,8 +15,10 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:ai-ux": "vitest run src/lib/testing/ai-ux",
+    "test:opt-ux": "vitest run src/lib/testing/optimization-ux",
     "test:e2e": "playwright test",
     "test:e2e:ai-ux": "playwright test tests/e2e/ai-ux",
+    "test:e2e:opt-ux": "playwright test tests/e2e/optimization-ux",
     "workers": "tsx workers/index.ts",
     "moomoo": "powershell -ExecutionPolicy Bypass -File moomoo-service/start.ps1",
     "dev:all": "concurrently \"npm run dev\" \"npm run workers\" \"npm run moomoo\""
