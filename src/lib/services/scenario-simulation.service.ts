@@ -411,11 +411,16 @@ export async function getPortfolioProjection(
     buildAiPortfolioContext(userId, { period, benchmark }),
     portfolioMode === 'stock' ? Promise.resolve(null) : getPremiumAnalytics(userId, { period, benchmark })
   ]);
-  // For hybrid/options mode, add annualized options premium yield on top of stock return.
-  // e.g. 3%/month = 36% annualized premium yield. Cap total at 60% to stay realistic.
+  // Options premium "annualized yield" is computed from short-dated premium and
+  // is NOT a sustainable long-term return: it assumes every position is reopened
+  // indefinitely and ignores assignment losses. Compounding it over 5 years gives
+  // absurd, over-optimistic targets. So discount it heavily and cap its
+  // contribution to a realistic sustainable rate before projecting.
   const stockReturn = baselineReturn(context);
-  const premiumYield = portfolioMode !== 'stock' ? clamp(premium?.average_annualized_yield ?? 0, 0, 48) : 0;
-  const annualReturn = clamp(stockReturn + premiumYield, -20, 60);
+  const rawPremiumYield = portfolioMode !== 'stock' ? Math.max(0, premium?.average_annualized_yield ?? 0) : 0;
+  // Assume ~25% of the headline annualized yield is realistically repeatable, cap 12%/yr.
+  const premiumYield = Math.min(rawPremiumYield * 0.25, 12);
+  const annualReturn = clamp(stockReturn + premiumYield, -20, 25);
   const volatility = Math.max(context.risk.volatilityPct, 6);
   const baseValue = Math.max(0, context.portfolio.value);
   const horizons = [
@@ -459,9 +464,9 @@ export async function getPortfolioProjection(
     points,
     risk_summary: riskSummary,
     ai_explanation: premiumYield > 0
-      ? `Projection combines stock return (${round(stockReturn)}%) + options premium yield (${round(premiumYield)}%) = ${round(annualReturn)}% total annual return. Based on ${context.metadata.period}/${context.metadata.benchmark} context and ${round(volatility)}% volatility.`
+      ? `Projection combines a ${round(stockReturn)}% stock return with a conservative ${round(premiumYield)}% sustainable options-income estimate (discounted from a headline ${round(rawPremiumYield)}% annualized yield, which assumes every option is reopened and ignores assignment) = ${round(annualReturn)}% total annual return. Based on ${context.metadata.period}/${context.metadata.benchmark} context and ${round(volatility)}% volatility.`
       : `Projection uses the current ${context.metadata.period}/${context.metadata.benchmark} context, current value ${money(baseValue)}, and a ${round(volatility)}% volatility assumption.`,
-    guardrail: 'Projection is not a guarantee and does not place trades.'
+    guardrail: 'Projection is not a guarantee. Options premium income is not assured — assignment or fewer trades can lower it. No trades are placed.'
   };
 }
 

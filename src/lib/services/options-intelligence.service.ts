@@ -105,7 +105,10 @@ export async function getOptionsIntelligenceDashboard(
   const period = options.period ?? 'MAX';
   const benchmark = options.benchmark ?? 'SPY';
   const [exposure, coveredCalls, puts, wheel, premium, risk] = await Promise.all([
-    getOptionsExposure(userId, { period, benchmark, forceRefresh: options.forceRefresh }),
+    // Always compute exposure fresh so the summary tiles match the live
+    // puts/coveredCalls detail (a stale stored report showed $0/0% while
+    // positions existed). Don't persist on a read — only the refresh action does.
+    getOptionsExposure(userId, { period, benchmark, forceRefresh: true, persist: false }),
     getCoveredCallAnalysis(userId, { period, benchmark }),
     getPutExposureAnalysis(userId, { period, benchmark }),
     getWheelStrategyAnalysis(userId, { period, benchmark, forceRefresh: options.forceRefresh }),
@@ -136,7 +139,7 @@ export async function getOptionsIntelligenceDashboard(
 
 export async function getOptionsExposure(
   userId: string,
-  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean } = {}
+  options: { period?: AnalyticsPeriod; benchmark?: AnalyticsBenchmark; forceRefresh?: boolean; persist?: boolean } = {}
 ): Promise<OptionsExposureReport> {
   if (!options.forceRefresh) {
     const stored = await getStoredExposureReport(userId);
@@ -148,7 +151,9 @@ export async function getOptionsExposure(
   });
   const positions = extractOptionPositions(context);
   const report = buildExposureReport(context, positions);
-  await saveOptionsSnapshot(userId, context, positions, report);
+  // The dashboard (read path) computes fresh but must not persist a new
+  // snapshot on every page view — that's the refresh action's job.
+  if (options.persist !== false) await saveOptionsSnapshot(userId, context, positions, report);
   return report;
 }
 
