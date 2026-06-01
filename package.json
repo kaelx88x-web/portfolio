@@ -12,6 +12,11 @@
     "db:init": "php scripts/init-sqlite.php && prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:ai-ux": "vitest run src/lib/testing/ai-ux",
+    "test:e2e": "playwright test",
+    "test:e2e:ai-ux": "playwright test tests/e2e/ai-ux",
     "workers": "tsx workers/index.ts",
     "moomoo": "powershell -ExecutionPolicy Bypass -File moomoo-service/start.ps1",
     "dev:all": "concurrently \"npm run dev\" \"npm run workers\" \"npm run moomoo\""
@@ -34,6 +39,7 @@
     "vite": "^5.4.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@sveltejs/adapter-node": "^5.2.9",
     "@types/node": "^22.10.1",
     "autoprefixer": "^10.4.20",
