@@ -877,3 +877,32 @@ export async function getOptionCandidates(
   if (!res.ok) throw new Error(`Options candidates fetch failed: ${res.status}`);
   return res.json();
 }
+
+export type OptionSpreadCandidate = {
+  strategy: string;
+  short_strike: number;
+  long_strike: number;
+  width: number;
+  net_credit: number;
+  max_profit: number;
+  max_loss: number;
+  short_delta: number | null;
+};
+
+export async function getOptionSpreadCandidates(
+  symbol: string,
+  expiry: string,
+  strategy = 'bull_put',
+  width = 0.5
+): Promise<OptionSpreadCandidate[]> {
+  try {
+    const params = new URLSearchParams({ symbol, expiry, strategy, width: String(width) });
+    const res = await fetch(`${bridgeBase()}/options/spread-candidates?${params}`, {
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!res.ok) return [];
+    return (await res.json()).candidates ?? [];
+  } catch {
+    return [];
+  }
+}

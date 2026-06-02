@@ -926,6 +926,43 @@ def options_candidates(symbols: str, mode: str = "both"):
             ctx.close()
 
 
+@app.get("/options/spread-candidates")
+def options_spread_candidates(symbol: str, expiry: str, strategy: str = "bull_put", width: float = 0.5):
+    """Return vertical credit spread candidates for a given symbol, expiry, and strategy.
+
+    Args:
+        symbol: Underlying code, e.g. AAPL or US.AAPL
+        expiry: Expiry date string YYYY-MM-DD
+        strategy: 'bull_put' (default) or 'bear_call'
+        width: Strike width between legs (default 0.5)
+    """
+    try:
+        from moomoo import OpenQuoteContext, RET_OK
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    from options_logic import spread_candidates
+
+    code = symbol if "." in symbol else f"US.{symbol}"
+    ctx = None
+    try:
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+        ret, data = ctx.get_option_chain(code, expiry, expiry)
+        if ret != RET_OK:
+            raise HTTPException(status_code=400, detail=str(data))
+        chain = _records(data)
+        candidates = spread_candidates(chain, strategy=strategy, width=width)
+        return {
+            "symbol": code,
+            "expiry": expiry,
+            "strategy": strategy,
+            "candidates": candidates,
+        }
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+
 @app.get("/fund-balance")
 def fund_balance(prefer_real: bool = True):
     """Return account balances in USD, MYR, HKD, and SGD for fund-enabled accounts."""
