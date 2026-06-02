@@ -33,3 +33,104 @@ export function expiryDte(expiry: string, today: Date = new Date()): number {
   const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   return Math.round((e - t) / 86_400_000);
 }
+
+import { prisma } from '$lib/server/db';
+import {
+  getQuoteSnapshots, getStockBasicInfo, getHistoricalCandles, getCapitalFlow,
+  getMarketStates, getPlateList, getPlateStocks
+} from './broker.service';
+
+export type BlockState<T> = { status: 'ok' | 'unavailable' | 'stale'; data: T | null };
+
+export type StockDetailVM = {
+  asset: { id: string; symbol: string; name: string; market: string | null; currency: string; sector: string | null };
+  moomooCode: string;
+  marketState: string | null;
+  header: BlockState<{ lastPrice: number; prevClose: number; changePct: number; volume: number; bid: number | null; ask: number | null; stale?: boolean }>;
+  stats: BlockState<{ pe: number | null; pb: number | null; eps: number | null; marketCap: number | null; high52: number | null; low52: number | null; lot: number | null }>;
+  candles: BlockState<{ t: string; o: number; h: number; l: number; c: number }[]>;
+  flow: BlockState<{ inFlow: number | null; mainInFlow: number | null }>;
+  peers: BlockState<{ symbol: string; name: string; changePct: number | null; price: number | null }[]>;
+  bidAsk: BlockState<{ bid: number | null; ask: number | null }>;
+  position: { owned: number; avgCost: number; marketValue: number; unrealizedPnl: number } | null;
+  watchlisted: boolean;
+};
+
+/** settle helper: ok(data) / unavailable on empty / unavailable on throw. */
+async function block<T>(fn: () => Promise<T | null | undefined>, isEmpty: (v: T) => boolean): Promise<BlockState<T>> {
+  try {
+    const data = await fn();
+    if (data == null || isEmpty(data as T)) return { status: 'unavailable', data: null };
+    return { status: 'ok', data: data as T };
+  } catch {
+    return { status: 'unavailable', data: null };
+  }
+}
+
+export async function buildStockDetail(userId: string, symbolParam: string): Promise<StockDetailVM | null> {
+  const symbol = decodeURIComponent(symbolParam).trim().toUpperCase();
+  const asset = await prisma.asset.findUnique({ where: { symbol } });
+  if (!asset) return null;
+
+  const code = toMoomooCode(asset.symbol, asset.country);
+
+  const [snapRes, stats, candles, flow, peers, marketStates, txns, wl] = await Promise.all([
+    block(async () => (await getQuoteSnapshots([code]))[0], (s) => !s),
+    block(async () => {
+      const b = (await getStockBasicInfo([code]))[0];
+      if (!b || b.error) return null;
+      return { pe: b.pe_ttm ?? b.pe_ratio, pb: b.pb_ratio, eps: b.eps, marketCap: b.market_cap, high52: b.high_52wk, low52: b.low_52wk, lot: b.lot_size };
+    }, () => false),
+    block(async () => (await getHistoricalCandles(code)).map((k) => ({ t: k.time_key, o: k.open, h: k.high, l: k.low, c: k.close })), (a) => a.length === 0),
+    block(async () => {
+      const f = (await getCapitalFlow([code]))[0];
+      if (!f || f.error) return null;
+      return { inFlow: f.in_flow, mainInFlow: f.main_in_flow };
+    }, () => false),
+    block(async () => {
+      const plates = await getPlateList(asset.country === 'HK' ? 'HK' : 'US', 'INDUSTRY');
+      if (!plates.length) return [];
+      const stocks = await getPlateStocks(plates[0].code);
+      return stocks.slice(0, 8).map((s) => ({ symbol: s.code, name: s.name, changePct: s.change_pct, price: s.last_price }));
+    }, (a) => a.length === 0),
+    getMarketStates([code]).catch(() => []),
+    prisma.transaction.findMany({ where: { userId, assetId: asset.id, type: { in: ['buy', 'sell'] } }, select: { type: true, quantity: true, price: true } }),
+    prisma.watchlistItem.findFirst({ where: { assetId: asset.id, watchlist: { userId } }, select: { id: true } })
+  ]);
+
+  // Header: prefer live snapshot; fall back to stale asset.latestPrice.
+  let header: StockDetailVM['header'];
+  if (snapRes.status === 'ok' && snapRes.data) {
+    const s = snapRes.data as any;
+    const last = Number(s.last_price ?? 0);
+    const prev = Number(s.prev_close_price ?? last);
+    header = { status: 'ok', data: { lastPrice: last, prevClose: prev, changePct: prev ? ((last - prev) / prev) * 100 : 0, volume: Number(s.volume ?? 0), bid: s.bid_price ?? null, ask: s.ask_price ?? null } };
+  } else if (asset.latestPrice > 0) {
+    header = { status: 'stale', data: { lastPrice: asset.latestPrice, prevClose: asset.latestPrice, changePct: 0, volume: 0, bid: null, ask: null, stale: true } };
+  } else {
+    header = { status: 'unavailable', data: null };
+  }
+
+  // Position from the ledger.
+  let owned = 0, cost = 0;
+  for (const tx of txns) {
+    if (tx.type === 'buy') { const q = owned + tx.quantity; cost = q ? (cost * owned + tx.price * tx.quantity) / q : 0; owned = q; }
+    else owned = Math.max(0, owned - tx.quantity);
+  }
+  const last = header.data?.lastPrice ?? asset.latestPrice;
+  const position = owned > 0 ? { owned, avgCost: cost, marketValue: owned * last, unrealizedPnl: owned * (last - cost) } : null;
+
+  return {
+    asset: { id: asset.id, symbol: asset.symbol, name: asset.name, market: asset.country, currency: asset.currency, sector: asset.sector ?? null },
+    moomooCode: code,
+    marketState: marketStates[0]?.market_state ?? null,
+    header,
+    stats: stats as StockDetailVM['stats'],
+    candles: candles as StockDetailVM['candles'],
+    flow: flow as StockDetailVM['flow'],
+    peers: peers as StockDetailVM['peers'],
+    bidAsk: header.data ? { status: header.status === 'unavailable' ? 'unavailable' : 'ok', data: { bid: header.data.bid, ask: header.data.ask } } : { status: 'unavailable', data: null },
+    position,
+    watchlisted: Boolean(wl)
+  };
+}
