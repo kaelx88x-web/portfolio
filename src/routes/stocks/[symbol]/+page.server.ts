@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
-import { buildStockDetail } from '$lib/services/stock-detail.service';
+import { buildStockDetail, withTimeout } from '$lib/services/stock-detail.service';
 import { getGlobalMarkets } from '$lib/services/broker.service';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   const user = locals.user!;
   const vm = await buildStockDetail(user.id, params.symbol);
   if (!vm) throw error(404, `No data for ${params.symbol}`);
-  const tz = await getGlobalMarkets()
+  // Timezone is nice-to-have — bound it so a slow bridge can't delay the page.
+  const tz = await withTimeout(getGlobalMarkets(), 3000)
     .then((g) => g.markets.find((m) => m.key?.toUpperCase() === (vm.asset.market ?? 'US').toUpperCase())?.timezone ?? null)
     .catch(() => null);
   return { detail: vm, timezone: tz };

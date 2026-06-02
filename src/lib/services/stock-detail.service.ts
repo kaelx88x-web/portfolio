@@ -56,10 +56,25 @@ export type StockDetailVM = {
   watchlisted: boolean;
 };
 
-/** settle helper: ok(data) / unavailable on empty / unavailable on throw. */
-async function block<T>(fn: () => Promise<T | null | undefined>, isEmpty: (v: T) => boolean): Promise<BlockState<T>> {
+/**
+ * Reject a promise if it doesn't settle within `ms`. The underlying bridge fetch
+ * keeps running (its result still populates the quote cache for the next visit),
+ * but the page never waits on it — a slow/hanging OpenD degrades a block to
+ * "Data Not Available" fast instead of hanging server-side rendering.
+ */
+export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms))
+  ]);
+}
+
+const BLOCK_TIMEOUT_MS = 4000;
+
+/** settle helper: ok(data) / unavailable on empty / unavailable on throw/timeout. */
+async function block<T>(fn: () => Promise<T | null | undefined>, isEmpty: (v: T) => boolean, timeoutMs = BLOCK_TIMEOUT_MS): Promise<BlockState<T>> {
   try {
-    const data = await fn();
+    const data = await withTimeout(Promise.resolve(fn()), timeoutMs);
     if (data == null || isEmpty(data as T)) return { status: 'unavailable', data: null };
     return { status: 'ok', data: data as T };
   } catch {
@@ -93,7 +108,7 @@ export async function buildStockDetail(userId: string, symbolParam: string): Pro
       const stocks = await getPlateStocks(plates[0].code);
       return stocks.slice(0, 8).map((s) => ({ symbol: s.code, name: s.name, changePct: s.change_pct, price: s.last_price }));
     }, (a) => a.length === 0),
-    getMarketStates([code]).catch(() => []),
+    withTimeout(getMarketStates([code]), 3000).catch(() => []),
     // Guard the raw prisma calls too — a DB blip must degrade these to
     // empty/null, never reject Promise.all and 500 the page.
     prisma.transaction.findMany({ where: { userId, assetId: asset.id, type: { in: ['buy', 'sell'] } }, select: { type: true, quantity: true, price: true } }).catch(() => [] as { type: string; quantity: number; price: number }[]),

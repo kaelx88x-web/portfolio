@@ -12,10 +12,13 @@ test.describe('stock detail — authenticated', () => {
   test.skip(!hasE2ECredentials(), 'Set E2E_EMAIL and E2E_PASSWORD');
   test.beforeEach(async ({ page }) => signInByApi(page));
 
-  test('overview renders header + tabs', async ({ page }) => {
+  test('overview renders detail header + tabs', async ({ page }) => {
     await gotoAndSettle(page, '/stocks/NVDA');
     if (page.url().match(/onboarding|login/)) test.skip(true, 'redirected');
-    await expect(page.getByRole('heading', { name: 'NVDA' })).toBeVisible();
+    // The detail header is the <header> region (distinct from the breadcrumb
+    // PageHeader, which also renders an <h1> with the symbol).
+    const detailHeader = page.locator('header').filter({ hasText: 'NVDA' });
+    await expect(detailHeader.getByRole('heading', { name: 'NVDA' })).toBeVisible();
     await expect(page.getByRole('tab', { name: /overview/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: /options/i })).toBeVisible();
   });
