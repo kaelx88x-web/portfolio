@@ -6,6 +6,7 @@ import {
   parseTradeTicketType,
   parseTradeOrderType
 } from '$lib/services/trade-layer.service';
+import { rateLimit } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -21,6 +22,16 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const user = locals.user!;
+
+  // §14 — per-endpoint rate limit (distinct from the daily ticket cap).
+  const rl = rateLimit(`trade-ticket:${user.id}`, { limit: 10, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return json(
+      { status: 'error', message: 'Too many trade requests. Please wait a moment before trying again.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    );
+  }
+
   const body = await request.json().catch(() => ({}));
   try {
     const ticket = await createTradeTicket(user.id, {

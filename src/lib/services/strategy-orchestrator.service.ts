@@ -66,6 +66,28 @@ export type PortfolioStrategyProfile = {
   updatedAt?: string;
 };
 
+/**
+ * Structured, machine-readable trade intent attached to a recommendation.
+ *
+ * When present, the trade layer builds a ticket from these exact values instead
+ * of guessing a symbol/quantity/price from the prose (audit §6/§7 — "AI invents
+ * ticker / quantity / price"). Everything here must come from real sourced data
+ * (broker, market provider); confidence and accountMode make the suggestion
+ * explainable and unambiguous about paper vs live.
+ */
+export type TradeIntent = {
+  symbol: string;
+  side: 'buy' | 'sell' | 'open' | 'close';
+  ticketType: 'buy' | 'sell' | 'covered_call' | 'cash_secured_put';
+  quantity: number;
+  orderType: 'market' | 'limit';
+  limitPrice?: number | null;
+  reason: string;
+  confidence: 'low' | 'medium' | 'high';
+  accountMode: 'paper' | 'live';
+  supportingData?: Record<string, unknown>;
+};
+
 export type StrategyRecommendation = {
   id?: string;
   strategyMode: StrategyMode;
@@ -79,6 +101,8 @@ export type StrategyRecommendation = {
     tradeoffs: string[];
     expectedImpact: string;
     noAutoTrading: true;
+    /** Optional structured trade payload — see TradeIntent. */
+    tradeIntent?: TradeIntent;
   };
   metadata: Record<string, unknown>;
   createdAt?: string;

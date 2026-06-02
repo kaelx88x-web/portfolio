@@ -1,0 +1,95 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`[SECTION 17] recommendation→ticket contract snapshots > inferred fallback never fabricates a price 1`] = `
+{
+  "confidence": "low",
+  "inferred": true,
+  "limitPrice": null,
+  "orderType": "market",
+  "requiresUserInput": true,
+}
+`;
+
+exports[`[SECTION 17] recommendation→ticket contract snapshots > structured intent maps verbatim 1`] = `
+{
+  "accountMode": "paper",
+  "confidence": "medium",
+  "inferred": false,
+  "limitPrice": 0.55,
+  "orderType": "limit",
+  "quantity": 1,
+  "side": "open",
+  "symbol": "NIO",
+  "ticketType": "covered_call",
+}
+`;
+
+exports[`[SECTION 17] validation contract snapshots > clean limit buy 1`] = `
+{
+  "executionEnabled": false,
+  "noBrokerOrderSubmitted": true,
+  "passed": true,
+  "riskLevel": "low",
+  "rules": [],
+}
+`;
+
+exports[`[SECTION 17] validation contract snapshots > large notional warning 1`] = `
+{
+  "executionEnabled": false,
+  "noBrokerOrderSubmitted": true,
+  "passed": true,
+  "riskLevel": "moderate",
+  "rules": [
+    {
+      "rule": "large_ticket_review",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`[SECTION 17] validation contract snapshots > limit order missing price breach 1`] = `
+{
+  "executionEnabled": false,
+  "noBrokerOrderSubmitted": true,
+  "passed": false,
+  "riskLevel": "high",
+  "rules": [
+    {
+      "rule": "limit_price_required",
+      "severity": "breach",
+    },
+  ],
+}
+`;
+
+exports[`[SECTION 17] validation contract snapshots > options ticket in stock mode warning 1`] = `
+{
+  "executionEnabled": false,
+  "noBrokerOrderSubmitted": true,
+  "passed": true,
+  "riskLevel": "moderate",
+  "rules": [
+    {
+      "rule": "options_mode_warning",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`[SECTION 17] validation contract snapshots > zero quantity breach 1`] = `
+{
+  "executionEnabled": false,
+  "noBrokerOrderSubmitted": true,
+  "passed": false,
+  "riskLevel": "high",
+  "rules": [
+    {
+      "rule": "quantity_required",
+      "severity": "breach",
+    },
+  ],
+}
+`;

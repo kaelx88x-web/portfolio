@@ -2,7 +2,7 @@
 import { prisma } from '$lib/server/db';
 import { validatePortfolioGuardrails, type GuardrailReport, type GuardrailViolation } from '$lib/services/guardrail.service';
 import { getUserPortfolioMode } from '$lib/services/optimization-engine.service';
-import { getStrategyRecommendations, type StrategyRecommendation } from '$lib/services/strategy-orchestrator.service';
+import { getStrategyRecommendations, type StrategyRecommendation, type TradeIntent } from '$lib/services/strategy-orchestrator.service';
 
 export const TRADE_LAYER_VERSION = 'phase-6E';
 
@@ -473,7 +473,45 @@ function buildTradeViolations(input: TradeTicketInput & { side: TradeSide; order
   return violations;
 }
 
-function recommendationToTicketInput(recommendation: StrategyRecommendation): TradeTicketInput {
+export function recommendationToTicketInput(recommendation: StrategyRecommendation): TradeTicketInput {
+  const baseMeta = {
+    strategyMode: recommendation.strategyMode,
+    priority: recommendation.priority,
+    riskLevel: recommendation.riskLevel,
+    recommendationTitle: recommendation.title,
+    noBrokerOrderSubmitted: true
+  };
+
+  // Preferred path: a structured, sourced trade intent. Use its exact values —
+  // never re-derive the symbol/quantity/price from prose (audit §6/§7).
+  const intent: TradeIntent | undefined = recommendation.recommendation?.tradeIntent;
+  if (intent && String(intent.symbol).trim()) {
+    const orderType = intent.orderType === 'market' ? 'market' : 'limit';
+    return {
+      sourceType: 'strategy_recommendation',
+      sourceId: recommendation.id,
+      ticketType: parseTradeTicketType(intent.ticketType),
+      symbol: intent.symbol,
+      side: intent.side,
+      quantity: Number(intent.quantity) > 0 ? Number(intent.quantity) : 1,
+      orderType,
+      limitPrice: orderType === 'market' ? null : (intent.limitPrice ?? null),
+      thesis: intent.reason?.trim() || recommendation.summary,
+      metadata: {
+        ...baseMeta,
+        inferred: false,
+        confidence: intent.confidence,
+        accountMode: intent.accountMode ?? 'paper',
+        supportingData: intent.supportingData ?? {}
+      }
+    };
+  }
+
+  // Fallback: the recommendation has no structured intent. We must NOT fabricate
+  // a price. Emit a market-order draft (no invented limit price) explicitly
+  // flagged as inferred + requires-user-input so it can never be silently
+  // approved/executed on guessed numbers. The execution layer additionally
+  // blocks non-tradable placeholder symbols.
   const text = `${recommendation.title} ${recommendation.summary}`.toLowerCase();
   const ticketType = text.includes('options') || text.includes('premium') ? 'covered_call' : text.includes('cash') || text.includes('reduce') ? 'sell' : 'buy';
   const symbol = inferSymbolFromRecommendation(recommendation);
@@ -484,15 +522,15 @@ function recommendationToTicketInput(recommendation: StrategyRecommendation): Tr
     symbol,
     side: ticketType === 'sell' ? 'sell' : ticketType === 'buy' ? 'buy' : 'open',
     quantity: 1,
-    orderType: 'limit',
-    limitPrice: 1,
+    orderType: 'market',
+    limitPrice: null,
     thesis: recommendation.summary,
     metadata: {
-      strategyMode: recommendation.strategyMode,
-      priority: recommendation.priority,
-      riskLevel: recommendation.riskLevel,
-      recommendationTitle: recommendation.title,
-      noBrokerOrderSubmitted: true
+      ...baseMeta,
+      inferred: true,
+      requiresUserInput: true,
+      confidence: 'low',
+      accountMode: 'paper'
     }
   };
 }

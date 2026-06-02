@@ -833,6 +833,9 @@ def options_candidates(symbols: str, mode: str = "both"):
     except ImportError:
         raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
 
+    # Pure, unit-tested option math (see options_logic.py / tests/test_options.py).
+    from options_logic import option_mid, premium_yield_pct, candidate_strategy, put_collateral, enrich_candidate
+
     codes = [s.strip() for s in symbols.split(",") if s.strip()]
     codes = [c if "." in c else f"US.{c}" for c in codes]
     if not codes:
@@ -879,34 +882,35 @@ def options_candidates(symbols: str, mode: str = "both"):
                     if not strike or not bid:
                         continue
 
-                    mid = round((bid + (ask or bid)) / 2, 4)
-                    collateral = round(strike * 100, 2)
-                    premium_yield = round(mid / strike * 100, 4) if strike else None
+                    mid = option_mid(bid, ask)
+                    premium_yield = premium_yield_pct(mid, strike)
 
-                    is_cc = mode in ("cc", "both") and opt_type.startswith("c") and delta and 0.2 <= abs(delta) <= 0.45
-                    is_csp = mode in ("csp", "both") and opt_type.startswith("p") and delta and 0.2 <= abs(delta) <= 0.45
-
-                    if not (is_cc or is_csp):
+                    strategy = candidate_strategy(opt_type, delta, mode)
+                    if not strategy:
                         continue
 
-                    candidates.append({
+                    candidate = {
                         "underlying": code,
                         "underlying_price": underlying_price,
-                        "strategy": "covered_call" if is_cc else "cash_secured_put",
-                        "option_type": "call" if is_cc else "put",
+                        "strategy": strategy,
+                        "option_type": "call" if strategy == "covered_call" else "put",
                         "expiry": expiry,
                         "strike": strike,
                         "bid": bid,
                         "ask": ask,
                         "mid": mid,
-                        "collateral_per_contract": collateral,
+                        "collateral_per_contract": put_collateral(strike),
                         "premium_yield_pct": premium_yield,
                         "implied_volatility": iv,
                         "delta": delta,
                         "theta": theta,
                         "open_interest": oi,
                         "option_code": r.get("code"),
-                    })
+                    }
+                    # §9 — additive risk fields: assignment risk, shares required
+                    # (covered call), and max loss if assigned (cash-secured put).
+                    candidate.update(enrich_candidate(candidate, underlying_price))
+                    candidates.append(candidate)
 
         # Sort: highest premium yield first
         candidates.sort(key=lambda x: x.get("premium_yield_pct") or 0, reverse=True)

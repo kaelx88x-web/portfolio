@@ -9,6 +9,7 @@ import {
   rejectTradeTicket
 } from '$lib/services/trade-layer.service';
 import { previewMoomooExecution, submitMoomooExecution, type ExecutionSafetyCheck } from '$lib/services/moomoo-execution.service';
+import { rateLimit } from '$lib/server/rate-limit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -19,6 +20,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
   create: async ({ request, locals }) => {
     const user = locals.user!;
+    const rl = rateLimit(`trade-ticket:${user.id}`, { limit: 10, windowMs: 60_000 });
+    if (!rl.allowed) return fail(429, { message: 'Too many trade requests. Please wait a moment before trying again.' });
     const form = await request.formData();
     try {
       await createTradeTicket(user.id, formToTicketInput(form));
@@ -39,6 +42,9 @@ export const actions: Actions = {
   },
   confirm_execute: async ({ request, locals }) => {
     const user = locals.user!;
+    // §14 — tighter limit on the execution path than on plain ticket creation.
+    const rl = rateLimit(`trade-exec:${user.id}`, { limit: 6, windowMs: 60_000 });
+    if (!rl.allowed) return fail(429, { message: 'Too many execution attempts. Please wait a moment before trying again.' });
     const form = await request.formData();
     const ticketId = String(form.get('ticketId') ?? '');
     try {
