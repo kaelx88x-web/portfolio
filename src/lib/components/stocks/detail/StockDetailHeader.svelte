@@ -23,6 +23,10 @@
       return new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', timeZone: timezone ?? undefined, timeZoneName: 'short' }).format(new Date());
     } catch { return new Date().toLocaleTimeString(); }
   }
+  // Recompute the "Updated" stamp whenever the data reloads (new `detail` object
+  // after invalidateAll) or the market timezone changes — so it never shows a
+  // stale mount-time clock.
+  $: updatedAt = (detail, timezone, lastUpdated());
 </script>
 
 <header class="dh">
@@ -41,7 +45,7 @@
     <span class="chg down">Price Not Available</span>
   {/if}
   <div class="dh-meta">
-    <span>Updated {lastUpdated()}</span>
+    <span>Updated {updatedAt}</span>
     <button class="rf" on:click={onRefresh} disabled={refreshing}>
       {refreshing ? 'Refreshing…' : open ? 'Refresh' : 'Refresh (market closed)'}
     </button>

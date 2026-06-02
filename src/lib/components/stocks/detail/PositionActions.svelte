@@ -30,7 +30,7 @@
   .pa { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; }
   .pa-h { font-size:.7rem; font-weight:600; color:var(--text); margin-bottom:8px; }
   .pa-row { display:flex; justify-content:space-between; font-size:.78rem; color:var(--muted); padding:3px 0; }
-  .pa-row b.up, b.up { color:#39d98a; } .pa-row b.down, b.down { color:#f6685e; }
+  .pa-row b.up { color:#39d98a; } .pa-row b.down { color:#f6685e; }
   .pa-empty { font-size:.74rem; color:var(--muted); }
   .pa-actions { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
   .btn { font-size:.74rem; font-weight:600; padding:7px; border-radius:7px; border:1px solid var(--border); background:none; color:var(--text); cursor:pointer; }

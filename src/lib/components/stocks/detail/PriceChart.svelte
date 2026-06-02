@@ -13,15 +13,20 @@
   let mode: 'candle' | 'line' = 'candle';
   let data: Candle[] = initial;
   let loading = false;
+  let loadError = false;
   let container: HTMLDivElement;
   let chart: import('echarts').ECharts | null = null;
 
   async function loadRange(r: typeof range) {
-    range = r; loading = true;
+    range = r; loading = true; loadError = false;
     try {
       const res = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/candles?range=${r}`);
+      // On a failed fetch keep the previously rendered candles rather than wiping
+      // the chart to empty; surface the error to the user instead.
+      if (!res.ok) { loadError = true; return; }
       data = (await res.json()).candles ?? [];
-    } finally { loading = false; render(); }
+    } catch { loadError = true; }
+    finally { loading = false; render(); }
   }
 
   function render() {
@@ -38,12 +43,22 @@
 
   $: if (chart && $theme) render();
 
+  let destroyed = false;
   onMount(() => {
     let ro: ResizeObserver | null = null;
-    import('echarts').then((e) => { chart = e.init(container, null, { renderer: 'canvas' }); render(); ro = new ResizeObserver(() => chart?.resize()); ro.observe(container); });
+    import('echarts').then((e) => {
+      // The component may unmount (e.g. switching to the Options tab) before this
+      // async import resolves — bail so we don't init a chart on a detached node
+      // or leak a ResizeObserver.
+      if (destroyed) return;
+      chart = e.init(container, null, { renderer: 'canvas' });
+      render();
+      ro = new ResizeObserver(() => chart?.resize());
+      ro.observe(container);
+    });
     return () => ro?.disconnect();
   });
-  onDestroy(() => chart?.dispose());
+  onDestroy(() => { destroyed = true; chart?.dispose(); });
 </script>
 
 <div class="pc">
@@ -56,7 +71,8 @@
       <button class:active={mode === 'line'} on:click={() => { mode = 'line'; render(); }}>Line</button>
     </div>
   </div>
-  <div bind:this={container} class="pc-canvas"></div>
+  {#if loadError}<div class="pc-err" role="status">Couldn't load {range} data — showing last values.</div>{/if}
+  <div bind:this={container} class="pc-canvas" role="img" aria-label="{symbol} price chart, {range}"></div>
 </div>
 
 <style>
@@ -65,6 +81,7 @@
   .pills { display:flex; gap:3px; }
   .pills button { font-size:.65rem; font-weight:600; padding:3px 9px; border-radius:6px; border:1px solid transparent; background:none; color:var(--muted); cursor:pointer; }
   .pills button.active { color:var(--primary); background:rgba(var(--primary-rgb),.14); border-color:rgba(var(--primary-rgb),.3); }
+  .pc-err { font-size:.68rem; color:#f5b450; margin-bottom:6px; }
   .pc-canvas { height:300px; }
   @media (max-width:767px){ .pc-canvas{ height:240px; } }
 </style>
