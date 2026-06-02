@@ -41,4 +41,16 @@ describe('cached', () => {
     await expect(cached('k', 1000, fn, undefined, 1000)).rejects.toThrow('x');
     expect(await cached('k', 1000, fn, undefined, 1010)).toBe(9);
   });
+
+  it('force starts a fresh fetch even while a normal call is in-flight; both resolve', async () => {
+    const resolvers: ((v: number) => void)[] = [];
+    const fn = vi.fn().mockImplementation(() => new Promise<number>((r) => resolvers.push(r)));
+    const normal = cached('k', 1000, fn, undefined, 1000);        // first flight
+    const forced = cached('k', 1000, fn, { force: true }, 1000);  // bypasses, second flight
+    expect(fn).toHaveBeenCalledTimes(2);
+    resolvers[0](1);
+    resolvers[1](2);
+    expect(await normal).toBe(1); // captured its own promise
+    expect(await forced).toBe(2);
+  });
 });
