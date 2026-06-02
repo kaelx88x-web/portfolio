@@ -38,6 +38,7 @@
 </script>
 
 <div class="stock-card">
+  <a class="card-link" href="/stocks/{encodeURIComponent(asset.symbol)}" aria-label="View {asset.symbol} detail" tabindex="-1"></a>
   <div class="card-top">
     <div class="card-symbol-row">
       <span class="symbol">{asset.symbol}</span>
@@ -135,7 +136,13 @@
     color: var(--text);
     letter-spacing: 0.02em;
   }
-  .card-actions { display: flex; align-items: center; }
+  .card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 12px;
+  }
+  .card-actions { display: flex; align-items: center; position: relative; z-index: 1; }
   .card-name {
     font-size: 0.75rem;
     color: var(--text);
@@ -213,6 +220,8 @@
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
+    position: relative;
+    z-index: 1;
   }
   .add-btn:hover {
     background: rgba(108,143,255,0.18);
