@@ -94,14 +94,16 @@ export async function buildStockDetail(userId: string, symbolParam: string): Pro
       return stocks.slice(0, 8).map((s) => ({ symbol: s.code, name: s.name, changePct: s.change_pct, price: s.last_price }));
     }, (a) => a.length === 0),
     getMarketStates([code]).catch(() => []),
-    prisma.transaction.findMany({ where: { userId, assetId: asset.id, type: { in: ['buy', 'sell'] } }, select: { type: true, quantity: true, price: true } }),
-    prisma.watchlistItem.findFirst({ where: { assetId: asset.id, watchlist: { userId } }, select: { id: true } })
+    // Guard the raw prisma calls too — a DB blip must degrade these to
+    // empty/null, never reject Promise.all and 500 the page.
+    prisma.transaction.findMany({ where: { userId, assetId: asset.id, type: { in: ['buy', 'sell'] } }, select: { type: true, quantity: true, price: true } }).catch(() => [] as { type: string; quantity: number; price: number }[]),
+    prisma.watchlistItem.findFirst({ where: { assetId: asset.id, watchlist: { userId } }, select: { id: true } }).catch(() => null)
   ]);
 
   // Header: prefer live snapshot; fall back to stale asset.latestPrice.
   let header: StockDetailVM['header'];
   if (snapRes.status === 'ok' && snapRes.data) {
-    const s = snapRes.data as any;
+    const s = snapRes.data;
     const last = Number(s.last_price ?? 0);
     const prev = Number(s.prev_close_price ?? last);
     header = { status: 'ok', data: { lastPrice: last, prevClose: prev, changePct: prev ? ((last - prev) / prev) * 100 : 0, volume: Number(s.volume ?? 0), bid: s.bid_price ?? null, ask: s.ask_price ?? null } };
@@ -129,7 +131,8 @@ export async function buildStockDetail(userId: string, symbolParam: string): Pro
     candles: candles as StockDetailVM['candles'],
     flow: flow as StockDetailVM['flow'],
     peers: peers as StockDetailVM['peers'],
-    bidAsk: header.data ? { status: header.status === 'unavailable' ? 'unavailable' : 'ok', data: { bid: header.data.bid, ask: header.data.ask } } : { status: 'unavailable', data: null },
+    // bid/ask only come from a live snapshot; a stale/absent header means unavailable.
+    bidAsk: header.status === 'ok' && header.data ? { status: 'ok', data: { bid: header.data.bid, ask: header.data.ask } } : { status: 'unavailable', data: null },
     position,
     watchlisted: Boolean(wl)
   };

@@ -104,4 +104,14 @@ describe('buildStockDetail', () => {
     expect(vm!.flow.status).toBe('unavailable');
     expect(vm!.header.status).toBe('ok'); // other blocks unaffected
   });
+
+  it('survives a DB failure on position/watchlist without crashing the page', async () => {
+    mp.transaction.findMany.mockRejectedValue(new Error('db down'));
+    mp.watchlistItem.findFirst.mockRejectedValue(new Error('db down'));
+    const vm = await buildStockDetail('u', 'NVDA');
+    expect(vm).not.toBeNull();
+    expect(vm!.position).toBeNull();
+    expect(vm!.watchlisted).toBe(false);
+    expect(vm!.header.status).toBe('ok');
+  });
 });
