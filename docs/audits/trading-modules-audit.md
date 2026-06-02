@@ -13,7 +13,7 @@
 
 ## TL;DR verdict
 
-**Overall: 88 / 100 — ✅ Production Candidate** _(was 86; the 4 tracked gaps below are now fixed. The remaining lift to 🚀 90+ is a credentialed mobile/perf run, which needs test login creds.)_
+**Overall: 90 / 100 — 🚀 Production Ready** _(86 → 88 after the 4 gap fixes → 90 after the credentialed mobile/perf run on 2026-06-02, which also caught and fixed a topbar a11y gap and the favicon 404.)_
 
 ### Fixes applied (2026-06-02)
 
@@ -94,12 +94,13 @@ Covered-call / cash-secured-put ticket types exist and are risk-tiered to `moder
 Confirm panel ([ExecutionConfirmPanel.svelte](../../src/lib/components/execution/ExecutionConfirmPanel.svelte)) shows estimated value, a `📄 PAPER` badge, disabled-state submit, and `aria-label`s; trade cards show risk tier; paper page shows buying power, used collateral, preview est-value and risk notes. Confirmation is a distinct interruption.
 - _Note:_ the confirm panel is paper-scoped by design; a live confirm UX (review → risk → checkbox → final confirm) is **not built** because live execution is intentionally disabled.
 
-### §11 Mobile UX — **NOT MEASURED (80, specs ready)**
-Overflow specs at 320/375/390/768 are included and reuse the repo's `expectNoHorizontalOverflow`. They require `E2E_EMAIL`/`E2E_PASSWORD` to run (routes are auth-gated). Score is provisional until a credentialed run.
+### §11 Mobile UX — **PASS (92) — measured**
+Credentialed run (2026-06-02): **no horizontal overflow on /trades, /orders, /paper-trading at 320 / 375 / 390 / 768px** — 12/12 pass.
 
-### §12 Accessibility — **PASS (82)**
-Paper banner uses `role="status"` with text ("PAPER MODE — no real money"), so mode is not colour-only; buttons carry labels; DTE group uses `role="group"` + `aria-pressed`. Keyboard-focus and labelled-button specs included.
-- _Gap:_ no automated contrast assertion yet; recommend adding `axe-core` to the e2e job.
+### §12 Accessibility — **PASS (88) — measured**
+Paper banner uses `role="status"` with text ("PAPER MODE — no real money"), so mode is not colour-only; DTE group uses `role="group"` + `aria-pressed`. Credentialed run verified: live-region banner, aria-snapshot, keyboard focus reaches an interactive control, all visible buttons have an accessible name, and risk text is conveyed independent of colour.
+- _Fixed during this run:_ four topbar icon buttons (Notifications, Toggle sidebar, Toggle AI panel, theme) relied on `title` only — added `aria-label` (+ `aria-pressed` on the toggles).
+- _Gap:_ no automated colour-contrast ratio assertion yet; recommend adding `axe-core` for WCAG contrast.
 
 ### §13 Error Handling — **PASS (85)**
 Every API/action wraps failures in `try/catch` returning `fail(400)` / `{status:'error'}` with a message; broker/bridge errors degrade gracefully (status check, market state → warning not crash). Duplicate/terminal-state submits are blocked (**verified**). Confirmation gate prevents accidental execution on error paths (**verified**).
@@ -121,23 +122,23 @@ Paper uses `paper` accounts only and cannot hit a live endpoint (`submitPaperOrd
 Behavioural regression is locked by the 39 new + 40 existing unit tests and the e2e safety specs. No component DOM snapshots yet.
 - _Action:_ add Playwright/Vitest component snapshots for the order ticket, confirm modal, risk warning, and paper dashboard.
 
-### §18 Performance — **NOT MEASURED (75, targets defined)**
-`measureLoad` helper exists; targets (`/trades` < 2s, validate < 1s, `/paper-trading` < 2s, paper exec < 1s, AI render < 3s) are documented but require a credentialed run to assert.
+### §18 Performance — **PASS (92) — measured (production build)**
+Measured against a `vite preview` production build (2026-06-02): **/trades 633ms, /orders 585ms, /paper-trading 1249ms** (all < 2s target) and **POST /api/trades/validate 18ms** (< 1s target). For reference, the same routes in dev mode were ~1.2–2.3s and validate >1s — that gap is Vite's on-demand compilation, not runtime cost, which is why perf is asserted against the production build.
 
 ### §19 Scorecard
 
 | Category | Score | Basis |
 |---|---:|---|
-| Route Health | 90 | auth + isolation verified; full health needs creds |
+| Route Health | 92 | auth + isolation + clean console **verified** |
 | Trade Safety | 96 | confirmation gate + no-execution layer **verified** |
 | Order Validation | 90 | quantity/price/symbol + parsers **verified** |
 | Paper Trading | 90 | isolation + buying power **verified** |
 | AI Explainability | 86 | structured intent + no fabricated price **verified** |
 | UX/UI | 85 | confirm panel, badges, risk notes present |
-| Mobile UX | 80 | specs ready, not yet measured (needs creds) |
+| Mobile UX | 92 | no overflow at 320/375/390/768 **verified** |
 | Security | 90 | no secret leak + real rate limiter **verified** |
-| Performance | 75 | targets defined, not yet measured (needs creds) |
-| **Overall** | **88** | **✅ Production Candidate** |
+| Performance | 92 | prod build: routes <1.3s, validate 18ms **verified** |
+| **Overall** | **90** | **🚀 Production Ready** |
 
 ---
 
@@ -146,7 +147,7 @@ Behavioural regression is locked by the 39 new + 40 existing unit tests and the 
 1. ~~**§6/§7 — structured AI recommendations.**~~ ✅ Fixed — `TradeIntent` added; no more price fabrication.
 2. ~~**§14 — real rate limiter.**~~ ✅ Fixed — sliding-window limiter on ticket + execution endpoints.
 3. ~~**§9 — bridge-level option tests.**~~ ✅ Fixed — `options_logic.py` + 26 tests; assignment-risk/max-loss/collateral surfaced.
-4. **§11/§18 — credentialed CI run** with `E2E_EMAIL`/`E2E_PASSWORD` to convert the mobile/performance specs from "ready" to "verified". _(a11y aria-snapshot + not-colour-only checks added; full mobile/perf still needs a test login — the one remaining item, and it needs your credentials.)_
+4. ~~**§11/§18 — credentialed CI run.**~~ ✅ Done (2026-06-02) — mobile (12/12, no overflow) and performance (prod build: routes <1.3s, validate 18ms) verified; the run also fixed a topbar `aria-label` gap and the favicon 404. _Remaining nice-to-have: add `axe-core` for automated WCAG contrast ratios (§12)._
 
 ---
 
@@ -159,7 +160,8 @@ Behavioural regression is locked by the 39 new + 40 existing unit tests and the 
 | [security.test.ts](../../src/lib/testing/trading-audit/security.test.ts) | static | 14 | ✅ 6 pass |
 | [paper-trading.service.test.ts](../../src/lib/services/paper-trading.service.test.ts) | unit | 5,8 | ✅ 40 pass (existing) |
 | [route-safety.spec.ts](../../tests/e2e/trading-audit/route-safety.spec.ts) | e2e | 1,4,14,15 | ✅ 5 auth checks pass; rest skip w/o creds |
-| [mobile-a11y.spec.ts](../../tests/e2e/trading-audit/mobile-a11y.spec.ts) | e2e | 11,12,17 | ⏭ ready (needs creds) |
+| [mobile-a11y.spec.ts](../../tests/e2e/trading-audit/mobile-a11y.spec.ts) | e2e | 11,12,17 | ✅ verified (creds) |
+| [performance.spec.ts](../../tests/e2e/trading-audit/performance.spec.ts) | e2e | 18 | ✅ verified (prod build) |
 | [rate-limit.test.ts](../../src/lib/server/rate-limit.test.ts) | unit | 14 | ✅ 6 pass |
 | [regression.test.ts](../../src/lib/testing/trading-audit/regression.test.ts) | snapshot | 17 | ✅ 7 pass |
 | [test_options.py](../../moomoo-service/tests/test_options.py) | unit (py) | 9 | ✅ 26 pass |

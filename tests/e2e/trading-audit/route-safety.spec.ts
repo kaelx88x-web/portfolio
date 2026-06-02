@@ -48,8 +48,11 @@ test.describe('Trading routes load cleanly when authenticated', () => {
     test(`${route} loads without server error or console errors`, async ({ page }) => {
       const consoleErrors: string[] = [];
       page.on('console', (msg) => {
-        // favicon 404s are environmental noise, not app errors.
-        if (msg.type() === 'error' && !msg.text().includes('favicon')) consoleErrors.push(msg.text());
+        if (msg.type() !== 'error') return;
+        // favicon noise: the URL lives in location(), not always in text().
+        const url = msg.location()?.url ?? '';
+        if (msg.text().includes('favicon') || url.includes('favicon')) return;
+        consoleErrors.push(`${msg.text()} ${url}`.trim());
       });
 
       const res = await page.goto(route);

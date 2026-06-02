@@ -55,8 +55,13 @@ test.describe('Trading routes — accessibility', () => {
     for (let i = 0; i < count; i++) {
       const el = buttons.nth(i);
       if (!(await el.isVisible().catch(() => false))) continue;
-      const name = ((await el.getAttribute('aria-label')) ?? (await el.innerText().catch(() => ''))) || '';
-      expect(name.trim().length, `unlabelled button at index ${i}`).toBeGreaterThan(0);
+      // Accessible name per the AccName spec: aria-label, then text, then title.
+      const name =
+        ((await el.getAttribute('aria-label')) ??
+          (await el.innerText().catch(() => '')) ??
+          (await el.getAttribute('title'))) || (await el.getAttribute('title')) || '';
+      const html = await el.evaluate((n) => (n as HTMLElement).outerHTML.slice(0, 120));
+      expect(name.trim().length, `unlabelled button: ${html}`).toBeGreaterThan(0);
     }
   });
 

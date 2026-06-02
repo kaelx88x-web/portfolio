@@ -191,7 +191,7 @@
         Ask AI
       </button>
 
-      <button class="tb-icon-btn" title="Notifications">
+      <button class="tb-icon-btn" title="Notifications" aria-label="Notifications">
         <Bell size={16} />
         <span class="tb-notif-dot"></span>
       </button>
@@ -229,6 +229,8 @@
         class:active={!sidebarCollapsed}
         on:click={() => dispatch('toggleSidebar')}
         title="Toggle sidebar"
+        aria-label="Toggle sidebar"
+        aria-pressed={!sidebarCollapsed}
       >
         <LayoutGrid size={15} />
       </button>
@@ -238,6 +240,8 @@
         class:active={aiPanelOpen}
         on:click={() => dispatch('toggleAiPanel')}
         title="Toggle AI panel"
+        aria-label="Toggle AI panel"
+        aria-pressed={aiPanelOpen}
       >
         <Sparkles size={15} />
       </button>
@@ -248,6 +252,7 @@
         class="tb-icon-btn"
         on:click={theme.toggle}
         title={$theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        aria-label={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         {#if $theme === 'dark'}
           <Sun size={15} />
