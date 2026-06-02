@@ -1094,14 +1094,11 @@ def cashflow(days: int = 30, prefer_real: bool = True):
     except ImportError:
         raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
 
-    # Build list of dates to query (last N calendar days, skip weekends)
-    from datetime import date, timedelta
-    today = date.today()
-    dates_to_query = []
-    for i in range(days):
-        d = today - timedelta(days=i)
-        if d.weekday() < 5:  # Mon–Fri only
-            dates_to_query.append(d.strftime("%Y-%m-%d"))
+    # Build list of dates to query (last N calendar days, skip weekends).
+    # Pure logic lives in cashflow_logic for unit testing.
+    from datetime import date
+    from cashflow_logic import cashflow_query_dates, parse_cashflow_row
+    dates_to_query = cashflow_query_dates(days, date.today())
 
     # Find active account
     firms = [SecurityFirm.FUTUINC, SecurityFirm.FUTUMY, SecurityFirm.FUTUSG,
@@ -1152,18 +1149,7 @@ def cashflow(days: int = 30, prefer_real: bool = True):
             )
             if ret == RET_OK and data is not None and hasattr(data, "to_dict") and not data.empty:
                 rows = data.to_dict("records")
-                parsed = []
-                for row in rows:
-                    parsed.append({
-                        "cashflow_id": str(row.get("cashflow_id") or ""),
-                        "clearing_date": str(row.get("clearing_date") or clearing_date),
-                        "settlement_date": str(row.get("settlement_date") or ""),
-                        "currency": str(row.get("currency") or "USD"),
-                        "cashflow_type": str(row.get("cashflow_type") or ""),
-                        "cashflow_direction": str(row.get("cashflow_direction") or ""),
-                        "amount": _f(row.get("cashflow_amount")),
-                        "remark": str(row.get("cashflow_remark") or ""),
-                    })
+                parsed = [parse_cashflow_row(row, clearing_date) for row in rows]
                 with lock:
                     all_rows.extend(parsed)
         except Exception:
