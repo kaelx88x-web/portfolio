@@ -1,13 +1,17 @@
 import { error, fail } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
 import { buildStockDetail } from '$lib/services/stock-detail.service';
+import { getGlobalMarkets } from '$lib/services/broker.service';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const user = locals.user!;
   const vm = await buildStockDetail(user.id, params.symbol);
   if (!vm) throw error(404, `No data for ${params.symbol}`);
-  return { detail: vm };
+  const tz = await getGlobalMarkets()
+    .then((g) => g.markets.find((m) => m.key?.toUpperCase() === (vm.asset.market ?? 'US').toUpperCase())?.timezone ?? null)
+    .catch(() => null);
+  return { detail: vm, timezone: tz };
 };
 
 export const actions: Actions = {
