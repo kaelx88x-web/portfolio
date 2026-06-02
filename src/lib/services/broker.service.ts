@@ -1,4 +1,5 @@
 ﻿import type { BrokerHolding, MoomooStatus, MoomooSyncResult } from '$lib/types/portfolio';
+import { cached } from '$lib/server/quote-cache';
 import { execFile, spawn } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access } from 'node:fs/promises';
@@ -341,20 +342,20 @@ export async function getQuoteSnapshots(codes: string[]): Promise<QuoteSnapshot[
 export async function getHistoricalCandles(
   code: string,
   start?: string | null,
-  end?: string | null
+  end?: string | null,
+  force = false
 ): Promise<HistoricalCandle[]> {
-  const params = new URLSearchParams({ code: code.trim().toUpperCase() });
-  if (start) params.set('start', start);
-  if (end) params.set('end', end);
-
-  const res = await fetch(`${bridgeBase()}/quotes/history?${params.toString()}`, {
-    signal: AbortSignal.timeout(30000)
-  });
-  if (!res.ok) {
-    throw new Error(`${res.status} ${await readError(res, 'Historical quote failed')}`);
-  }
-  const body = await res.json();
-  return body.candles ?? [];
+  return cached(`candles:${code}:${start ?? ''}:${end ?? ''}`, 30_000, async () => {
+    const params = new URLSearchParams({ code: code.trim().toUpperCase() });
+    if (start) params.set('start', start);
+    if (end) params.set('end', end);
+    const res = await fetch(`${bridgeBase()}/quotes/history?${params.toString()}`, {
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!res.ok) throw new Error(`${res.status} ${await readError(res, 'Historical quote failed')}`);
+    const body = await res.json();
+    return body.candles ?? [];
+  }, { force });
 }
 
 export async function getMarketStates(codes: string[]): Promise<MarketState[]> {
@@ -387,16 +388,18 @@ export async function getCapitalFlow(codes: string[]): Promise<CapitalFlowItem[]
   const uniqueCodes = [...new Set(codes.map((c) => c.trim().toUpperCase()).filter(Boolean))];
   if (uniqueCodes.length === 0) return [];
 
-  try {
-    const res = await fetch(`${bridgeBase()}/quotes/capital-flow?codes=${encodeURIComponent(uniqueCodes.join(','))}`, {
-      signal: AbortSignal.timeout(20000)
-    });
-    if (!res.ok) return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: `${res.status}` }));
-    const body = await res.json();
-    return body.flows ?? [];
-  } catch {
-    return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: 'unavailable' }));
-  }
+  return cached(`flow:${uniqueCodes.join(',')}`, 20_000, async () => {
+    try {
+      const res = await fetch(`${bridgeBase()}/quotes/capital-flow?codes=${encodeURIComponent(uniqueCodes.join(','))}`, {
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!res.ok) return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: `${res.status}` }));
+      const body = await res.json();
+      return body.flows ?? [];
+    } catch {
+      return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: 'unavailable' }));
+    }
+  });
 }
 
 export type CapitalDistributionItem = {
@@ -421,17 +424,19 @@ export async function getCapitalDistribution(codes: string[]): Promise<CapitalDi
     mid_in: null, mid_out: null, sml_in: null, sml_out: null, error,
   });
 
-  try {
-    const res = await fetch(
-      `${bridgeBase()}/quotes/capital-distribution?codes=${encodeURIComponent(uniqueCodes.join(','))}`,
-      { signal: AbortSignal.timeout(20000) }
-    );
-    if (!res.ok) return uniqueCodes.map((c) => nullItem(c, `${res.status}`));
-    const body = await res.json();
-    return body.distributions ?? [];
-  } catch {
-    return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
-  }
+  return cached(`dist:${uniqueCodes.join(',')}`, 20_000, async () => {
+    try {
+      const res = await fetch(
+        `${bridgeBase()}/quotes/capital-distribution?codes=${encodeURIComponent(uniqueCodes.join(','))}`,
+        { signal: AbortSignal.timeout(20000) }
+      );
+      if (!res.ok) return uniqueCodes.map((c) => nullItem(c, `${res.status}`));
+      const body = await res.json();
+      return body.distributions ?? [];
+    } catch {
+      return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
+    }
+  });
 }
 
 export type CashFlowItem = {
@@ -550,17 +555,19 @@ export async function getStockBasicInfo(codes: string[]): Promise<StockBasicInfo
     pb_ratio: null, eps: null, market_cap: null, high_52wk: null, low_52wk: null, error,
   });
 
-  try {
-    const res = await fetch(
-      `${bridgeBase()}/quotes/basic-info?codes=${encodeURIComponent(uniqueCodes.join(','))}`,
-      { signal: AbortSignal.timeout(20000) }
-    );
-    if (!res.ok) return uniqueCodes.map((c) => nullItem(c, `${res.status}`));
-    const body = await res.json();
-    return body.basics ?? [];
-  } catch {
-    return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
-  }
+  return cached(`basic:${uniqueCodes.join(',')}`, 60_000, async () => {
+    try {
+      const res = await fetch(
+        `${bridgeBase()}/quotes/basic-info?codes=${encodeURIComponent(uniqueCodes.join(','))}`,
+        { signal: AbortSignal.timeout(20000) }
+      );
+      if (!res.ok) return uniqueCodes.map((c) => nullItem(c, `${res.status}`));
+      const body = await res.json();
+      return body.basics ?? [];
+    } catch {
+      return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
+    }
+  });
 }
 
 export type MarketIndex = {
