@@ -137,3 +137,37 @@ def enrich_candidate(row: dict[str, Any], underlying_price: Optional[float]) -> 
         "underlying_collateral_value": covered_call_collateral_value(underlying_price or 0.0),
         "assignment_risk": assignment_risk("call", underlying_price or 0.0, strike),
     }
+
+
+def spread_candidates(chain: list[dict[str, Any]], strategy: str = "bull_put", width: float = 0.5) -> list[dict[str, Any]]:
+    """Pair two legs of the same type into a vertical credit spread and price it
+    with the existing vertical_spread_* helpers. Currently supports 'bull_put'
+    (sell higher-strike put, buy lower-strike put) and 'bear_call' (sell lower
+    call, buy higher call). Pure: takes a chain, returns candidate dicts."""
+    is_put = strategy == "bull_put"
+    legs = [r for r in chain if str(r.get("option_type", "")).lower().startswith("p" if is_put else "c")]
+    by_strike = {round(float(r.get("strike") or 0), 2): r for r in legs}
+    out: list[dict[str, Any]] = []
+    for strike, short_leg in by_strike.items():
+        # credit spread: long leg is `width` further OTM
+        long_strike = round(strike - width, 2) if is_put else round(strike + width, 2)
+        long_leg = by_strike.get(long_strike)
+        if not long_leg:
+            continue
+        short_mid = option_mid(short_leg.get("bid") or 0, short_leg.get("ask") or 0)
+        long_mid = option_mid(long_leg.get("bid") or 0, long_leg.get("ask") or 0)
+        net_credit = round(short_mid - long_mid, 4)
+        if net_credit <= 0:
+            continue
+        out.append({
+            "strategy": strategy,
+            "short_strike": strike,
+            "long_strike": long_strike,
+            "width": round(width, 2),
+            "net_credit": net_credit,
+            "max_profit": vertical_spread_max_profit(width, net_credit, is_debit=False),
+            "max_loss": vertical_spread_max_loss(width, net_credit, is_debit=False),
+            "short_delta": short_leg.get("delta"),
+        })
+    out.sort(key=lambda x: x["max_profit"], reverse=True)
+    return out

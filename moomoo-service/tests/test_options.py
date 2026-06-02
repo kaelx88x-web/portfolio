@@ -28,6 +28,7 @@ from options_logic import (  # noqa: E402
     candidate_strategy,
     assignment_risk,
     enrich_candidate,
+    spread_candidates,
 )
 
 
@@ -147,6 +148,29 @@ class TestEnrichCandidate(unittest.TestCase):
         self.assertEqual(out["underlying_collateral_value"], 500.0)
         # underlying 5.00 vs strike 5.50 → ~9% OTM call → low assignment risk
         self.assertEqual(out["assignment_risk"], "low")
+
+
+class TestSpreadCandidates(unittest.TestCase):
+    def _chain(self):
+        # puts at 5.0/4.5 with mids 0.40/0.25 → bull put credit spread width 0.5
+        return [
+            {"option_type": "PUT", "strike": 5.0, "bid": 0.38, "ask": 0.42, "delta": -0.30},
+            {"option_type": "PUT", "strike": 4.5, "bid": 0.23, "ask": 0.27, "delta": -0.18},
+        ]
+
+    def test_bull_put_credit_spread_max_loss_profit(self):
+        out = spread_candidates(self._chain(), strategy="bull_put", width=0.5)
+        self.assertEqual(len(out), 1)
+        c = out[0]
+        # net credit = 0.40 - 0.25 = 0.15 → max profit 15, max loss (0.5-0.15)*100 = 35
+        self.assertAlmostEqual(c["net_credit"], 0.15, places=2)
+        self.assertAlmostEqual(c["max_profit"], 15.0, places=2)
+        self.assertAlmostEqual(c["max_loss"], 35.0, places=2)
+        self.assertEqual(c["short_strike"], 5.0)
+        self.assertEqual(c["long_strike"], 4.5)
+
+    def test_no_pair_when_width_not_found(self):
+        self.assertEqual(spread_candidates(self._chain(), strategy="bull_put", width=2.0), [])
 
 
 if __name__ == "__main__":
