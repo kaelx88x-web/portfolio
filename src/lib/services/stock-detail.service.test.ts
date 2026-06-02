@@ -17,6 +17,7 @@ describe('toMoomooCode', () => {
   it('China A → SH/SZ by leading digit', () => {
     expect(toMoomooCode('600519', 'CN')).toBe('SH.600519');
     expect(toMoomooCode('000001', 'CN')).toBe('SZ.000001');
+    expect(toMoomooCode('300750', 'CN')).toBe('SZ.300750'); // ChiNext → Shenzhen
   });
   it('already-prefixed code passes through', () => {
     expect(toMoomooCode('HK.00700', 'HK')).toBe('HK.00700');
@@ -30,5 +31,8 @@ describe('expiryDte', () => {
   });
   it('today → 0', () => {
     expect(expiryDte('2026-06-02', new Date('2026-06-02T12:00:00Z'))).toBe(0);
+  });
+  it('already-expired contract → negative DTE', () => {
+    expect(expiryDte('2026-05-30', new Date('2026-06-02T00:00:00Z'))).toBe(-3);
   });
 });

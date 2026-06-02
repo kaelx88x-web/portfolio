@@ -16,7 +16,8 @@ export function toMoomooCode(symbol: string, market?: string | null): string {
       return `MY.${digits.padStart(4, '0')}`;
     case 'CN':
     case 'A':
-      // Shanghai codes start 6; Shenzhen start 0/3.
+      // Shanghai listings are the 6-series (60xxxx/688xxx); everything else
+      // (Shenzhen main 00xxxx, ChiNext 30xxxx) routes to Shenzhen.
       return `${digits.startsWith('6') ? 'SH' : 'SZ'}.${digits.padStart(6, '0')}`;
     case 'SG':
       return `SG.${raw}`;
