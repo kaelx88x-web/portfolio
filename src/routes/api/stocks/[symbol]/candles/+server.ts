@@ -1,14 +1,14 @@
 import { json, error } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
 import { getHistoricalCandles } from '$lib/services/broker.service';
-import { toMoomooCode } from '$lib/services/stock-detail.service';
+import { toMoomooCode, decodeSymbolParam } from '$lib/services/stock-detail.service';
 import type { RequestHandler } from './$types';
 
 const RANGE_DAYS: Record<string, number> = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365 };
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   void locals.user!; // auth enforced by hooks
-  const symbol = decodeURIComponent(params.symbol).toUpperCase();
+  const symbol = decodeSymbolParam(params.symbol);
   const asset = await prisma.asset.findUnique({ where: { symbol } });
   if (!asset) throw error(404, 'Unknown symbol');
 

@@ -29,6 +29,7 @@ from options_logic import (  # noqa: E402
     assignment_risk,
     enrich_candidate,
     spread_candidates,
+    normalize_chain_row,
 )
 
 
@@ -171,6 +172,30 @@ class TestSpreadCandidates(unittest.TestCase):
 
     def test_no_pair_when_width_not_found(self):
         self.assertEqual(spread_candidates(self._chain(), strategy="bull_put", width=2.0), [])
+
+    def _raw_chain(self):
+        # Raw moomoo get_option_chain shape: strike_price / bid_price / ask_price
+        # and uppercase option_type. This is what the endpoint actually receives.
+        return [
+            {"option_type": "PUT", "strike_price": 5.0, "bid_price": 0.38, "ask_price": 0.42, "delta": -0.30},
+            {"option_type": "PUT", "strike_price": 4.5, "bid_price": 0.23, "ask_price": 0.27, "delta": -0.18},
+        ]
+
+    def test_endpoint_path_normalizes_raw_records(self):
+        # Mirrors /options/spread-candidates: normalize raw records, then pair.
+        # Regression guard — feeding raw records straight in yields [] (every
+        # strike/bid/ask reads as 0), so this must go through normalize_chain_row.
+        chain = [normalize_chain_row(r) for r in self._raw_chain()]
+        out = spread_candidates(chain, strategy="bull_put", width=0.5)
+        self.assertEqual(len(out), 1)
+        c = out[0]
+        self.assertAlmostEqual(c["net_credit"], 0.15, places=2)
+        self.assertEqual(c["short_strike"], 5.0)
+        self.assertEqual(c["long_strike"], 4.5)
+
+    def test_raw_records_without_normalization_are_empty(self):
+        # Proves the bug the normalization fixes: raw field names → no candidates.
+        self.assertEqual(spread_candidates(self._raw_chain(), strategy="bull_put", width=0.5), [])
 
 
 if __name__ == "__main__":

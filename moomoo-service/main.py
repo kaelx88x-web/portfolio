@@ -785,28 +785,18 @@ def options_chain(symbol: str, expiry: str, option_type: str = "all"):
         if option_type in ("call", "put"):
             rows = [r for r in rows if str(r.get("option_type", "")).lower().startswith(option_type[0])]
 
-        # Normalise fields
+        # Normalise fields (shared with /options/spread-candidates so names can't drift)
+        from options_logic import normalize_chain_row, option_mid
+
         result = []
         for r in rows:
-            result.append({
-                "code": r.get("code"),
-                "symbol": code,
-                "expiry": expiry,
-                "option_type": str(r.get("option_type", "")).lower(),
-                "strike": _f(r.get("strike_price")),
-                "last_price": _f(r.get("last_price")),
-                "bid": _f(r.get("bid_price")),
-                "ask": _f(r.get("ask_price")),
-                "volume": r.get("volume"),
-                "open_interest": r.get("open_interest"),
-                "implied_volatility": _f(r.get("implied_volatility")),
-                "delta": _f(r.get("delta")),
-                "gamma": _f(r.get("gamma")),
-                "theta": _f(r.get("theta")),
-                "vega": _f(r.get("vega")),
-                "mid_price": round((_f(r.get("bid_price")) or 0 + _f(r.get("ask_price")) or 0) / 2, 4)
-                    if r.get("bid_price") and r.get("ask_price") else None,
-            })
+            row = normalize_chain_row(r)
+            row["symbol"] = code
+            row["expiry"] = expiry
+            row["mid_price"] = (
+                option_mid(row["bid"], row["ask"]) if (r.get("bid_price") and r.get("ask_price")) else None
+            )
+            result.append(row)
 
         return {
             "symbol": code,
@@ -941,7 +931,7 @@ def options_spread_candidates(symbol: str, expiry: str, strategy: str = "bull_pu
     except ImportError:
         raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
 
-    from options_logic import spread_candidates
+    from options_logic import spread_candidates, normalize_chain_row
 
     code = symbol if "." in symbol else f"US.{symbol}"
     ctx = None
@@ -950,7 +940,10 @@ def options_spread_candidates(symbol: str, expiry: str, strategy: str = "bull_pu
         ret, data = ctx.get_option_chain(code, expiry, expiry)
         if ret != RET_OK:
             raise HTTPException(status_code=400, detail=str(data))
-        chain = _records(data)
+        # Normalize raw moomoo records (strike_price/bid_price/ask_price) onto the
+        # strike/bid/ask names spread_candidates reads — otherwise every field is
+        # 0 and the candidate list is always empty.
+        chain = [normalize_chain_row(r) for r in _records(data)]
         candidates = spread_candidates(chain, strategy=strategy, width=width)
         return {
             "symbol": code,

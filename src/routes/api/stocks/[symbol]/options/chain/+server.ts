@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { getOptionChain } from '$lib/services/broker.service';
+import { decodeSymbolParam } from '$lib/services/stock-detail.service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   void locals.user!;
-  const symbol = decodeURIComponent(params.symbol).toUpperCase();
+  const symbol = decodeSymbolParam(params.symbol);
   const expiry = url.searchParams.get('expiry') ?? '';
   const type = (url.searchParams.get('type') ?? 'all') as 'call' | 'put' | 'all';
   if (!expiry) return json({ status: 'error', chain: [] }, { status: 400 });

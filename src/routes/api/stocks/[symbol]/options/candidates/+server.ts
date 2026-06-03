@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { getOptionCandidates, getOptionSpreadCandidates } from '$lib/services/broker.service';
+import { decodeSymbolParam } from '$lib/services/stock-detail.service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   void locals.user!;
-  const symbol = decodeURIComponent(params.symbol).toUpperCase();
+  const symbol = decodeSymbolParam(params.symbol);
   const mode = url.searchParams.get('mode') ?? 'both'; // cc | csp | both | spread
   try {
     if (mode === 'spread') {

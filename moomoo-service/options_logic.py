@@ -18,6 +18,42 @@ from typing import Any, Optional
 CONTRACT_MULTIPLIER = 100
 
 
+def _safe_float(value: Any) -> float:
+    """Tolerant float coercion mirroring main.py's `_f` (so this module stays
+    dependency-free and testable without importing main)."""
+    try:
+        if value in (None, "", "N\\A"):
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def normalize_chain_row(r: dict[str, Any]) -> dict[str, Any]:
+    """Map a raw moomoo `get_option_chain` record — which uses `strike_price`,
+    `bid_price`, `ask_price`, and an uppercase `option_type` — onto the
+    normalized field names every helper here expects (`strike`, `bid`, `ask`,
+    lowercase `option_type`). Pure, so the spread/candidate pipeline can be
+    exercised end-to-end in tests without OpenD. /options/chain and
+    /options/spread-candidates both go through this, so the field names can't
+    drift apart between the two endpoints."""
+    return {
+        "code": r.get("code"),
+        "option_type": str(r.get("option_type", "")).lower(),
+        "strike": _safe_float(r.get("strike_price")),
+        "last_price": _safe_float(r.get("last_price")),
+        "bid": _safe_float(r.get("bid_price")),
+        "ask": _safe_float(r.get("ask_price")),
+        "volume": r.get("volume"),
+        "open_interest": r.get("open_interest"),
+        "implied_volatility": _safe_float(r.get("implied_volatility")),
+        "delta": _safe_float(r.get("delta")),
+        "gamma": _safe_float(r.get("gamma")),
+        "theta": _safe_float(r.get("theta")),
+        "vega": _safe_float(r.get("vega")),
+    }
+
+
 def option_mid(bid: float, ask: float) -> float:
     """Mid price; falls back to bid when ask is missing/zero (mirrors main.py)."""
     b = bid or 0.0

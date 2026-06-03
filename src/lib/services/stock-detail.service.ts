@@ -34,11 +34,22 @@ export function expiryDte(expiry: string, today: Date = new Date()): number {
   return Math.round((e - t) / 86_400_000);
 }
 
+import { error } from '@sveltejs/kit';
 import { prisma } from '$lib/server/db';
 import {
   getQuoteSnapshots, getStockBasicInfo, getHistoricalCandles, getCapitalFlow,
   getMarketStates, getPlateList, getPlateStocks
 } from './broker.service';
+
+/** Decode a `[symbol]` route param, 404ing on a malformed %-escape rather than
+ *  letting the URIError bubble up as a 500. For use in `/api/stocks/[symbol]/*`. */
+export function decodeSymbolParam(param: string): string {
+  try {
+    return decodeURIComponent(param).trim().toUpperCase();
+  } catch {
+    throw error(404, 'Unknown symbol');
+  }
+}
 
 export type BlockState<T> = { status: 'ok' | 'unavailable' | 'stale'; data: T | null };
 
@@ -83,7 +94,14 @@ async function block<T>(fn: () => Promise<T | null | undefined>, isEmpty: (v: T)
 }
 
 export async function buildStockDetail(userId: string, symbolParam: string): Promise<StockDetailVM | null> {
-  const symbol = decodeURIComponent(symbolParam).trim().toUpperCase();
+  // A malformed %-escape (e.g. `%E0%A4%A`) throws URIError; treat it as an
+  // unknown symbol (→ 404) rather than letting it bubble to a 500.
+  let symbol: string;
+  try {
+    symbol = decodeURIComponent(symbolParam).trim().toUpperCase();
+  } catch {
+    return null;
+  }
   const asset = await prisma.asset.findUnique({ where: { symbol } });
   if (!asset) return null;
 

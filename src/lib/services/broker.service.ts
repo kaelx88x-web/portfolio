@@ -388,18 +388,22 @@ export async function getCapitalFlow(codes: string[]): Promise<CapitalFlowItem[]
   const uniqueCodes = [...new Set(codes.map((c) => c.trim().toUpperCase()).filter(Boolean))];
   if (uniqueCodes.length === 0) return [];
 
-  return cached(`flow:${uniqueCodes.join(',')}`, 20_000, async () => {
-    try {
+  // Failure fallback lives OUTSIDE `cached` on purpose: throwing inside the
+  // cached fn means a transient bridge error is never stored, so a recovered
+  // bridge serves fresh data on the next call instead of a stale error for the
+  // full TTL. Callers still get the array-with-`error` contract.
+  try {
+    return await cached(`flow:${uniqueCodes.join(',')}`, 20_000, async () => {
       const res = await fetch(`${bridgeBase()}/quotes/capital-flow?codes=${encodeURIComponent(uniqueCodes.join(','))}`, {
         signal: AbortSignal.timeout(20000)
       });
-      if (!res.ok) return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: `${res.status}` }));
+      if (!res.ok) throw new Error(`capital-flow ${res.status}`);
       const body = await res.json();
       return body.flows ?? [];
-    } catch {
-      return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: 'unavailable' }));
-    }
-  });
+    });
+  } catch {
+    return uniqueCodes.map((code) => ({ code, in_flow: null, main_in_flow: null, super_in_flow: null, big_in_flow: null, mid_in_flow: null, sml_in_flow: null, update_time: null, error: 'unavailable' }));
+  }
 }
 
 export type CapitalDistributionItem = {
@@ -424,19 +428,20 @@ export async function getCapitalDistribution(codes: string[]): Promise<CapitalDi
     mid_in: null, mid_out: null, sml_in: null, sml_out: null, error,
   });
 
-  return cached(`dist:${uniqueCodes.join(',')}`, 20_000, async () => {
-    try {
+  // Failure fallback outside `cached` so transient errors aren't cached (see getCapitalFlow).
+  try {
+    return await cached(`dist:${uniqueCodes.join(',')}`, 20_000, async () => {
       const res = await fetch(
         `${bridgeBase()}/quotes/capital-distribution?codes=${encodeURIComponent(uniqueCodes.join(','))}`,
         { signal: AbortSignal.timeout(20000) }
       );
-      if (!res.ok) return uniqueCodes.map((c) => nullItem(c, `${res.status}`));
+      if (!res.ok) throw new Error(`capital-distribution ${res.status}`);
       const body = await res.json();
       return body.distributions ?? [];
-    } catch {
-      return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
-    }
-  });
+    });
+  } catch {
+    return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
+  }
 }
 
 export type CashFlowItem = {
@@ -555,19 +560,20 @@ export async function getStockBasicInfo(codes: string[]): Promise<StockBasicInfo
     pb_ratio: null, eps: null, market_cap: null, high_52wk: null, low_52wk: null, error,
   });
 
-  return cached(`basic:${uniqueCodes.join(',')}`, 60_000, async () => {
-    try {
+  // Failure fallback outside `cached` so transient errors aren't cached (see getCapitalFlow).
+  try {
+    return await cached(`basic:${uniqueCodes.join(',')}`, 60_000, async () => {
       const res = await fetch(
         `${bridgeBase()}/quotes/basic-info?codes=${encodeURIComponent(uniqueCodes.join(','))}`,
         { signal: AbortSignal.timeout(20000) }
       );
-      if (!res.ok) return uniqueCodes.map((c) => nullItem(c, `${res.status}`));
+      if (!res.ok) throw new Error(`basic-info ${res.status}`);
       const body = await res.json();
       return body.basics ?? [];
-    } catch {
-      return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
-    }
-  });
+    });
+  } catch {
+    return uniqueCodes.map((c) => nullItem(c, 'unavailable'));
+  }
 }
 
 export type MarketIndex = {
