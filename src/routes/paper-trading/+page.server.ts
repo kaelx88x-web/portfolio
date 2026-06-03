@@ -1,6 +1,7 @@
 // src/routes/paper-trading/+page.server.ts
 import { getMoomooPaperDashboard } from '$lib/services/moomoo-paper.service';
 import { getLatestAgentPush } from '$lib/services/agent.service';
+import { recordPriceAudit } from '$lib/services/price-audit.service';
 import type { PageServerLoad } from './$types';
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
@@ -186,6 +187,14 @@ export const actions: Actions = {
       acc_id: PAPER_ACC_ID,
       dry_run: false,
     };
+
+    const quoteTsRaw = data.get('quote_ts');
+    await recordPriceAudit({
+      userId: user.id, context: 'paper', symbol: toMoomooSymbol(symbol),
+      source: String(data.get('quote_source') ?? 'unknown'),
+      price: price > 0 ? price : null, bid: null, ask: null,
+      quoteTs: quoteTsRaw ? Number(quoteTsRaw) : Date.now()
+    }).catch(() => {});
 
     try {
       const res = await fetch(`${BRIDGE}/execution/orders`, {
