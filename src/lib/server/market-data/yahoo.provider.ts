@@ -16,13 +16,16 @@ export interface YahooClient {
   chart(symbol: string, opts: unknown): Promise<{ quotes: Array<Record<string, unknown>> }>;
 }
 
-const RANGE_TO_OPTS: Record<string, { period1: Date; interval: '1d' | '1h' | '5m' }> = {
-  '1D': { period1: daysAgo(1), interval: '5m' },
-  '1W': { period1: daysAgo(7), interval: '1h' },
-  '1M': { period1: daysAgo(30), interval: '1d' },
-  '3M': { period1: daysAgo(90), interval: '1d' },
-  '1Y': { period1: daysAgo(365), interval: '1d' }
-};
+function rangeOpts(range: string): { period1: Date; interval: '1d' | '1h' | '5m' } {
+  switch (range) {
+    case '1D': return { period1: daysAgo(1), interval: '5m' };
+    case '1W': return { period1: daysAgo(7), interval: '1h' };
+    case '1M': return { period1: daysAgo(30), interval: '1d' };
+    case '1Y': return { period1: daysAgo(365), interval: '1d' };
+    case '3M':
+    default:   return { period1: daysAgo(90), interval: '1d' };
+  }
+}
 
 function daysAgo(n: number): Date { return new Date(Date.now() - n * 86_400_000); }
 
@@ -68,7 +71,7 @@ export function makeYahooProvider(client: YahooClient): MarketDataProvider {
     },
 
     async getCandles(code: string, range: string): Promise<Candle[]> {
-      const opts = RANGE_TO_OPTS[range] ?? RANGE_TO_OPTS['3M'];
+      const opts = rangeOpts(range);
       const res = await client.chart(toYahooSymbol(code), opts);
       const quotes = (res?.quotes ?? []) as Array<Record<string, unknown>>;
       return quotes
