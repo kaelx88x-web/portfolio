@@ -11,9 +11,10 @@ test.describe('stock detail — options', () => {
     if (page.url().match(/onboarding|login/)) test.skip(true, 'redirected');
     await page.getByRole('tab', { name: /options/i }).click();
     // Either a chain renders or an explicit "Data Not Available" — never a crash.
-    await expect(page.locator('.op')).toBeVisible();
-    // No control offers a LIVE order.
-    const liveBtn = page.getByRole('button', { name: /live/i });
-    await expect(liveBtn).toHaveCount(0);
+    const panel = page.locator('.op');
+    await expect(panel).toBeVisible();
+    // No control *within the options panel* offers a LIVE order — paper-only by spec.
+    // (Scoped to .op so the global account switcher "Live Account … LIVE" doesn't trip this.)
+    await expect(panel.getByRole('button', { name: /live/i })).toHaveCount(0);
   });
 });
