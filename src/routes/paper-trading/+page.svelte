@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { FlaskConical, RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart2, AlertTriangle, Terminal, MonitorCheck, Wifi, RotateCcw, ServerCrash, Radio } from 'lucide-svelte';
   import { PUBLIC_APP_MODE } from '$env/static/public';
   import { enhance } from '$app/forms';
@@ -7,6 +7,9 @@
   import type { ActionData, PageData } from './$types';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
+  import { subscribeQuotes, liveQuotes } from '$lib/stores/live-quotes';
+  import LiveDot from '$lib/components/LiveDot.svelte';
+  import DelayedDataNotice from '$lib/components/DelayedDataNotice.svelte';
 
   const isSaas = PUBLIC_APP_MODE === 'saas';
 
@@ -246,6 +249,21 @@
   $: positions = paper.positions ?? [];
   $: orders    = paper.orders ?? [];
   $: deals     = paper.deals ?? [];
+
+  // ── Realtime mark price + P/L ──────────────────────────────────
+  let _unsubQuotes = () => {};
+  $: {
+    _unsubQuotes();
+    _unsubQuotes = subscribeQuotes((positions as any[]).map((p) => String(p.symbol).toUpperCase()));
+  }
+  onDestroy(() => _unsubQuotes());
+
+  function mark(p: any): number {
+    return $liveQuotes.get(String(p.symbol).toUpperCase())?.last ?? p.market_price ?? p.average_cost;
+  }
+  function uPnl(p: any): number {
+    return (mark(p) - p.average_cost) * p.quantity;
+  }
   $: fromAgent = (paper as Record<string, unknown>).from_agent as boolean ?? false;
   $: agentPushedAt = (paper as Record<string, unknown>).agent_pushed_at as string | null ?? null;
 
@@ -297,9 +315,17 @@
 
 <PageHeader
   title="Paper Trading"
-  subtitle="Moomoo simulate account — live positions, orders and trade history."
+  subtitle="Paper trading · Virtual funds · No real money at risk"
   breadcrumb={[{ label: 'Paper Trading' }]}
 />
+
+<!-- ── Simulation mode banner ─────────────────────────────────── -->
+<div class="sim-banner" role="status" aria-label="Paper trading simulation mode — no real money">
+  <FlaskConical size={13} />
+  <span class="sim-banner-badge">PAPER MODE</span>
+  <span class="sim-banner-sep">·</span>
+  <span class="sim-banner-text">Virtual funds only — no real money is at risk</span>
+</div>
 
 <!-- ── Header actions ─────────────────────────────────────────── -->
 {#if !paper.error}
@@ -316,6 +342,10 @@
 <!-- ── Account balance panel (amber) ─────────────────────────── -->
 {#if !paper.error}
   <div class="balance-panel">
+    <div class="balance-panel-header">
+      <FlaskConical size={11} />
+      VIRTUAL BALANCE
+    </div>
     <div class="balance-stat">
       <div class="balance-label">Cash Available</div>
       <div class="balance-value">{money(info.cash ?? 0)}</div>
@@ -404,7 +434,7 @@
 
         <div class="form-actions">
           <button type="submit" class="btn-preview" disabled={previewLoading}>
-            {previewLoading ? 'Loading…' : 'Preview Order →'}
+            {previewLoading ? 'Loading…' : 'Preview Paper Trade →'}
           </button>
         </div>
 
@@ -457,13 +487,13 @@
         {#if optExpiry && !optChainLoading && !optChainError && optChain.length > 0}
           <div class="chain-wrap">
             <table class="chain-table">
-              <thead>
+              <thead class="chain-sticky-head">
                 <tr>
                   <th>Strike</th>
                   <th class="num">Bid</th>
                   <th class="num">Ask</th>
-                  <th class="num">IV%</th>
-                  <th class="num">Spread</th>
+                  <th class="num" title="Implied Volatility — market's expectation of future price movement. Higher IV = more expensive option.">IV% ⓘ</th>
+                  <th class="num" title="Bid-Ask spread as % of ask. Wide spread (&gt;30%) means harder to get a good fill.">Spread ⓘ</th>
                 </tr>
               </thead>
               <tbody>
@@ -539,7 +569,7 @@
 
         <div class="form-actions">
           <button type="submit" class="btn-preview" disabled={!optSelectedCode || previewLoading}>
-            {previewLoading ? 'Loading…' : 'Preview Order →'}
+            {previewLoading ? 'Loading…' : 'Preview Paper Trade →'}
           </button>
         </div>
         <div class="paper-notice">⚗ Paper mode — no real money will be used</div>
@@ -590,7 +620,7 @@
         <input type="hidden" name="price" value={previewData.price ?? 0} />
         <input type="hidden" name="option_code" value={previewData.option_code ?? ''} />
         <button type="submit" class="btn-confirm" disabled={submitLoading}>
-          {submitLoading ? 'Submitting…' : 'Confirm & Submit'}
+          {submitLoading ? 'Submitting…' : 'Place Paper Trade'}
         </button>
       </form>
     {:else}
@@ -626,47 +656,48 @@
     <div class="conn-error-card">
       <div class="conn-error-header">
         <AlertTriangle size={16} />
-        <span>Cannot connect to Moomoo bridge</span>
-        <code class="conn-error-msg">{paper.error}</code>
+        <span>Paper trading service is offline</span>
       </div>
 
-      <p class="conn-error-intro">Follow these steps to restore the connection:</p>
+      <p class="conn-error-intro">
+        Your local Moomoo bridge is not running. Start it to load your paper account.
+      </p>
+
+      <div class="conn-cta-row">
+        <button class="btn-retry" on:click={() => window.location.reload()}>
+          <RotateCcw size={13} /> Retry Connection
+        </button>
+      </div>
 
       <ol class="conn-steps">
         <li>
           <span class="step-icon"><MonitorCheck size={14} /></span>
           <div>
             <strong>Open Moomoo OpenD</strong>
-            <span class="step-detail">Launch the <em>OpenD</em> desktop app and make sure it shows <em>"Connected"</em>. Log in if prompted.</span>
+            <span class="step-detail">Launch the OpenD app and confirm it shows "Connected".</span>
           </div>
         </li>
         <li>
           <span class="step-icon"><Terminal size={14} /></span>
           <div>
-            <strong>Start the moomoo-service</strong>
-            <span class="step-detail">In a terminal at the project root, run:</span>
-            <pre class="conn-cmd">cd moomoo-service
-python main.py</pre>
-            <span class="step-detail">You should see <em>"Uvicorn running on http://127.0.0.1:8001"</em>.</span>
-          </div>
-        </li>
-        <li>
-          <span class="step-icon"><Wifi size={14} /></span>
-          <div>
-            <strong>Check port 8001 is free</strong>
-            <span class="step-detail">If another process is using port 8001, stop it first. On Windows:</span>
-            <pre class="conn-cmd">netstat -ano | findstr :8001
-taskkill /PID &lt;pid&gt; /F</pre>
-          </div>
-        </li>
-        <li>
-          <span class="step-icon"><RotateCcw size={14} /></span>
-          <div>
-            <strong>Refresh this page</strong>
-            <span class="step-detail">Once OpenD and moomoo-service are both running, reload to fetch live data.</span>
+            <strong>Start the bridge service</strong>
+            <span class="step-detail">Run the moomoo-service on your machine, then click Retry above.</span>
           </div>
         </li>
       </ol>
+
+      <details class="dev-details">
+        <summary>Developer details</summary>
+        <div class="dev-details-body">
+          <p class="step-detail">Error: <code class="conn-error-msg">{paper.error}</code></p>
+          <p class="step-detail">Start command:</p>
+          <pre class="conn-cmd">cd moomoo-service
+python main.py</pre>
+          <p class="step-detail">If port 8001 is in use (Windows):</p>
+          <pre class="conn-cmd">netstat -ano | findstr :8001
+taskkill /PID &lt;pid&gt; /F</pre>
+        </div>
+      </details>
     </div>
   {/if}
 {/if}
@@ -682,7 +713,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
 <div class="account-bar">
   <FlaskConical size={13} />
   <span class="acc-label">{paper.account.account_label}</span>
-  <span class="sim-badge">SIMULATE</span>
+  <span class="sim-badge">PAPER MODE</span>
   <span class="acc-meta">acc {paper.account.broker_account_id} · {paper.account.trdmarket_auth.join(', ')}</span>
   <span class="sync-time">Synced {formatDate(paper.synced_at)}</span>
 </div>
@@ -692,7 +723,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
   <div class="stat-card">
     <div class="stat-icon"><DollarSign size={15} /></div>
     <div class="stat-body">
-      <div class="stat-label">Total Assets</div>
+      <div class="stat-label">Total Assets <span class="virtual-pill">VIRTUAL</span></div>
       <div class="stat-value">{money(info.total_assets)}</div>
     </div>
   </div>
@@ -716,7 +747,9 @@ taskkill /PID &lt;pid&gt; /F</pre>
     </div>
     <div class="stat-body">
       <div class="stat-label">Unrealized P&L</div>
-      <div class="stat-value" class:positive={info.unrealized_pl >= 0} class:negative={info.unrealized_pl < 0}>
+      <div class="stat-value pnl-val" class:positive={info.unrealized_pl >= 0} class:negative={info.unrealized_pl < 0}>
+        <span class="pnl-arrow" aria-hidden="true">{info.unrealized_pl >= 0 ? '▲' : '▼'}</span>
+        <span class="pnl-label">{info.unrealized_pl >= 0 ? 'Gain' : 'Loss'}</span>
         {fmt(info.unrealized_pl)}
       </div>
     </div>
@@ -732,6 +765,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
   {#if positions.length === 0}
     <div class="empty">No open positions in simulate account.</div>
   {:else}
+    <DelayedDataNotice />
     <div class="table-wrap">
       <table>
         <thead>
@@ -749,16 +783,22 @@ taskkill /PID &lt;pid&gt; /F</pre>
         <tbody>
           {#each positions as pos}
             <tr>
-              <td class="sym">{pos.symbol.replace(/^HK\.|^US\./, '')}</td>
+              <td class="sym">
+                {pos.symbol.replace(/^HK\.|^US\./, '')}
+                <LiveDot code={String(pos.symbol).toUpperCase()} />
+              </td>
               <td class="name">{pos.name}</td>
               <td class="num">{pos.quantity.toLocaleString()}</td>
               <td class="num">{pos.average_cost.toFixed(3)}</td>
-              <td class="num">{pos.market_price.toFixed(3)}</td>
+              <td class="num">{mark(pos).toFixed(3)}</td>
               <td class="num">{money(pos.market_value, pos.currency)}</td>
-              <td class="num" class:positive={pos.unrealized_pl >= 0} class:negative={pos.unrealized_pl < 0}>
-                {fmt(pos.unrealized_pl)}
+              <td class="num" class:positive={uPnl(pos) >= 0} class:negative={uPnl(pos) < 0}>
+                <span class="pnl-arrow" aria-hidden="true">{uPnl(pos) >= 0 ? '▲' : '▼'}</span>
+                <span class="pnl-label">{uPnl(pos) >= 0 ? 'Gain' : 'Loss'}</span>
+                {fmt(uPnl(pos))}
               </td>
               <td class="num" class:positive={pos.unrealized_pl_percent >= 0} class:negative={pos.unrealized_pl_percent < 0}>
+                <span class="pnl-arrow" aria-hidden="true">{pos.unrealized_pl_percent >= 0 ? '▲' : '▼'}</span>
                 {pct(pos.unrealized_pl_percent)}
               </td>
             </tr>
@@ -939,11 +979,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
     font-size: 0.72rem; color: var(--muted);
   }
   .acc-label { font-weight: 700; color: var(--text); }
-  .sim-badge {
-    font-size: 0.58rem; font-weight: 700; padding: 2px 6px;
-    border-radius: 20px; letter-spacing: 0.06em;
-    background: rgba(var(--warning-rgb),.12); color: var(--warning);
-  }
+  /* .sim-badge overridden below with indigo paper-simulation style */
   .acc-meta { color: var(--muted); }
   .sync-time { margin-left: auto; font-size: 0.65rem; }
 
@@ -1045,10 +1081,7 @@ taskkill /PID &lt;pid&gt; /F</pre>
     border-radius: 10px; background: rgba(245,158,11,0.05);
   }
   .balance-stat { display: flex; flex-direction: column; gap: 3px; }
-  .balance-label {
-    font-size: 0.62rem; font-weight: 600; color: rgba(245,158,11,0.7);
-    text-transform: uppercase; letter-spacing: 0.05em;
-  }
+  /* .balance-label overridden below — contrast fix */
   .balance-value { font-size: 0.9rem; font-weight: 700; color: var(--text); }
 
   /* ── Header actions ──────────────────────────────────────────── */
@@ -1240,4 +1273,82 @@ taskkill /PID &lt;pid&gt; /F</pre>
     background: var(--danger); color: #fff; font-size: 0.78rem; font-weight: 700; cursor: pointer;
   }
   .modal-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Simulation mode banner ──────────────────────────────────── */
+  .sim-banner {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(99,102,241,0.1);
+    border: 1.5px solid rgba(99,102,241,0.4);
+    color: #a5b4fc; font-size: 0.74rem;
+  }
+  .sim-banner-badge {
+    font-size: 0.6rem; font-weight: 800; padding: 2px 8px;
+    border-radius: 20px; letter-spacing: 0.07em;
+    background: rgba(99,102,241,0.25); color: #c7d2fe;
+    border: 1px solid rgba(99,102,241,0.5);
+  }
+  .sim-banner-sep { color: rgba(99,102,241,0.5); }
+  .sim-banner-text { color: #c7d2fe; font-weight: 500; }
+
+  /* ── Sim badge (account bar) — indigo instead of amber ────── */
+  .sim-badge {
+    font-size: 0.58rem; font-weight: 700; padding: 2px 7px;
+    border-radius: 20px; letter-spacing: 0.06em;
+    background: rgba(99,102,241,0.2); color: #a5b4fc;
+    border: 1px solid rgba(99,102,241,0.4);
+  }
+
+  /* ── Virtual balance panel header ───────────────────────────── */
+  .balance-panel-header {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em;
+    color: rgba(245,158,11,0.9); text-transform: uppercase;
+    padding-bottom: 6px; border-bottom: 1px solid rgba(245,158,11,0.15);
+    margin-bottom: 2px;
+  }
+
+  /* ── VIRTUAL pill on stat label ─────────────────────────────── */
+  .virtual-pill {
+    display: inline-block; font-size: 0.5rem; font-weight: 800;
+    padding: 1px 5px; border-radius: 10px; letter-spacing: 0.06em;
+    background: rgba(99,102,241,0.2); color: #a5b4fc;
+    border: 1px solid rgba(99,102,241,0.35);
+    vertical-align: middle; margin-left: 4px;
+  }
+
+  /* ── P&L arrow + label ──────────────────────────────────────── */
+  .pnl-val { display: inline-flex; align-items: center; gap: 3px; }
+  .pnl-arrow { font-size: 0.6rem; opacity: 0.8; }
+  .pnl-label { font-size: 0.6rem; font-weight: 700; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ── Options chain sticky header ────────────────────────────── */
+  .chain-sticky-head th { position: sticky; top: 0; z-index: 1; background: var(--surface-1); }
+
+  /* ── Retry button + dev details ─────────────────────────────── */
+  .conn-cta-row { display: flex; gap: 8px; margin: 12px 0; }
+  .btn-retry {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 7px; cursor: pointer;
+    background: rgba(var(--primary-rgb),0.12); border: 1px solid rgba(var(--primary-rgb),0.35);
+    color: var(--primary); font-size: 0.74rem; font-weight: 700;
+    transition: background 0.15s;
+  }
+  .btn-retry:hover { background: rgba(var(--primary-rgb),0.2); }
+  .dev-details {
+    margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px;
+  }
+  .dev-details summary {
+    font-size: 0.7rem; color: var(--muted); cursor: pointer; user-select: none;
+    font-weight: 600; letter-spacing: 0.03em;
+  }
+  .dev-details summary:hover { color: var(--text); }
+  .dev-details-body { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+  /* ── Balance label contrast fix (was rgba(245,158,11,0.7) — low contrast) */
+  .balance-label {
+    font-size: 0.62rem; font-weight: 600; color: rgba(245,158,11,0.9);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
 </style>
