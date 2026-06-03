@@ -7,6 +7,7 @@
   import { portfolioSummary } from '$lib/stores/portfolio-summary';
   import { theme } from '$lib/stores/ui';
   import { money as formatMoney } from '$lib/format';
+  import { liveEnabled } from '$lib/stores/live-toggle';
 
   export let sidebarCollapsed = false;
   export let aiPanelOpen = false;
@@ -186,6 +187,16 @@
 
     <!-- Right: AI, notifications, avatar, panel toggles -->
     <div class="tb-right">
+      <button
+        class="live-toggle"
+        class:on={$liveEnabled}
+        aria-pressed={$liveEnabled}
+        title="Toggle live prices"
+        on:click={() => liveEnabled.update((v) => !v)}
+      >
+        <span class="dot"></span> Live
+      </button>
+
       <button class="tb-ai-btn" on:click={askAI}>
         <Sparkles size={13} />
         Ask AI
@@ -444,4 +455,8 @@
     font-size: 0.7rem; color: var(--warning);
   }
   .paper-banner-icon { font-size: 0.7rem; }
+
+  .live-toggle { display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:600; padding:4px 10px; border-radius:8px; border:1px solid var(--border); background:none; color:var(--muted); cursor:pointer; }
+  .live-toggle.on { color:var(--success, #30a46c); border-color:var(--success, #30a46c); }
+  .live-toggle .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
 </style>
