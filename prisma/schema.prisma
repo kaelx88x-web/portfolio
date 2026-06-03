@@ -1416,3 +1416,20 @@ model AgentPushLog {
   @@index([userId, createdAt])
   @@map("agent_push_logs")
 }
+
+model PriceAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  context   String   @db.VarChar(16) // 'trade' | 'order' | 'paper'
+  symbol    String   @db.VarChar(32)
+  source    String   @db.VarChar(16) // provider name at capture
+  price     Float?
+  bid       Float?
+  ask       Float?
+  quoteTs   DateTime // provider quote timestamp
+  ageMs     Int      // age at confirm
+  status    String   @db.VarChar(16) // 'live' | 'stale' | 'delayed'
+  createdAt DateTime @default(now())
+
+  @@index([userId, symbol, createdAt])
+}
