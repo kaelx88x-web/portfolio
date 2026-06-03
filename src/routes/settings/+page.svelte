@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import type { ActionData, PageData } from './$types';
   import PageHeader from '$lib/components/portfolioai/PageHeader.svelte';
+  import { liveSettings } from '$lib/stores/live-settings';
 
   export let data: PageData;
   export let form: ActionData = null;
@@ -54,6 +55,29 @@
             <input type="checkbox" class="toggle-check" />
           </label>
         {/each}
+      </div>
+    </section>
+
+    <!-- Live prices -->
+    <section class="card settings-card">
+      <h2 class="section-title">Live prices</h2>
+      <div class="live-settings-grid">
+        <label class="field-group">
+          <span class="label">Refresh interval</span>
+          <select class="field mt-1" bind:value={$liveSettings.refreshIntervalMs}>
+            <option value={10_000}>10s</option>
+            <option value={30_000}>30s</option>
+            <option value={60_000}>60s</option>
+          </select>
+        </label>
+        <label class="toggle-row">
+          <span class="toggle-label">Enable live prices by default</span>
+          <input type="checkbox" class="toggle-check" bind:checked={$liveSettings.enabledByDefault} />
+        </label>
+        <label class="toggle-row">
+          <span class="toggle-label">Show delayed-data warning</span>
+          <input type="checkbox" class="toggle-check" bind:checked={$liveSettings.showDelayedWarning} />
+        </label>
       </div>
     </section>
 
@@ -122,4 +146,7 @@
   .button-secondary:hover { border-color: rgba(var(--primary-rgb),0.4); }
   .button-danger { color: var(--danger); }
   .button-danger:hover { border-color: rgba(var(--danger-rgb),0.4); }
+
+  .live-settings-grid { display: flex; flex-direction: column; gap: 10px; }
+  .live-settings-grid select.field { width: 100%; }
 </style>
