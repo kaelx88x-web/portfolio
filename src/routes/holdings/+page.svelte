@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { enhance } from '$app/forms';
   import { RefreshCw } from 'lucide-svelte';
   import type { ActionData, PageData } from './$types';
@@ -6,6 +7,8 @@
   import HoldingsTable from '$lib/components/portfolioai/tables/HoldingsTable.svelte';
   import StatCard from '$lib/components/portfolioai/StatCard.svelte';
   import { money, uniformCurrency } from '$lib/format';
+  import { subscribeQuotes, liveQuotes } from '$lib/stores/live-quotes';
+  import { computeLiveTotal, type LiveHolding } from '$lib/stores/portfolio-live';
 
   export let data: PageData;
   export let form: ActionData;
@@ -14,7 +17,17 @@
 
   $: displayCurrency = uniformCurrency(data.holdings.map((h: { currency?: string }) => h.currency));
 
-  $: totalMarket = data.holdings.reduce((s: number, h: { marketValue: number }) => s + h.marketValue, 0);
+  $: liveHoldings = data.holdings.map((h: { symbol: string; quantity: number; marketPrice: number }) => ({
+    code: h.symbol,
+    qty: h.quantity,
+    fallbackPrice: h.marketPrice
+  } satisfies LiveHolding));
+
+  const un = subscribeQuotes(data.holdings.map((h: { symbol: string }) => h.symbol));
+  onDestroy(un);
+
+  $: liveTotal = computeLiveTotal(liveHoldings, $liveQuotes);
+  $: totalMarket = liveTotal;
   $: openPositions = data.holdings.length;
 
   $: subtitle = data.dataSource === 'snapshot'
