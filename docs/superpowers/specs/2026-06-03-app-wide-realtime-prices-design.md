@@ -2,59 +2,55 @@
 
 **Date:** 2026-06-03
 **Status:** Approved (brainstorming) — pending implementation plan
-**Branch target:** TBD at plan time (off `master`)
+**Branch:** `realtime-prices` (off `master`)
 
 ## Summary
 
 Add app-wide, live-updating stock **prices** (last, change %, bid/ask, volume) across
-every price surface — header portfolio total, holdings, watchlist / stock list, and the
-`/stocks/[symbol]` detail header. Prices update on a periodic client poll (~10s) gated
-behind a manual **Live** toggle that is **off by default**.
+every price surface — header portfolio total, holdings, watchlist / stock list, the
+`/stocks/[symbol]` detail header, and `/paper-trading`. Prices update on a periodic client
+poll behind a manual **Live** toggle that is **off by default**.
 
-Quotes **and** chart candles are sourced from a **free market-data API (Yahoo Finance)**
-rather than the moomoo bridge. This sidesteps two problems at once: (1) the moomoo
-bridge **quote** endpoints currently hang (environmental blocker), and (2) moomoo quote
-quota. moomoo remains the source for what it does reliably: holdings, positions, trades,
-and sync.
+Quotes **and** chart candles are sourced through a **pluggable market-data provider**
+(default **Yahoo Finance**, free, no key) rather than the moomoo bridge. This sidesteps the
+hung moomoo **quote** endpoints and moomoo quote quota. moomoo remains the source for what
+it does reliably: holdings, positions, trades, and sync.
 
-The candlestick **chart** is sourced from Yahoo but is **not** part of the realtime loop:
-it loads candles on page load / range change only. The 10s loop updates numeric price
-text only — no per-tick chart redraw.
+Because the data is from a free, unofficial, exchange-delayed source, the feature is built
+**safe by construction**: a visible delay disclaimer, market-session awareness, staleness
+protection on trade/order flows, and a price audit log captured at confirm time.
 
 ## Goals
 
-- App-wide numeric price surfaces auto-update while the **Live** toggle is on and the
-  market is open and the tab is visible.
-- Sourced from a free API (Yahoo) so it works today, independent of the hung moomoo
-  quote endpoints, and costs **zero moomoo quote quota**.
-- Minimal, predictable upstream usage: batched requests, a shared short-TTL server cache,
-  off-by-default toggle, and auto-pause.
-- Graceful degradation: upstream failure shows a "Delayed" indicator and keeps the last
-  value; never crashes a page.
+- App-wide numeric price surfaces auto-update while **Live** is on, the market session is
+  active, and the tab is visible.
+- **Provider-agnostic:** swapping Yahoo for another provider must not touch the UI or store.
+- **Safe for trading:** stale prices warn/block live orders; every confirmed trade/order
+  records a price snapshot for audit.
+- **Honest about delay:** a persistent UI disclaimer that prices may be delayed and are not
+  for live execution decisions.
+- Minimal upstream usage: batched requests, shared short-TTL server cache, off-by-default
+  toggle, session/visibility auto-pause, user-configurable interval.
+- Graceful degradation: provider failure shows "Delayed", keeps last value, never crashes.
 
 ## Non-Goals
 
-- **Live-updating charts / candles.** The chart remains a one-time historical load per
-  range selection. Extending the chart with new bars in realtime is a separate future
-  feature (would need a streaming kline feed).
-- **Tick-by-tick push streaming** (WebSocket/SSE + moomoo subscription). Explicitly
-  rejected in favor of polling; avoids moomoo subscription quota entirely.
-- **Replacing moomoo for accounts/trades/sync.** Those stay on moomoo.
-- **Options chain realtime.** Out of scope for this iteration (numeric equity quotes only).
+- **Live-updating charts / candles.** The chart remains a one-time historical load per range
+  selection. Streaming klines is a separate future feature.
+- **Tick-by-tick push streaming** (WebSocket/SSE + broker subscription). Polling only.
+- **Replacing moomoo for accounts/trades/sync.**
+- **Options chain realtime** (numeric equity quotes only this iteration).
 
 ## Approaches Considered
 
-- **A — Centralized ref-counted quote store + one poll loop (chosen).** A single client
-  store holds the live quote map; components register the symbols they display
-  (reference-counted); one global interval batches the union of active symbols into one
-  request. Single source of truth, automatic dedup, trivial global pause.
-- **B — Each component polls its own symbol.** Rejected: N intervals, duplicate requests
-  for shared symbols, no batching.
-- **C — SvelteKit `invalidate` on a timer.** Rejected: re-runs entire page loads (heavy),
-  can't batch across surfaces.
+- **A — Centralized ref-counted quote store + one poll loop, behind a provider interface
+  (chosen).** Single client store; components register displayed symbols (ref-counted); one
+  global interval batches the union into one request to the active provider.
+- **B — Each component polls its own symbol.** Rejected: N intervals, duplicate requests.
+- **C — SvelteKit `invalidate` on a timer.** Rejected: re-runs whole page loads, no batching.
 
-Data-source decision: **Yahoo (free) for quotes + candles**, chosen over keeping moomoo
-(blocked + quota) and over "chart only" (which would leave realtime price still blocked).
+Data source: **free provider (Yahoo) for quotes + candles**, chosen over moomoo (blocked +
+quota) and over "chart only" (leaves realtime price blocked).
 
 ## Architecture
 
@@ -62,127 +58,222 @@ Data-source decision: **Yahoo (free) for quotes + candles**, chosen over keeping
 
 | Concern | Source |
 |---|---|
-| Quotes (last, change %, bid/ask, volume, marketState) | Yahoo Finance |
-| Chart candles (OHLC) | Yahoo Finance |
+| Quotes (last, change %, bid/ask, volume, session) | Active market-data provider (default Yahoo) |
+| Chart candles (OHLC) | Active market-data provider (default Yahoo) |
 | Holdings, positions, trades, sync, fund balance | moomoo bridge (unchanged) |
 
-### Components / units
+### 1. Pluggable market-data provider — `src/lib/server/market-data/`
 
-**1. Yahoo service — `src/lib/server/yahoo.service.ts` (server-only)**
-- Wraps the `yahoo-finance2` npm library (handles Yahoo crumb/cookie auth so we don't
-  hand-roll fragile requests).
-- `getYahooQuotes(symbols: string[]): Promise<YahooQuote[]>` — **batch** quote call (one
-  upstream request for many symbols). Returns normalized
-  `{ symbol, last, changePct, bid, ask, volume, marketState, ts }`. Errors → throws (so
-  the cache layer does not store failures); callers degrade.
-- `getYahooCandles(symbol: string, range: string): Promise<Candle[]>` — OHLC mapped to the
-  existing `{ t, o, h, l, c, v }` shape so `PriceChart` needs no change.
-- `toYahooSymbol(code: string): string` — maps app/moomoo codes to Yahoo tickers:
-  `US.NVDA → NVDA`, `NVDA → NVDA`, `HK.00700 → 0700.HK`, `SH.600519 → 600519.SS`,
-  `SZ.000001 → 000001.SZ`. Mirror of `toMoomooCode` in `stock-detail.service.ts`.
-- `isMarketOpen(marketState: string): boolean` — `REGULAR`/`PRE`/`POST` semantics from
-  Yahoo's `marketState`.
+The fallback-ready abstraction. Adding/swapping a provider never touches the store or UI.
 
-**2. Batch quote endpoint — `src/routes/api/quotes/live/+server.ts`**
-- `GET ?codes=A,B,C` → dedupes codes, maps via `toYahooSymbol`, calls `getYahooQuotes`,
-  wrapped in the existing `cached()` helper (`src/lib/server/quote-cache.ts`) at **~8s TTL
-  + single-flight**, keyed by the sorted code-set. Many tabs/components collapse to ≤1
-  upstream call per ~8s per code-set.
-- Returns `{ quotes: YahooQuote[] }`. Auth enforced by `hooks.server.ts` (non-public).
-- Bounds the code-set defensively (chunk if absurdly large; realistically one page worth).
+```ts
+// market-data/types.ts
+export type ProviderName = 'yahoo' | 'moomoo' | 'polygon' | 'twelvedata';
 
-**3. Candle endpoint — `src/routes/api/stocks/[symbol]/candles/+server.ts` (modified)**
-- Switch source from `getHistoricalCandles` (moomoo) to `getYahooCandles`. Keep the same
-  response shape and `range` param semantics. Cache ~60s (historical data is slow-moving).
-- Keep `decodeSymbolParam` guard (404 on malformed symbol).
+export type MarketSession = 'pre' | 'regular' | 'post' | 'closed';
 
-**4. Live toggle store — `src/lib/stores/live-toggle.ts`**
-- Boolean writable persisted to `localStorage`, **default `false`**. When `false`, the poll
-  loop never runs (zero upstream usage).
+export interface MarketQuote {
+  symbol: string;            // app/moomoo code, e.g. "US.NVDA"
+  last: number | null;
+  changePct: number | null;
+  bid: number | null;
+  ask: number | null;
+  volume: number | null;
+  session: MarketSession;
+  source: ProviderName;
+  ts: number;                // provider quote timestamp (epoch ms)
+}
 
-**5. Shared quote store — `src/lib/stores/live-quotes.ts`**
-- Internal `Map<code, LiveQuote>` where
-  `LiveQuote = { last, changePct, bid, ask, volume, ts, stale }`, plus a derived `status`
-  (`off` | `live` | `closed` | `paused` | `delayed`).
-- `subscribeQuotes(codes: string[]): () => void` — increments a per-code refcount, ensures
-  the loop is running, returns an `unsubscribe()` for `onDestroy`. Shared symbols counted
-  once; a code is dropped when its refcount hits 0.
-- One global loop (interval ~10s). Each tick runs **only when**: toggle on **and** at least
-  one tracked market is open **and** `document.visibilityState === 'visible'` **and** the
-  active code-set is non-empty. Otherwise idle. Skips a tick if the previous request is
-  still in flight (no overlap).
-- On response: patches the map and `ts`, clears `stale`. On failure: marks affected codes
-  `stale` (keeps last value), sets `status = delayed`.
-- Injectable `fetch` + `now`/timer for tests.
+export interface Candle { t: string; o: number; h: number; l: number; c: number; v: number; }
 
-**6. Live indicator — `src/lib/components/LiveDot.svelte`**
-- Small pulsing dot + label bound to store `status`: **Off** / **Live** / **Closed** /
-  **Paused** / **Delayed**. Placed at each price surface.
-- The global **Live** toggle switch lives in the top bar (near the portfolio total /
-  account switcher).
+export interface MarketDataProvider {
+  readonly name: ProviderName;
+  getQuotes(codes: string[]): Promise<MarketQuote[]>;   // batch; throws on upstream failure
+  getCandles(code: string, range: string): Promise<Candle[]>;
+}
+```
 
-**7. Price-surface wiring**
-- Stock-detail header, header portfolio total, holdings rows, watchlist / stock list rows:
-  call `subscribeQuotes([code])` (or the batch of visible codes) on mount, unsubscribe on
-  destroy. Display the SSR-loaded value until the first live tick, then live values with a
-  brief green/red flash on change.
-- The portfolio total recomputes client-side from live holding prices when available.
-- Folds the markets page's bespoke `setInterval(refresh, 60_000)` into the shared store
-  (targeted cleanup; remove the duplicate ad-hoc loop).
+- `market-data/yahoo.provider.ts` — implements the interface over `yahoo-finance2` (handles
+  Yahoo crumb/cookie auth). Maps `marketState` → `MarketSession`.
+- `market-data/index.ts` — `getProvider(): MarketDataProvider` selects the active provider
+  from `MARKET_DATA_PROVIDER` env (default `yahoo`). Future providers (`moomoo`, `polygon`,
+  `twelvedata`) register here; an ordered **fallback chain** may be added later behind the
+  same interface (try primary, fall back on throw) without consumer changes.
+- `market-data/symbols.ts` — `toProviderSymbol(code, provider)`: e.g. Yahoo
+  `US.NVDA→NVDA`, `HK.00700→0700.HK`, `SH.600519→600519.SS`, `SZ.000001→000001.SZ`.
+
+### 2. Endpoints
+
+- `src/routes/api/quotes/live/+server.ts` — `GET ?codes=A,B,C` → dedupe → active provider
+  `getQuotes`, wrapped in `cached()` (`src/lib/server/quote-cache.ts`) at **~8s TTL +
+  single-flight**, keyed by sorted code-set. Returns `{ quotes: MarketQuote[] }`. Auth via
+  hooks. The 8s TTL collapses many tabs/components to ≤1 upstream call per code-set per 8s.
+- `src/routes/api/stocks/[symbol]/candles/+server.ts` (modified) — source candles from the
+  active provider; keep the existing `{t,o,h,l,c,v}` shape and `range` semantics; cache
+  ~60s; keep the `decodeSymbolParam` 404 guard.
+
+### 3. Client stores
+
+- `src/lib/stores/live-settings.ts` — persisted (localStorage), editable on `/settings`:
+  - `enabledByDefault: boolean` (default **false**) — seeds the Live toggle on first load.
+  - `refreshIntervalMs: 10_000 | 30_000 | 60_000` (default **10s**).
+  - `showDelayedWarning: boolean` (default **true**).
+- `src/lib/stores/live-toggle.ts` — boolean, persisted; initialized from
+  `enabledByDefault`. When off, the loop never runs (zero upstream usage).
+- `src/lib/stores/live-quotes.ts` — the shared store:
+  - `Map<code, LiveQuote>`, `LiveQuote = { last, changePct, bid, ask, volume, session, source, ts, stale }`.
+  - `subscribeQuotes(codes[]) => unsubscribe()` — ref-counted; shared symbols counted once.
+  - `quoteAge(code): number` and `quoteStatus(code): 'live'|'stale'|'delayed'` helpers
+    (used by trade/paper flows for staleness).
+  - One global loop at `refreshIntervalMs`. A tick runs **only when**: toggle on **and** at
+    least one tracked symbol's session ≠ `closed` **and** `visibilityState === 'visible'`
+    **and** code-set non-empty **and** no request in flight. Otherwise idle.
+  - On response: patch map, set `ts`/`session`/`source`, clear `stale`. On failure: mark
+    affected codes `stale` (keep last value).
+  - Derived global `status`: `off | live(regular) | pre | post | closed | paused | delayed`.
+  - Injectable `fetch`/timer for tests.
+
+### 4. UI components
+
+- `src/lib/components/LiveDot.svelte` — pulsing dot + label from store status, distinguishing
+  **Off / Live / Pre-market / After-hours / Closed / Paused / Delayed**. Mobile: compact
+  (dot only or truncated label) so it never breaks header/row layout.
+- `src/lib/components/DelayedDataNotice.svelte` — persistent disclaimer shown wherever live
+  prices appear (gated by `showDelayedWarning`):
+  > "Harga mungkin delayed dan berbeza ikut bursa — bukan untuk keputusan execution live
+  > trade." (EN equivalent: "Prices may be delayed and vary by exchange — not for live
+  > trade execution decisions.")
+- The global **Live** toggle switch lives in the top bar near the portfolio total.
+
+### 5. Price-surface wiring
+
+- Stock-detail header, header portfolio total, holdings rows, watchlist / stock list rows,
+  and `/paper-trading` subscribe their code(s) on mount, unsubscribe on destroy. Show the
+  SSR value until the first tick, then live values with a brief green/red flash on change.
+- **Portfolio total** recomputes client-side from live holding prices when available — a
+  dedicated test asserts the total reflects live updates.
+- Folds the markets page's bespoke `setInterval(refresh, 60_000)` into the shared store.
+
+### 6. Paper-trading integration
+
+- `/paper-trading` uses the **same** quote store, so open paper positions' mark price and
+  **unrealized P/L update in realtime** while Live is on.
+- Safety invariant (and test): paper mode must **never** reach the live broker — paper order
+  submission stays on the paper code path only; no moomoo trade call.
+
+### 7. Staleness protection (trade/order safety)
+
+Applied to live-order flows (`/trade`, `/order`) that read a displayed price:
+
+- Quote **age ≤ 60s** → normal.
+- **60s < age ≤ 5min** → non-blocking **warning** ("price may be stale") on the confirm UI.
+- **age > 5min** (or status `delayed`/no quote) → **block live order submission**; require an
+  explicit refresh first. Paper orders are not blocked but are warned + audited.
+- A pure helper `assessQuoteFreshness(ageMs, session): 'fresh'|'warn'|'block'` (unit-tested,
+  thresholds centralized) drives both UI and server-side enforcement.
+
+### 8. Price audit log (Prisma)
+
+At trade/order/paper **confirm** time, persist the price snapshot the user acted on:
+
+```prisma
+model PriceAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  context   String   // 'trade' | 'order' | 'paper'
+  symbol    String
+  source    String   // provider name at capture
+  price     Float?
+  bid       Float?
+  ask       Float?
+  quoteTs   DateTime // provider quote timestamp
+  ageMs     Int      // age at confirm
+  status    String   // 'live' | 'stale' | 'delayed'
+  createdAt DateTime @default(now())
+  @@index([userId, symbol, createdAt])
+}
+```
+
+Written from the order/trade/paper confirm server action. Requires a Prisma migration
+(`prisma db push` per project convention).
 
 ## Data Flow
 
 ```
-component mount
-  → subscribeQuotes([code])               // refcount++, ensure loop running
-  → every ~10s, IF (toggle && marketOpen && visible && codes>0 && !inFlight):
-        GET /api/quotes/live?codes=<union> // 8s server cache + single-flight
-        → getYahooQuotes(mapped symbols)   // 1 upstream batch call
-        → patch store map                  // components react, flash on change
-component destroy
-  → unsubscribe()                          // refcount--, drop code at 0; loop idles when empty
+component mount → subscribeQuotes([code])              // refcount++, ensure loop running
+loop tick (every refreshIntervalMs) IF toggle && session!=closed && visible && codes>0 && !inFlight:
+  GET /api/quotes/live?codes=<union>                   // 8s server cache + single-flight
+  → getProvider().getQuotes(mapped codes)              // 1 upstream batch call
+  → patch store; components react, flash on change
+trade/order confirm:
+  read store quote → assessQuoteFreshness → warn/block  // staleness protection
+  on submit → write PriceAuditLog snapshot              // audit
+component destroy → unsubscribe()                       // refcount--, loop idles when empty
 ```
 
 ## Error Handling / Degradation
 
-- Endpoint or Yahoo failure → `getYahooQuotes` throws → not cached → store marks codes
-  `stale`, indicator shows **Delayed**, last values retained. No page crash.
-- Yahoo is unofficial / no SLA. Acceptable for a personal app. If Yahoo proves unreliable,
-  a future fallback to moomoo snapshots (once the bridge quote endpoints are fixed) can be
-  added behind the same store interface without touching consumers.
-- Malformed symbol on candle endpoint → 404 via `decodeSymbolParam` (unchanged).
+- Provider/endpoint failure → `getQuotes` throws → not cached → store marks codes `stale`,
+  indicator shows **Delayed**, last values retained, page never crashes. Dedicated test:
+  "Yahoo failure keeps last price."
+- Provider is unofficial / no SLA → mitigated by graceful degradation and the provider
+  interface (future fallback chain: Yahoo → moomoo/Polygon/TwelveData).
+- Malformed symbol on candle endpoint → 404 via `decodeSymbolParam`.
 
 ## Quota / Rate Posture
 
-- **moomoo quote quota: zero** (no moomoo quote/candle calls).
-- **Yahoo usage:** batched (one quote request per tick for all on-screen symbols) + 8s
-  shared server cache with single-flight + toggle off by default + auto-pause when
-  closed/hidden/empty. Worst case during market hours ≈ **≤ 6 upstream quote calls/min
-  total**, regardless of users/tabs/symbols. Candles cached ~60s.
+- **moomoo quote quota: zero.**
+- **Provider usage:** batched (one quote request per tick for all on-screen symbols) + 8s
+  shared cache + single-flight + toggle off by default + session/visibility auto-pause +
+  user-chosen interval. Worst case during market hours ≈ **≤ 6 upstream calls/min total** at
+  10s (fewer at 30/60s), regardless of users/tabs/symbols. Candles cached ~60s.
 
 ## Testing
 
-- **Unit — `toYahooSymbol`:** US passthrough, HK zero-pad + `.HK`, SH `.SS`, SZ `.SZ`,
-  already-Yahoo symbols.
-- **Unit — Yahoo service normalization:** quote + candle field mapping; throws on upstream
-  error.
-- **Unit — quote store:** refcount subscribe/unsubscribe, union dedup, gating
-  (off / market-closed / tab-hidden / empty), `stale`-on-error, overlapping-tick guard,
-  status transitions. Fake timers + injectable fetch.
-- **Endpoint:** `/api/quotes/live` dedups codes, applies 8s cache + single-flight, returns
-  normalized quotes, requires auth; candle endpoint returns Yahoo candles in the existing
-  shape.
-- **e2e:** Live toggle renders and persists; `LiveDot` renders and degrades to
-  Closed/Delayed; no console errors. (Live ticking verifiable during market hours — no
-  longer blocked by moomoo.)
+Unit:
+- `toProviderSymbol` (Yahoo): US passthrough, HK zero-pad `.HK`, SH `.SS`, SZ `.SZ`.
+- Yahoo provider normalization incl. `marketState → MarketSession` mapping; throws on error.
+- Quote store: refcount subscribe/unsubscribe, union dedup, gating (off / closed-session /
+  hidden / empty), overlapping-tick guard, `stale`-on-error, status transitions, interval
+  changes.
+- `assessQuoteFreshness`: ≤60s fresh, 60s–5min warn, >5min block; delayed/no-quote → block.
+
+Safety / integration:
+- **Stale quote blocks live order** (>5min → submission blocked; refresh unblocks).
+- **Paper mode cannot hit the live broker** (paper submit never calls moomoo trade).
+- **Live price updates portfolio total correctly** (store patch → recomputed total).
+- **Yahoo failure keeps last price** (throw → stale, last value retained, no crash).
+
+Endpoint:
+- `/api/quotes/live` dedup + 8s cache + single-flight + auth; candle endpoint returns the
+  existing shape from the active provider.
+
+e2e:
+- Live toggle renders/persists; `LiveDot` + delayed notice render and degrade to
+  Closed/Delayed; no console errors.
+- **Mobile `LiveDot` does not disrupt layout** at 320–768px (no overflow; compact form).
 
 ## Dependencies
 
 - New: `yahoo-finance2` (server-side npm dependency).
 
+## Schema Changes
+
+- New Prisma model `PriceAuditLog` (+ migration via `prisma db push`).
+
 ## Open Items / Risks
 
-- Yahoo unofficial-endpoint reliability and ToS (mitigated by graceful degradation; future
-  moomoo fallback possible).
-- Quote delay varies by exchange (regular-to-15min); acceptable for this use case. The
-  indicator communicates liveness honestly (Live/Delayed/Closed).
+- Provider reliability/ToS (mitigated by degradation + provider interface for fallback).
+- Exchange-dependent delay communicated honestly via session label + delayed notice.
+- Settings persisted client-side (localStorage) for v1; server-persisted user prefs can
+  follow if cross-device sync is wanted.
+```
+
+## Suggested Implementation Phases (for the plan step)
+
+1. Provider interface + Yahoo provider + symbol map + `/api/quotes/live` (cached) + candle
+   endpoint switch. (Unit + endpoint tests.)
+2. Client stores (settings, toggle, quote store) + `LiveDot` + delayed notice. (Store tests.)
+3. Wire price surfaces incl. portfolio total + paper-trading realtime P/L. (Integration tests.)
+4. Staleness protection + `PriceAuditLog` on trade/order/paper confirm. (Safety tests.)
+5. `/settings` controls + e2e (toggle, mobile LiveDot, degradation).
