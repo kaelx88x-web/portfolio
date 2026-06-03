@@ -24,7 +24,7 @@
 <PageHeader title={d.asset.symbol} subtitle={d.asset.name}
   breadcrumb={[{ label: 'Stocks', href: '/stocks' }, { label: d.asset.symbol }]} />
 
-<StockDetailHeader detail={d} timezone={data.timezone} onRefresh={refresh} {refreshing} />
+<StockDetailHeader detail={d} code={d.moomooCode} timezone={data.timezone} onRefresh={refresh} {refreshing} />
 
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected={tab==='overview'} class:active={tab==='overview'} on:click={() => tab='overview'}>Overview</button>

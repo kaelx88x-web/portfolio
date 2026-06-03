@@ -1,13 +1,24 @@
 <!-- StockDetailHeader.svelte -->
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import type { StockDetailVM } from '$lib/services/stock-detail.service';
+  import { subscribeQuotes, liveQuotes } from '$lib/stores/live-quotes';
+  import LiveDot from '$lib/components/LiveDot.svelte';
+
   export let detail: StockDetailVM;
+  export let code: string = '';
   export let timezone: string | null = null;   // market TZ from getGlobalMarkets, set by page
   export let onRefresh: () => void = () => {};
   export let refreshing = false;
 
+  const un = subscribeQuotes([code]);
+  onDestroy(un);
+
+  $: live = $liveQuotes.get(code.trim().toUpperCase());
   $: h = detail.header.data;
-  $: up = (h?.changePct ?? 0) >= 0;
+  $: displayPrice = live?.last ?? h?.lastPrice ?? null;
+  $: displayChangePct = live?.changePct ?? h?.changePct ?? null;
+  $: up = (displayChangePct ?? 0) >= 0;
   $: stateLabel = mapState(detail.marketState);
   $: open = detail.marketState?.toUpperCase().includes('OPEN') ?? false;
 
@@ -35,11 +46,12 @@
     <span class="dh-name">{detail.asset.name}</span>
     <span class="dh-state" class:open>{stateLabel}</span>
   </div>
-  {#if h}
+  {#if displayPrice !== null}
     <div class="dh-px">
-      <span class="px">{h.lastPrice.toFixed(2)} <small>{detail.asset.currency}</small></span>
-      <span class="chg" class:up class:down={!up}>{up ? '+' : ''}{h.changePct.toFixed(2)}%</span>
-      {#if detail.header.status === 'stale'}<span class="stale">stale</span>{/if}
+      <span class="px">{displayPrice.toFixed(2)} <small>{detail.asset.currency}</small></span>
+      <span class="chg" class:up class:down={!up}>{up ? '+' : ''}{(displayChangePct ?? 0).toFixed(2)}%</span>
+      {#if detail.header.status === 'stale' && !live}<span class="stale">stale</span>{/if}
+      <LiveDot {code} />
     </div>
   {:else}
     <span class="chg down">Price Not Available</span>
