@@ -1433,3 +1433,39 @@ model PriceAuditLog {
 
   @@index([userId, symbol, createdAt])
 }
+
+enum CompanyEdgeType {
+  same_sector
+  same_concept
+  co_owned_by
+  competitor
+  supplier
+  customer
+}
+
+model CompanyNode {
+  id        String        @id @default(cuid())
+  ticker    String        @unique
+  name      String
+  sector    String?
+  market    String?
+  outEdges  CompanyEdge[] @relation("edge_source")
+  inEdges   CompanyEdge[] @relation("edge_target")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model CompanyEdge {
+  id             String          @id @default(cuid())
+  sourceId       String
+  targetId       String
+  source         CompanyNode     @relation("edge_source", fields: [sourceId], references: [id])
+  target         CompanyNode     @relation("edge_target", fields: [targetId], references: [id])
+  type           CompanyEdgeType
+  weight         Float           @default(1)
+  confidence     Float?
+  groundedSource String?
+  createdAt      DateTime        @default(now())
+
+  @@index([sourceId, type])
+}
