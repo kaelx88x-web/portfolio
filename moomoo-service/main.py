@@ -310,6 +310,96 @@ def quote_owner_plate(codes: str):
     return {"count": len(results), "sectors": results}
 
 
+@app.get("/quotes/plate-membership")
+def quote_plate_membership(codes: str):
+    """Return INDUSTRY + CONCEPT plates each stock belongs to, with plate_code for grounding.
+
+    Distinct from /quotes/owner-plate (which collapses to a single sector string):
+    this returns the full plate list so the knowledge graph can build same_sector /
+    same_concept edges and cite the shared plate_code.
+    """
+    all_codes = _parse_codes(codes)
+    if not all_codes:
+        raise HTTPException(status_code=400, detail="At least one code is required.")
+
+    try:
+        from moomoo import OpenQuoteContext, RET_OK
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    from plate_logic import collect_plate_membership
+
+    candidate_codes = [c for c in all_codes if _asset_type(c) != "option"]
+    ctx = None
+    try:
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+
+        def fetch_fn(batch: list[str]):
+            ret, data = ctx.get_owner_plate(batch)
+            if ret != RET_OK:
+                return (False, [])
+            return (True, _records(data))
+
+        membership = collect_plate_membership(fetch_fn, candidate_codes)
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+    results = [{"code": code, "plates": membership.get(code.upper(), [])} for code in all_codes]
+    return {"count": len(results), "memberships": results}
+
+
+@app.get("/quotes/institutional-holders")
+def quote_institutional_holders(codes: str):
+    """Best-effort institutional holders per code for co_owned_by edges.
+
+    moomoo OpenD has no general institutional-holders API, so this is defensive:
+    it returns {code, holders: [], error} rather than raising when data is absent
+    (expected for most US tickers).
+    """
+    code_list = _parse_codes(codes)
+    if not code_list:
+        raise HTTPException(status_code=400, detail="At least one code is required.")
+    if len(code_list) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 codes per request.")
+
+    try:
+        from moomoo import OpenQuoteContext, RET_OK
+    except ImportError:
+        raise HTTPException(status_code=500, detail="moomoo-api is not installed.")
+
+    results = []
+    ctx = None
+    try:
+        ctx = OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT, ai_type=1)
+        for code in code_list:
+            holders: list[str] = []
+            error: str | None = None
+            try:
+                fn = getattr(ctx, "get_holding_change_list", None)
+                if fn is None:
+                    error = "institutional holdings endpoint unavailable in this SDK"
+                else:
+                    from moomoo import StockHoldingChangeType
+                    ret, data = fn(code, StockHoldingChangeType.INSTITUTE, "", "")
+                    if ret == RET_OK:
+                        holders = [
+                            str(r.get("holder_name") or r.get("name") or "")
+                            for r in _records(data)
+                            if (r.get("holder_name") or r.get("name"))
+                        ]
+                    else:
+                        error = str(data)
+            except Exception as exc:  # noqa: BLE001 — best-effort, never fail the request
+                error = str(exc)
+            results.append({"code": code, "holders": holders, "error": error})
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+    return {"count": len(results), "holdings": results}
+
+
 @app.get("/quotes/capital-flow")
 def quote_capital_flow(codes: str):
     code_list = _parse_codes(codes)
