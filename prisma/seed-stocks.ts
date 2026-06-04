@@ -7,6 +7,9 @@ const prisma = new PrismaClient();
 interface SeedAsset {
   symbol: string; name: string; assetType: string;
   exchange: string; currency: string; country: string; sector?: string;
+  /** Optional seed price. Used as a fallback when no live quote is available
+   *  (e.g. China A-shares, which need CN MarketStocks quote permission). */
+  latestPrice?: number;
 }
 
 const ASSETS: SeedAsset[] = [
@@ -89,6 +92,22 @@ const ASSETS: SeedAsset[] = [
   { symbol:'2800.HK', name:'Tracker Fund of Hong Kong', assetType:'etf',   exchange:'HKEX', currency:'HKD', country:'HK' },
   { symbol:'3033.HK', name:'CSOP Hang Seng Tech Index ETF', assetType:'etf', exchange:'HKEX', currency:'HKD', country:'HK' },
   { symbol:'9618.HK', name:'JD.com Inc.',               assetType:'stock', exchange:'HKEX', currency:'HKD', country:'HK', sector:'Consumer Cyclical' },
+  // China Market (A-shares) — Shanghai (SH.) / Shenzhen (SZ.) moomoo codes.
+  // Live prices need CN MarketStocks quote permission in moomoo; latestPrice is
+  // a seed fallback so cards render until that permission is enabled.
+  { symbol:'SH.600519', name:'Kweichow Moutai Co.',       assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Consumer Defensive', latestPrice:1485.00 },
+  { symbol:'SZ.000858', name:'Wuliangye Yibin Co.',       assetType:'stock', exchange:'SZSE', currency:'CNY', country:'CN', sector:'Consumer Defensive', latestPrice:142.50 },
+  { symbol:'SH.601398', name:'ICBC',                      assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Finance', latestPrice:6.45 },
+  { symbol:'SH.601318', name:'Ping An Insurance',         assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Finance', latestPrice:54.80 },
+  { symbol:'SH.600036', name:'China Merchants Bank',      assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Finance', latestPrice:38.20 },
+  { symbol:'SZ.000333', name:'Midea Group Co.',           assetType:'stock', exchange:'SZSE', currency:'CNY', country:'CN', sector:'Consumer Cyclical', latestPrice:74.60 },
+  { symbol:'SZ.300750', name:'Contemporary Amperex (CATL)', assetType:'stock', exchange:'SZSE', currency:'CNY', country:'CN', sector:'Technology', latestPrice:252.30 },
+  { symbol:'SH.601857', name:'PetroChina Co.',            assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Energy', latestPrice:8.95 },
+  { symbol:'SH.600276', name:'Jiangsu Hengrui Pharma',    assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Healthcare', latestPrice:49.10 },
+  { symbol:'SH.688981', name:'SMIC',                      assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Technology', latestPrice:88.40 },
+  { symbol:'SZ.000001', name:'Ping An Bank Co.',          assetType:'stock', exchange:'SZSE', currency:'CNY', country:'CN', sector:'Finance', latestPrice:11.85 },
+  { symbol:'SH.600900', name:'China Yangtze Power',       assetType:'stock', exchange:'SSE',  currency:'CNY', country:'CN', sector:'Utilities', latestPrice:28.05 },
+  { symbol:'SH.601888', name:'China Tourism Group Duty Free', assetType:'stock', exchange:'SSE', currency:'CNY', country:'CN', sector:'Consumer Cyclical', latestPrice:69.40 },
 ];
 
 async function main() {

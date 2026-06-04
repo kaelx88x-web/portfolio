@@ -47,3 +47,14 @@ vite.config.ts.timestamp-*
 analytics/
 backend/
 python-analytics/
+
+# Playwright MCP snapshots & test run artifacts
+.playwright-mcp/
+test-results/
+playwright-report/
+
+# Root-level scratch (debug scripts & screenshots, not part of the app)
+/*.mjs
+/type_check.ts
+/*.png
+/*.jpeg

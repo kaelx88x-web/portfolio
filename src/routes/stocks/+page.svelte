@@ -11,14 +11,16 @@
 
   export let data: PageData;
 
-  type Tab = 'all' | 'us-stocks' | 'us-etfs' | 'my' | 'hk';
+  type Tab = 'all' | 'us' | 'hk' | 'cn' | 'options';
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'all',      label: 'All' },
-    { id: 'us-stocks', label: 'US Stocks' },
-    { id: 'us-etfs',  label: 'US ETFs' },
-    { id: 'my',       label: 'MY Market' },
-    { id: 'hk',       label: 'HK Market' },
+    { id: 'all',     label: 'All' },
+    { id: 'us',      label: 'US Market' },
+    { id: 'hk',      label: 'Hong Kong' },
+    { id: 'cn',      label: 'China' },
+    { id: 'options', label: 'Options' },
   ];
+
+  const isOption = (a: { assetType: string }) => a.assetType === 'option';
 
   let activeTab: Tab = 'all';
   let query = '';
@@ -33,20 +35,22 @@
   let watchlistSet = new Set(data.watchlistSet);
 
   $: filteredAssets = data.assets.filter(a => {
-    if (activeTab === 'all')       return true;
-    if (activeTab === 'us-stocks') return a.country === 'US' && a.assetType === 'stock';
-    if (activeTab === 'us-etfs')   return a.country === 'US' && a.assetType === 'etf';
-    if (activeTab === 'my')        return a.country === 'MY';
-    if (activeTab === 'hk')        return a.country === 'HK';
+    // Options live only under the Options tab; market tabs are stocks/ETFs.
+    if (activeTab === 'options') return isOption(a);
+    if (isOption(a)) return false;
+    if (activeTab === 'all') return true;
+    if (activeTab === 'us')  return a.country === 'US';
+    if (activeTab === 'hk')  return a.country === 'HK';
+    if (activeTab === 'cn')  return a.country === 'CN';
     return true;
   });
 
   $: tabCounts = {
-    all:          data.assets.length,
-    'us-stocks':  data.assets.filter(a => a.country === 'US' && a.assetType === 'stock').length,
-    'us-etfs':    data.assets.filter(a => a.country === 'US' && a.assetType === 'etf').length,
-    my:           data.assets.filter(a => a.country === 'MY').length,
-    hk:           data.assets.filter(a => a.country === 'HK').length,
+    all:     data.assets.filter(a => !isOption(a)).length,
+    us:      data.assets.filter(a => a.country === 'US' && !isOption(a)).length,
+    hk:      data.assets.filter(a => a.country === 'HK' && !isOption(a)).length,
+    cn:      data.assets.filter(a => a.country === 'CN' && !isOption(a)).length,
+    options: data.assets.filter(isOption).length,
   };
 
   // Debounced search
