@@ -43,11 +43,6 @@
           return `${p.data.name}`;
         },
       },
-      legend: [{
-        data: ['competitor', 'supplier', 'customer', 'structural'],
-        textStyle: { color: ct.legend.textStyle.color, fontSize: 11 },
-        top: 0,
-      }],
       series: [{
         type: 'graph',
         layout: 'force',
@@ -97,7 +92,21 @@
 </script>
 
 <div bind:this={container} class="kg-canvas"></div>
+<ul class="kg-legend">
+  <li><span class="swatch solid" style="border-top-color:#f96b7e"></span>Competitor</li>
+  <li><span class="swatch solid" style="border-top-color:#2dd4a0"></span>Supplier</li>
+  <li><span class="swatch solid" style="border-top-color:#fbbf24"></span>Customer</li>
+  <li><span class="swatch dashed"></span>Structural (sector / concept / co-owned)</li>
+</ul>
 
 <style>
   .kg-canvas { width: 100%; height: 560px; }
+  .kg-legend {
+    display: flex; flex-wrap: wrap; gap: 14px; list-style: none;
+    margin: 8px 0 0; padding: 0; font-size: 0.72rem; color: var(--muted);
+  }
+  .kg-legend li { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 0; border-top-width: 3px; border-top-style: solid; display: inline-block; }
+  .swatch.solid { }
+  .swatch.dashed { border-top-style: dashed; border-top-color: var(--muted); }
 </style>

@@ -4,25 +4,7 @@ import type { GraphEdge, PlateMembership } from './types';
 import { getPlateMembership, getInstitutionalHolders } from './plate-source';
 import { generateStructuralEdges, candidatePairsFromEdges } from './structural-edges';
 import { getLLMProvider } from './llm';
-
-const OPTION_RE = /\d{6}[CP]\d+$/i;
-
-function toMoomooCode(symbol: string): string {
-  const s = (symbol || '').trim().toUpperCase();
-  if (/^(US|HK|SH|SZ|SG|MY|CN)\./.test(s)) return s;
-  const suffix = s.match(/^(.+)\.(HK|KL|SS|SZ|SI)$/);
-  if (suffix) {
-    const mk = { HK: 'HK', KL: 'MY', SS: 'SH', SZ: 'SZ', SI: 'SG' }[suffix[2]] ?? suffix[2];
-    let code = suffix[1];
-    if (mk === 'HK' && /^\d+$/.test(code)) code = code.padStart(5, '0');
-    return `${mk}.${code}`;
-  }
-  return `US.${s}`;
-}
-
-function isOption(symbol: string): boolean {
-  return OPTION_RE.test(symbol.split('.').pop() ?? '');
-}
+import { toMoomooCode, isOption } from './ticker';
 
 /** Read the user's distinct held tickers (moomoo code form) from latest snapshots. */
 async function getPortfolioTickers(userId: string): Promise<Map<string, string>> {
@@ -80,9 +62,16 @@ export async function runKnowledgeGraphPipeline(
   const threshold = Number(env.KG_CONFIDENCE_THRESHOLD ?? 0.5);
   let semantic: GraphEdge[] = [];
   if (provider) {
+    const candidatePairs = candidatePairsFromEdges(structural);
+    const candidateKeys = new Set(
+      candidatePairs.flatMap((p) => [
+        `${p.sourceTicker}|${p.targetTicker}`,
+        `${p.targetTicker}|${p.sourceTicker}`,
+      ])
+    );
     const drafts = await provider.classifyEdges({
       companies: members.map((m) => ({ ticker: m.ticker, name: m.name, sector: m.sector })),
-      candidatePairs: candidatePairsFromEdges(structural),
+      candidatePairs,
     });
     const groundingByPair = new Map(
       structural
@@ -90,7 +79,7 @@ export async function runKnowledgeGraphPipeline(
         .map((e) => [`${e.sourceTicker}|${e.targetTicker}`, e.groundedSource])
     );
     semantic = drafts
-      .filter((d) => d.confidence >= threshold)
+      .filter((d) => d.confidence >= threshold && candidateKeys.has(`${d.sourceTicker}|${d.targetTicker}`))
       .map((d) => {
         const grounded =
           groundingByPair.get(`${d.sourceTicker}|${d.targetTicker}`) ??

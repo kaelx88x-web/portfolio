@@ -4,6 +4,8 @@ import type { Plate } from './types';
 
 const PLATE_TTL = 60 * 60 * 24; // 24h — plates rarely change
 const HOLDER_TTL = 60 * 60 * 24;
+// 50 is the hard cap enforced by the bridge /quotes/institutional-holders endpoint;
+// do not raise this value or holder requests will be rejected.
 const CHUNK = 50;
 
 function bridgeBase(): string {
