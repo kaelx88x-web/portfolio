@@ -22,11 +22,13 @@
   $: types = ['All', ...new Set(data.items.map(i => i.cashflow_type).filter(Boolean))];
 
   // Filtering + totals live in ./summary (pure, unit-tested). Totals recompute
-  // over the filtered set, matching prior behaviour.
+  // over the filtered set, grouped by currency (no FX — each currency in its
+  // own unit, shown exactly as the broker API reports it).
   $: summary = summariseCashflow(data.items, filterType, filterDir);
   $: filtered = summary.filtered;
-  $: totalIn = summary.totalIn;
-  $: totalOut = summary.totalOut;
+  $: byCurrency = summary.byCurrency;
+
+  const fmtTotal = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2 });
 
   // Group by clearing_date
   $: grouped = filtered.reduce<Record<string, CashFlowItem[]>>((acc, item) => {
@@ -48,24 +50,29 @@
 
 <PageHeader title="Cash Flow" subtitle="Account transactions from Moomoo broker — last 60 days" />
 
-<!-- Stat strip -->
-<div class="stat-strip" data-testid="cf-summary">
-  <div class="stat">
-    <div class="stat-val positive" data-testid="cf-total-in">+{totalIn.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-    <div class="stat-lbl">Total In</div>
-  </div>
-  <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val negative" data-testid="cf-total-out">-{totalOut.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-    <div class="stat-lbl">Total Out</div>
-  </div>
-  <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val" class:positive={totalIn - totalOut >= 0} class:negative={totalIn - totalOut < 0} data-testid="cf-net">
-      {totalIn - totalOut >= 0 ? '+' : ''}{(totalIn - totalOut).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+<!-- Stat strip — one per currency (no FX; each shown in its own unit) -->
+<div data-testid="cf-summary">
+  {#each byCurrency as c (c.currency)}
+    <div class="stat-strip" data-testid="cf-currency" data-currency={c.currency}>
+      <div class="stat">
+        <div class="stat-val positive" data-testid="cf-total-in">+{fmtTotal(c.totalIn)} {c.currency}</div>
+        <div class="stat-lbl">Total In</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val negative" data-testid="cf-total-out">-{fmtTotal(c.totalOut)} {c.currency}</div>
+        <div class="stat-lbl">Total Out</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val" class:positive={c.net >= 0} class:negative={c.net < 0} data-testid="cf-net">
+          {c.net >= 0 ? '+' : ''}{fmtTotal(c.net)} {c.currency}
+        </div>
+        <div class="stat-lbl">Net {c.currency} ({c.count} transactions)</div>
+      </div>
     </div>
-    <div class="stat-lbl" data-testid="cf-count">Net ({filtered.length} transactions)</div>
-  </div>
+  {/each}
+  <div class="cf-count-line" data-testid="cf-count">{filtered.length} transactions</div>
 </div>
 
 <!-- Filters -->
@@ -124,6 +131,8 @@
     border-radius: 10px; padding: 14px 20px;
     margin-bottom: 16px;
   }
+  .stat-strip + .stat-strip { margin-top: -8px; }
+  .cf-count-line { font-size: 0.7rem; color: var(--muted); margin: 0 0 16px 4px; }
   .stat { flex: 1; text-align: center; }
   .stat-val { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.01em; }
   .stat-lbl { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }

@@ -12,13 +12,25 @@
  */
 import type { CashFlowItem } from '$lib/services/broker.service';
 
-export type CashflowSummary = {
-  filtered: CashFlowItem[];
+/** Totals for a single currency — reported in that currency's own unit (no FX). */
+export type CurrencyTotals = {
+  currency: string;
   totalIn: number;
   totalOut: number;
   net: number;
   count: number;
-  /** Distinct currencies present in the filtered set — >1 means totals mix currencies. */
+};
+
+export type CashflowSummary = {
+  filtered: CashFlowItem[];
+  /**
+   * Per-currency totals, one entry per currency present, each in its own unit.
+   * We do NOT convert (no FX) and we do NOT sum across currencies — amounts are
+   * displayed exactly as the broker API reports them. Sorted by currency code.
+   */
+  byCurrency: CurrencyTotals[];
+  count: number;
+  /** Distinct currencies present in the filtered set. */
   currencies: string[];
 };
 
@@ -34,10 +46,16 @@ export function filterCashflow(
   );
 }
 
+/** Magnitude of an amount, guarding against missing/malformed values from the API. */
+function magnitude(amount: number): number {
+  return Number.isFinite(amount) ? Math.abs(amount) : 0;
+}
+
 /**
  * Totals recompute over the FILTERED set (not the full list) — matching the
- * page. totalIn/totalOut sum magnitudes by direction; net = in − out. No FX:
- * amounts are summed regardless of currency (see `currencies`).
+ * page. Inflows/outflows are grouped BY CURRENCY (no FX, no cross-currency
+ * summing): each currency's totals are reported in its own unit. totalIn/
+ * totalOut sum magnitudes by direction; net = in − out.
  */
 export function summariseCashflow(
   items: CashFlowItem[],
@@ -45,18 +63,32 @@ export function summariseCashflow(
   filterDir = 'All',
 ): CashflowSummary {
   const filtered = filterCashflow(items, filterType, filterDir);
-  const totalIn = filtered
-    .filter((i) => i.cashflow_direction === 'IN')
-    .reduce((s, i) => s + Math.abs(i.amount), 0);
-  const totalOut = filtered
-    .filter((i) => i.cashflow_direction === 'OUT')
-    .reduce((s, i) => s + Math.abs(i.amount), 0);
-  const currencies = [...new Set(filtered.map((i) => i.currency).filter(Boolean))];
-  return { filtered, totalIn, totalOut, net: totalIn - totalOut, count: filtered.length, currencies };
+
+  const byCcy = new Map<string, CurrencyTotals>();
+  for (const i of filtered) {
+    const currency = i.currency || 'USD';
+    const t =
+      byCcy.get(currency) ?? { currency, totalIn: 0, totalOut: 0, net: 0, count: 0 };
+    const mag = magnitude(i.amount);
+    if (i.cashflow_direction === 'IN') t.totalIn += mag;
+    else if (i.cashflow_direction === 'OUT') t.totalOut += mag;
+    t.count += 1;
+    byCcy.set(currency, t);
+  }
+  const byCurrency = [...byCcy.values()]
+    .map((t) => ({ ...t, net: t.totalIn - t.totalOut }))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+
+  return {
+    filtered,
+    byCurrency,
+    count: filtered.length,
+    currencies: byCurrency.map((t) => t.currency),
+  };
 }
 
 /** Per-row display string, e.g. "+1,234.56 USD" — sign from direction, magnitude abs. */
 export function formatCashflowAmount(item: CashFlowItem): string {
   const sign = item.cashflow_direction === 'IN' ? '+' : '-';
-  return `${sign}${Math.abs(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} ${item.currency}`;
+  return `${sign}${magnitude(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} ${item.currency}`;
 }

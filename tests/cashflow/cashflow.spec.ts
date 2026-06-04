@@ -5,6 +5,10 @@
  * from the browser (would need OpenD offline) — those are covered at the unit
  * layer and marked skip-with-note here. Populated/filter/format/responsive/a11y
  * run against whatever the live account returns.
+ *
+ * Totals are rendered PER CURRENCY (no FX): one stat-strip per currency, each in
+ * its own unit. The live account currently returns both MYR and USD, so the
+ * reconciliation below is done per-currency, never across currencies.
  */
 import { expect, test, type Page } from '@playwright/test';
 import { hasE2ECredentials, signInByApi, gotoAndSettle, expectNoHorizontalOverflow } from '../e2e/ai-ux/helpers';
@@ -14,8 +18,26 @@ const num = (t: string | null) => {
   return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
 };
 
+const currencyOf = (t: string | null) => ((t ?? '').match(/[A-Z]{3}/) ?? [''])[0];
+
 async function hasData(page: Page) {
   return (await page.getByTestId('cf-empty').count()) === 0 && (await page.getByTestId('cf-row').count()) > 0;
+}
+
+/** Per-currency summary tiles, keyed by the data-currency on each cf-currency block. */
+async function currencyTiles(page: Page) {
+  const blocks = page.getByTestId('cf-currency');
+  const out: Record<string, { totalIn: number; totalOut: number; net: number }> = {};
+  for (let i = 0; i < (await blocks.count()); i++) {
+    const b = blocks.nth(i);
+    const currency = (await b.getAttribute('data-currency')) ?? '';
+    out[currency] = {
+      totalIn: num(await b.getByTestId('cf-total-in').innerText()),
+      totalOut: num(await b.getByTestId('cf-total-out').innerText()),
+      net: num(await b.getByTestId('cf-net').innerText()),
+    };
+  }
+  return out;
 }
 
 test.describe('Layer 2 — /cashflow UX', () => {
@@ -25,36 +47,58 @@ test.describe('Layer 2 — /cashflow UX', () => {
     await gotoAndSettle(page, '/cashflow');
   });
 
-  test('header + summary tiles render', async ({ page }) => {
+  test('header + per-currency summary tiles render', async ({ page }) => {
     await expect(page.getByText('Cash Flow', { exact: true })).toBeVisible();
     await expect(page.getByText('Account transactions from Moomoo broker — last 60 days')).toBeVisible();
-    await expect(page.getByTestId('cf-total-in')).toBeVisible();
-    await expect(page.getByTestId('cf-total-out')).toBeVisible();
-    await expect(page.getByTestId('cf-net')).toBeVisible();
+    test.skip(!(await hasData(page)), 'No live cash-flow data in window');
+    // At least one currency block, each with its three tiles.
+    const blocks = page.getByTestId('cf-currency');
+    expect(await blocks.count()).toBeGreaterThan(0);
+    const first = blocks.first();
+    await expect(first.getByTestId('cf-total-in')).toBeVisible();
+    await expect(first.getByTestId('cf-total-out')).toBeVisible();
+    await expect(first.getByTestId('cf-net')).toBeVisible();
   });
 
-  test('populated: count tile matches rendered rows', async ({ page }) => {
+  test('every summary tile carries an explicit currency unit (no FX, shown as-is)', async ({ page }) => {
+    test.skip(!(await hasData(page)), 'No live cash-flow data in window');
+    const blocks = page.getByTestId('cf-currency');
+    for (let i = 0; i < (await blocks.count()); i++) {
+      const b = blocks.nth(i);
+      const ccy = await b.getAttribute('data-currency');
+      expect(ccy, 'block must declare a currency').toMatch(/^[A-Z]{3}$/);
+      // Tiles must name that same currency — never a bare, unitless number.
+      expect(currencyOf(await b.getByTestId('cf-total-in').innerText())).toBe(ccy);
+      expect(currencyOf(await b.getByTestId('cf-net').innerText())).toBe(ccy);
+    }
+  });
+
+  test('populated: count line matches rendered rows', async ({ page }) => {
     test.skip(!(await hasData(page)), 'No live cash-flow data in window');
     const rows = await page.getByTestId('cf-row').count();
     const countText = await page.getByTestId('cf-count').innerText();
     expect(countText).toContain(`${rows} transaction`);
   });
 
-  test('populated: summary tiles reconcile with row amounts (internal consistency)', async ({ page }) => {
+  test('populated: each currency tile reconciles with its own rows (no cross-currency sum)', async ({ page }) => {
     test.skip(!(await hasData(page)), 'No live cash-flow data in window');
-    const amounts = await page.getByTestId('cf-amount').allInnerTexts();
-    let inSum = 0;
-    let outSum = 0;
-    for (const a of amounts) {
+    const tiles = await currencyTiles(page);
+    // Sum row magnitudes per currency, by sign.
+    const fromRows: Record<string, { inSum: number; outSum: number }> = {};
+    for (const a of await page.getByTestId('cf-amount').allInnerTexts()) {
+      const ccy = currencyOf(a);
       const v = Math.abs(num(a));
-      if (a.trim().startsWith('+')) inSum += v;
-      else outSum += v;
+      (fromRows[ccy] ??= { inSum: 0, outSum: 0 });
+      if (a.trim().startsWith('+')) fromRows[ccy].inSum += v;
+      else fromRows[ccy].outSum += v;
     }
-    // Gross consistency only — exact aggregation is proven in the Vitest layer.
-    // The live bridge does ~60 sequential day-queries and can return partial data,
-    // so allow a small tolerance rather than asserting to the cent here.
-    expect(num(await page.getByTestId('cf-total-in').innerText())).toBeCloseTo(inSum, 0);
-    expect(num(await page.getByTestId('cf-total-out').innerText())).toBeCloseTo(outSum, 0);
+    // Each currency present in rows must have a matching tile that reconciles.
+    // Tolerance 0 dp: the live bridge does ~60 sequential day-queries.
+    for (const [ccy, sums] of Object.entries(fromRows)) {
+      expect(tiles[ccy], `missing summary tile for ${ccy}`).toBeDefined();
+      expect(tiles[ccy].totalIn).toBeCloseTo(sums.inSum, 0);
+      expect(tiles[ccy].totalOut).toBeCloseTo(sums.outSum, 0);
+    }
   });
 
   test('every row amount is formatted "<sign><number.2dp> <CCY>"', async ({ page }) => {
@@ -64,22 +108,24 @@ test.describe('Layer 2 — /cashflow UX', () => {
     }
   });
 
-  test('direction filter IN shows only inflows and recomputes totals', async ({ page }) => {
+  test('direction filter IN shows only inflows; every currency tile has zero out', async ({ page }) => {
     test.skip(!(await hasData(page)), 'No live cash-flow data in window');
     await page.getByTestId('cf-filter-dir-IN').click();
     const amounts = await page.getByTestId('cf-amount').allInnerTexts();
     test.skip(amounts.length === 0, 'No IN transactions in window');
     expect(amounts.every((a) => a.trim().startsWith('+'))).toBe(true);
-    expect(num(await page.getByTestId('cf-total-out').innerText())).toBe(0);
+    const tiles = await currencyTiles(page);
+    for (const [ccy, t] of Object.entries(tiles)) expect(t.totalOut, `${ccy} out`).toBe(0);
   });
 
-  test('direction filter OUT shows only outflows', async ({ page }) => {
+  test('direction filter OUT shows only outflows; every currency tile has zero in', async ({ page }) => {
     test.skip(!(await hasData(page)), 'No live cash-flow data in window');
     await page.getByTestId('cf-filter-dir-OUT').click();
     const amounts = await page.getByTestId('cf-amount').allInnerTexts();
     test.skip(amounts.length === 0, 'No OUT transactions in window');
     expect(amounts.every((a) => a.trim().startsWith('-'))).toBe(true);
-    expect(num(await page.getByTestId('cf-total-in').innerText())).toBe(0);
+    const tiles = await currencyTiles(page);
+    for (const [ccy, t] of Object.entries(tiles)) expect(t.totalIn, `${ccy} in`).toBe(0);
   });
 
   test('a11y: direction filter is a labelled group with aria-pressed buttons', async ({ page }) => {
